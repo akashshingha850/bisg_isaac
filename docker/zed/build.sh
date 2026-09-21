@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Build the ZED SDK + zed-ros2-wrapper image with Stereolabs' official build scripts
+# (third_party/zed-ros2-wrapper/docker). We do not maintain our own ZED Dockerfile.
+#
+#   docker/zed/build.sh desktop      # x86_64 workstation: Jazzy, Ubuntu 24.04, SDK $ZED_SDK
+#   docker/zed/build.sh jetson       # Orin NX, JetPack 7.x (L4T r38.4): run ON the Jetson (or arm64 buildx host)
+#
+# Result tag (from the upstream script), then retagged to bisg/zed:<variant>.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ZED_SDK="${ZED_SDK:-$(grep -E '^ZED_SDK=' "$ROOT/docker/.env" 2>/dev/null | cut -d= -f2 || true)}"
+ZED_SDK="${ZED_SDK:-5.4.1}"
+WRAPPER="$ROOT/third_party/zed-ros2-wrapper"
+[[ -d "$WRAPPER/docker" ]] || { echo "missing $WRAPPER — run scripts/fetch_third_party.sh first"; exit 1; }
+
+case "${1:-desktop}" in
+  desktop)
+    ( cd "$WRAPPER/docker" && ./build_desktop.sh --ros-distro jazzy --os ubuntu-24.04 --sdk "$ZED_SDK" --cuda 12.8 )
+    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_jazzy.*ubuntu.*24" || true)
+    tag=bisg/zed:desktop ;;
+  jetson)
+    # JetPack 7.x = L4T r38.4 (Ubuntu 24.04, CUDA 13). Adjust --os if `cat /etc/nv_tegra_release` differs.
+    ( cd "$WRAPPER/docker" && ./build_jetson.sh --ros-distro jazzy --os l4t-r38.4 --sdk "$ZED_SDK" )
+    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_jazzy.*(l4t|jetson)" || true)
+    tag=bisg/zed:l4t-r38 ;;
+  *) echo "usage: $0 desktop|jetson"; exit 2 ;;
+esac
+[[ -n "$src" ]] && docker tag "$src" "$tag" && echo "tagged $src -> $tag" || echo "build finished; retag manually to $tag (docker images | grep zed_ros2)"

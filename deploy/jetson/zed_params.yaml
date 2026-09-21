@@ -1,0 +1,28 @@
+# Overlay for zed_wrapper (ZED Mini). Frame ids / rates follow docs/interface-contract.md.
+# Applied via ros_params_override_path in deploy/jetson/compose.yaml. Tuned in Phase 3/5.
+/**:
+  ros__parameters:
+    general:
+      camera_model: zedm
+      camera_name: zed
+      grab_resolution: HD720
+      grab_frame_rate: 30
+      pub_frame_rate: 30.0
+    depth:
+      depth_mode: NEURAL_LIGHT      # NEURAL/NEURAL_PLUS cost more on Orin NX; measure in Phase 5
+      min_depth: 0.2
+      max_depth: 15.0
+    pos_tracking:
+      pos_tracking_enabled: true
+      pos_tracking_mode: GEN_2
+      publish_tf: true
+      publish_map_tf: false        # PX4/MAVROS owns map; wrapper publishes odom -> base only
+      base_frame: base_link
+      map_frame: map
+      odometry_frame: odom
+      area_memory: false
+      floor_alignment: false
+    sensors:
+      publish_imu_tf: true
+      sensors_image_sync: false
+      sensors_pub_rate: 200.0

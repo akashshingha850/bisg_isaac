@@ -1,0 +1,152 @@
+# bisg_isaac compose. Run from the repo root:
+#   cp docker/.env.example docker/.env
+#   docker compose -f docker/compose.yaml --profile sim up            # GUI
+#   docker compose -f docker/compose.yaml --profile sim-headless up   # no window
+#   docker compose -f docker/compose.yaml --profile ros up            # MAVROS (+ dev shell)
+#
+# Settings live in config/bisg.conf (see ./bisg config); ./bisg exports them before calling
+# compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
+# Profiles: sim | sim-headless | ros | tools. Jetson profile lives in deploy/jetson/compose.yaml.
+name: bisg
+
+x-nvidia: &nvidia
+  runtime: nvidia
+  environment: &nvidia-env
+    NVIDIA_VISIBLE_DEVICES: all
+    NVIDIA_DRIVER_CAPABILITIES: all
+
+x-sim-base: &sim-base
+  image: bisg/sim:${ISAAC_TAG:-5.1.0}
+  build:
+    context: ..
+    dockerfile: docker/sim.Dockerfile
+    args:
+      ISAAC_TAG: ${ISAAC_TAG:-5.1.0}
+      PX4_TAG: ${PX4_TAG:-v1.17.0}
+      PEGASUS_TAG: ${PEGASUS_TAG:-v5.1.0}
+  <<: *nvidia
+  network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
+  # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in
+  # practice (host files are uid 1000); nothing in sim/ or tests/ needs to write there.
+  ipc: host
+  privileged: false
+  stdin_open: true
+  tty: true
+  stop_grace_period: 60s        # Isaac close can take a while; SIGKILL after this
+  volumes:
+    - ..:/workspace:rw                          # sim/, tests/, docker/cyclonedds.xml
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    # Isaac caches as named volumes (paths from the Isaac 5.1 container docs)
+    - isaac-cache-main:/isaac-sim/.cache:rw
+    - isaac-cache-compute:/isaac-sim/.nv/ComputeCache:rw
+    - isaac-logs:/isaac-sim/.nvidia-omniverse/logs:rw
+    - isaac-kit-logs:/isaac-sim/kit/logs:rw               # kit_*.log text log (./bisg debug kitlog)
+    - isaac-config:/isaac-sim/.nvidia-omniverse/config:rw
+    - isaac-data:/isaac-sim/.local/share/ov/data:rw
+    - isaac-pkg:/isaac-sim/.local/share/ov/pkg:rw
+    - isaac-documents:/isaac-sim/Documents:rw
+
+services:
+  sim:
+    <<: *sim-base
+    container_name: bisg-sim
+    profiles: ["sim"]
+    environment:
+      <<: *nvidia-env
+      DISPLAY: ${DISPLAY:-:1}
+      QT_X11_NO_MITSHM: "1"
+      ACCEPT_EULA: "Y"
+      PRIVACY_CONSENT: "Y"
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_HEADLESS: "0"
+      SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
+      SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
+      SIM_WEB_PORT: ${SIM_WEB_PORT:-8899}
+      SIM_WEB_INTERVAL: ${SIM_WEB_INTERVAL:-1.0}
+    command: ["launch"]
+
+  sim-headless:
+    <<: *sim-base
+    container_name: bisg-sim
+    profiles: ["sim-headless"]
+    environment:
+      <<: *nvidia-env
+      ACCEPT_EULA: "Y"
+      PRIVACY_CONSENT: "Y"
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_HEADLESS: "1"
+      SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
+      SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
+      SIM_WEB_PORT: ${SIM_WEB_PORT:-8899}
+      SIM_WEB_INTERVAL: ${SIM_WEB_INTERVAL:-1.0}
+    command: ["launch"]
+
+  # MAVROS for one drone (Phase 2 makes this a generated per-drone service).
+  mavros:
+    image: bisg/ros:jazzy
+    build:
+      context: ..
+      dockerfile: docker/ros.Dockerfile
+    container_name: bisg-mavros-${DRONE_ID:-1}
+    profiles: ["ros"]
+    network_mode: host
+    ipc: host
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      DRONE_ID: ${DRONE_ID:-1}
+      FCU_URL: ${FCU_URL:-}
+      GCS_URL: ${GCS_URL:-}          # second MAVROS link (QGC / logger); empty = off
+    volumes:
+      - ..:/workspace:rw
+    command: ["mavros"]
+    restart: unless-stopped
+
+  # vio_mock: sim-only mock VIO source (ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
+  vehicle:
+    image: bisg/ros:jazzy
+    build:
+      context: ..
+      dockerfile: docker/ros.Dockerfile
+    container_name: bisg-vehicle-${DRONE_ID:-1}
+    profiles: ["ros"]
+    network_mode: host
+    ipc: host
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      DRONE_ID: ${DRONE_ID:-1}
+    volumes:
+      - ..:/workspace:rw
+    command: ["vio_mock"]
+    restart: unless-stopped
+
+  # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
+  ros:
+    image: bisg/ros:jazzy
+    build:
+      context: ..
+      dockerfile: docker/ros.Dockerfile
+    container_name: bisg-ros
+    profiles: ["ros", "tools"]
+    network_mode: host
+    ipc: host
+    stdin_open: true
+    tty: true
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      DISPLAY: ${DISPLAY:-:1}
+    volumes:
+      - ..:/workspace:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: ["sleep", "infinity"]
+
+volumes:
+  isaac-kit-logs:
+  isaac-cache-main:
+  isaac-cache-compute:
+  isaac-logs:
+  isaac-config:
+  isaac-data:
+  isaac-pkg:
+  isaac-documents:

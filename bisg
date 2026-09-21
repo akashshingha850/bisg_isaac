@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# bisg — operator CLI for the bisg_isaac digital twin. Run from anywhere.
+#
+#   ./bisg setup [--arm64|--third-party|--rebuild|--no-build]   one-shot workstation setup (scripts/setup.sh)
+#   ./bisg config [--edit]              show/edit settings (config/bisg.conf + docker/.env)
+#   ./bisg up [gui|headless|web|webrtc|both] [-c scenario]    ./bisg wait   ./bisg status   ./bisg logs [-f]
+#   ./bisg view                         how to watch a run (browser URL / WebRTC client)   ./bisg shell [sim|ros]
+#   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
+#   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
+#   ./bisg stop | down | restart
+#   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
+#   ./bisg check                        host preflight only (scripts/check_env.sh)
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+case "${1:-}" in
+  setup) shift; exec "$HERE/scripts/setup.sh" "$@";;
+  check) exec "$HERE/scripts/check_env.sh";;
+  debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
+  -h|--help|help|"") sed -n 2,12p "$0";;
+  *) exec "$HERE/scripts/launch.sh" "$@";;
+esac

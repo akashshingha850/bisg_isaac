@@ -1,0 +1,39 @@
+# Isaac / Omniverse caches and logs
+sim/cache/
+**/kit/logs/
+**/.nv/
+*.log
+logs/
+
+# Large assets: keep worlds out of git unless LFS is set up
+sim/worlds/**/*.usd
+sim/worlds/**/*.usda
+sim/worlds/**/*.usdc
+sim/worlds/**/*.usdz
+sim/worlds/**/*.ply
+!sim/worlds/**/README.md
+
+# ROS 2 workspace build products
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# PX4 flight logs
+*.ulg
+*.tlog
+
+# Python / editors
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+.idea/
+
+# Docker
+docker/.env
+
+# third-party clones (become submodules after git init)
+third_party/*/
+
+# test output
+out/

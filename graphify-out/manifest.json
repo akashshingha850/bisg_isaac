@@ -1,0 +1,252 @@
+{
+  "bisg": {
+    "mtime": 1789260925.8687801,
+    "ast_hash": "a792e5bfae4bfc57cf1d8f5cad913ef6",
+    "semantic_hash": "a792e5bfae4bfc57cf1d8f5cad913ef6"
+  },
+  "docker/ros-entrypoint.sh": {
+    "mtime": 1789171305.5173714,
+    "ast_hash": "039580037155bee34af70e1d986f4553",
+    "semantic_hash": "039580037155bee34af70e1d986f4553"
+  },
+  "docker/sim-entrypoint.sh": {
+    "mtime": 1789260363.216728,
+    "ast_hash": "34c08fe2ce122a91ef708ca2da887fdf",
+    "semantic_hash": "34c08fe2ce122a91ef708ca2da887fdf"
+  },
+  "docker/zed/build.sh": {
+    "mtime": 1789170042.6686695,
+    "ast_hash": "5c42027219be91e352f3afc2ecba903f",
+    "semantic_hash": "5c42027219be91e352f3afc2ecba903f"
+  },
+  "scripts/_common.sh": {
+    "mtime": 1789261199.6972427,
+    "ast_hash": "5675d6189f7e5f19d07d124293db5932",
+    "semantic_hash": "5675d6189f7e5f19d07d124293db5932"
+  },
+  "scripts/check_env.sh": {
+    "mtime": 1789243211.0286825,
+    "ast_hash": "5684f73a8d2a92df54d7565010ded60f",
+    "semantic_hash": "5684f73a8d2a92df54d7565010ded60f"
+  },
+  "scripts/debug.sh": {
+    "mtime": 1789262216.6358986,
+    "ast_hash": "416bf481000c12de1b4bd7bdf53daa8a",
+    "semantic_hash": "416bf481000c12de1b4bd7bdf53daa8a"
+  },
+  "scripts/fetch_third_party.sh": {
+    "mtime": 1789261000.9554553,
+    "ast_hash": "e519716ed5b21b2a693abb171559966f",
+    "semantic_hash": "e519716ed5b21b2a693abb171559966f"
+  },
+  "scripts/launch.sh": {
+    "mtime": 1789261199.6972427,
+    "ast_hash": "016e34b24f5fcd2e04b16ef0e9a55b69",
+    "semantic_hash": "016e34b24f5fcd2e04b16ef0e9a55b69"
+  },
+  "scripts/pull_images.sh": {
+    "mtime": 1789261000.9554553,
+    "ast_hash": "b446734368759bf5bc157013582d6b76",
+    "semantic_hash": "b446734368759bf5bc157013582d6b76"
+  },
+  "scripts/setup.sh": {
+    "mtime": 1789261006.9175088,
+    "ast_hash": "3ce3b8d855cf1ed407aca17ba53109a6",
+    "semantic_hash": "3ce3b8d855cf1ed407aca17ba53109a6"
+  },
+  "sim/launcher/launch.py": {
+    "mtime": 1789262445.308279,
+    "ast_hash": "4956bac60222797d139509fd840d1202",
+    "semantic_hash": "4956bac60222797d139509fd840d1202"
+  },
+  "tests/smoke_takeoff.py": {
+    "mtime": 1789243358.0521276,
+    "ast_hash": "4f5ac6de4948826c2361431b4380c8a5",
+    "semantic_hash": "4f5ac6de4948826c2361431b4380c8a5"
+  },
+  ".claude/skills/jetson-deploy/SKILL.md": {
+    "mtime": 1789169353.6987092,
+    "ast_hash": "ad220dce3f4f9c8c8ec9ea4f236e5ebb",
+    "semantic_hash": "ad220dce3f4f9c8c8ec9ea4f236e5ebb"
+  },
+  ".claude/skills/mavros-ops/SKILL.md": {
+    "mtime": 1789169353.6987092,
+    "ast_hash": "3107aef11ddef9c6a230c35d9e860255",
+    "semantic_hash": "3107aef11ddef9c6a230c35d9e860255"
+  },
+  ".claude/skills/px4-sitl/SKILL.md": {
+    "mtime": 1789174182.0247774,
+    "ast_hash": "04abb2c64471b45097826d5dd2e0e8cc",
+    "semantic_hash": "04abb2c64471b45097826d5dd2e0e8cc"
+  },
+  ".claude/skills/sim-launch/SKILL.md": {
+    "mtime": 1789260993.363387,
+    "ast_hash": "8b245655d0c2f35e446f8dad591a7732",
+    "semantic_hash": "8b245655d0c2f35e446f8dad591a7732"
+  },
+  ".claude/skills/sim-regression/SKILL.md": {
+    "mtime": 1789243232.5328956,
+    "ast_hash": "5235fcedc30e3c2be400d6964ce2faab",
+    "semantic_hash": "5235fcedc30e3c2be400d6964ce2faab"
+  },
+  ".claude/skills/swarm-spawn/SKILL.md": {
+    "mtime": 1789169353.6987092,
+    "ast_hash": "c3590f7e4d361f33312dfa39641048aa",
+    "semantic_hash": "c3590f7e4d361f33312dfa39641048aa"
+  },
+  ".claude/skills/zed-contract/SKILL.md": {
+    "mtime": 1789169353.6987092,
+    "ast_hash": "294e4ab9dad17f0067515cf2e239da1f",
+    "semantic_hash": "294e4ab9dad17f0067515cf2e239da1f"
+  },
+  "CLAUDE.md": {
+    "mtime": 1789260987.6053352,
+    "ast_hash": "b4d89a0a4731967cd84ec7877bc00506",
+    "semantic_hash": "b4d89a0a4731967cd84ec7877bc00506"
+  },
+  "README.md": {
+    "mtime": 1789260987.6053352,
+    "ast_hash": "952b81afcef6044a7514f8a6687a54da",
+    "semantic_hash": "952b81afcef6044a7514f8a6687a54da"
+  },
+  "config/README.md": {
+    "mtime": 1789260847.5760763,
+    "ast_hash": "29ece5fd32b36a7b25b22c564652fb5a",
+    "semantic_hash": "29ece5fd32b36a7b25b22c564652fb5a"
+  },
+  "deploy/jetson/compose.yaml": {
+    "mtime": 1789170071.1339414,
+    "ast_hash": "d553d9180a4999553f5ea7f87db0a7a4",
+    "semantic_hash": "d553d9180a4999553f5ea7f87db0a7a4"
+  },
+  "deploy/jetson/zed_params.yaml": {
+    "mtime": 1789170071.1349413,
+    "ast_hash": "afc3a3ea734bf8fe7b8f53deffdc548d",
+    "semantic_hash": "afc3a3ea734bf8fe7b8f53deffdc548d"
+  },
+  "deploy/px4_params/README.md": {
+    "mtime": 1789170071.1359415,
+    "ast_hash": "fafd376eeb30c51c4d37897f4dfa96a7",
+    "semantic_hash": "fafd376eeb30c51c4d37897f4dfa96a7"
+  },
+  "docker/compose.yaml": {
+    "mtime": 1789261000.9554553,
+    "ast_hash": "9816f575906ced9a13b6dec3baaf222b",
+    "semantic_hash": "9816f575906ced9a13b6dec3baaf222b"
+  },
+  "docker/zed/README.md": {
+    "mtime": 1789170042.6696694,
+    "ast_hash": "e71c7a87e3ecf2861c0511252feb7918",
+    "semantic_hash": "e71c7a87e3ecf2861c0511252feb7918"
+  },
+  "docs/configuration.md": {
+    "mtime": 1789263182.7867248,
+    "ast_hash": "4bb1412a8dc53eac3efb2b01c9ca2674",
+    "semantic_hash": "4bb1412a8dc53eac3efb2b01c9ca2674"
+  },
+  "docs/debugging.md": {
+    "mtime": 1789261208.0053174,
+    "ast_hash": "34041b162e2ea9156659413bc70bbb5a",
+    "semantic_hash": "34041b162e2ea9156659413bc70bbb5a"
+  },
+  "docs/decisions/ADR-001-mavros.md": {
+    "mtime": 1789168792.979796,
+    "ast_hash": "8b2df6782f9bbb9fae1d78a6341246b4",
+    "semantic_hash": "8b2df6782f9bbb9fae1d78a6341246b4"
+  },
+  "docs/decisions/ADR-002-docker.md": {
+    "mtime": 1789168792.980796,
+    "ast_hash": "0d6353b9ed9141f90c6005f84b02e3c0",
+    "semantic_hash": "0d6353b9ed9141f90c6005f84b02e3c0"
+  },
+  "docs/decisions/ADR-003-px4-version.md": {
+    "mtime": 1789171823.1684387,
+    "ast_hash": "408fe2fd68c0d1f96b74f4c39ca47682",
+    "semantic_hash": "408fe2fd68c0d1f96b74f4c39ca47682"
+  },
+  "docs/decisions/ADR-004-dds.md": {
+    "mtime": 1789170147.6016686,
+    "ast_hash": "fbd4fc1740b328e4d18d37ab96ef174c",
+    "semantic_hash": "fbd4fc1740b328e4d18d37ab96ef174c"
+  },
+  "docs/decisions/ADR-005-ros2-jazzy.md": {
+    "mtime": 1789170147.6016686,
+    "ast_hash": "a9c9a9a62d6ae3c3ec21a805d4775c0d",
+    "semantic_hash": "a9c9a9a62d6ae3c3ec21a805d4775c0d"
+  },
+  "docs/hardware.md": {
+    "mtime": 1789171823.1684387,
+    "ast_hash": "e0fd332f73effc7d302283c3dc81bd12",
+    "semantic_hash": "e0fd332f73effc7d302283c3dc81bd12"
+  },
+  "docs/interface-contract.md": {
+    "mtime": 1789169353.6987092,
+    "ast_hash": "a5c4e114ab4272c3c015989c1a399064",
+    "semantic_hash": "a5c4e114ab4272c3c015989c1a399064"
+  },
+  "docs/performance.md": {
+    "mtime": 1789263176.841709,
+    "ast_hash": "025fa167b2c84c82638f9d376ec4c81e",
+    "semantic_hash": "025fa167b2c84c82638f9d376ec4c81e"
+  },
+  "docs/plan.md": {
+    "mtime": 1789260987.6043353,
+    "ast_hash": "1fd1f0e5bb318516ddc29a55ec9724df",
+    "semantic_hash": "1fd1f0e5bb318516ddc29a55ec9724df"
+  },
+  "docs/remote-access.md": {
+    "mtime": 1789263182.7867248,
+    "ast_hash": "34cb738ec16ac7ab6a0ac35c00da3bde",
+    "semantic_hash": "34cb738ec16ac7ab6a0ac35c00da3bde"
+  },
+  "docs/roadmap.md": {
+    "mtime": 1789169181.3091745,
+    "ast_hash": "2f7e2e92b84a89a85360f0c8a2020cca",
+    "semantic_hash": "2f7e2e92b84a89a85360f0c8a2020cca"
+  },
+  "docs/runbook-sim.md": {
+    "mtime": 1789260987.6043353,
+    "ast_hash": "cd4905a2543a3ac05442a80927520e46",
+    "semantic_hash": "cd4905a2543a3ac05442a80927520e46"
+  },
+  "docs/setup.md": {
+    "mtime": 1789260987.6043353,
+    "ast_hash": "44dee151ee49559439e95e19b4b17fbf",
+    "semantic_hash": "44dee151ee49559439e95e19b4b17fbf"
+  },
+  "docs/skills.md": {
+    "mtime": 1789243232.5328956,
+    "ast_hash": "12bb02323c6144bd6a06d1c20370a5ea",
+    "semantic_hash": "12bb02323c6144bd6a06d1c20370a5ea"
+  },
+  "docs/todo.md": {
+    "mtime": 1789263176.844709,
+    "ast_hash": "f4d138f272a38b2c37f508b7ced7ccaf",
+    "semantic_hash": "f4d138f272a38b2c37f508b7ced7ccaf"
+  },
+  "ros2_ws/src/README.md": {
+    "mtime": 1789170071.1369414,
+    "ast_hash": "0b3d49814c37ff291e2de0b35698ddad",
+    "semantic_hash": "0b3d49814c37ff291e2de0b35698ddad"
+  },
+  "sim/assets/README.md": {
+    "mtime": 1789170071.1389415,
+    "ast_hash": "b5b444ed22cd1287c6cf10f512079587",
+    "semantic_hash": "b5b444ed22cd1287c6cf10f512079587"
+  },
+  "sim/configs/headless_fast.yaml": {
+    "mtime": 1789260395.5630178,
+    "ast_hash": "1a474671b702b44ac163d8c01db5c3e4",
+    "semantic_hash": "1a474671b702b44ac163d8c01db5c3e4"
+  },
+  "sim/configs/single_iris.yaml": {
+    "mtime": 1789260395.5630178,
+    "ast_hash": "fa64c300fcb47a007e86eeac875f5000",
+    "semantic_hash": "fa64c300fcb47a007e86eeac875f5000"
+  },
+  "sim/worlds/README.md": {
+    "mtime": 1789170071.1379414,
+    "ast_hash": "478a0f2d9b1cf47a722ef66fc7dd2cd3",
+    "semantic_hash": "478a0f2d9b1cf47a722ef66fc7dd2cd3"
+  }
+}

@@ -1,0 +1,54 @@
+# Fast headless profile for regression tests and MAVLink/MAVROS work.
+# Strips everything the flight stack does not need: no window, no viewport updates,
+# no materials, low render resolution. NOT for camera/perception work (Phase 3+) —
+# skip_material_loading leaves the scene untextured. See docs/performance.md.
+
+app:
+  headless: true
+  render: false              # physics-only stepping; nothing needs rendered frames here
+  log_level: INFO
+  heartbeat_steps: 2000      # "[launch] perf ..." lines feed ./bisg debug perf
+  exit_after_s: 0
+  stream: off                # never stream a timing run: it would force rendering back on
+
+perf:
+  disable_viewport_updates: true
+  limit_cpu_threads: 16
+  skip_material_loading: true
+  width: 640
+  height: 360
+  renderer: null
+  sync_loads: null
+  active_gpu: null
+  min_frame_rate: null
+  physx_threads: null
+  extra_args: []
+
+world:
+  preset: "Default Environment"   # tiny grid stage: loads far faster than the warehouse
+  usd_path: null
+  add_ground_plane: false
+  physics_dt: null
+  rendering_dt: null
+  physics_device: null
+
+px4:
+  autolaunch: true
+  airframe: gazebo-classic_iris
+  enable_lockstep: false
+  params_file: null
+
+vehicles:
+  - id: 0
+    model: Iris
+    usd_path: null
+    position: [0.0, 0.0, 0.07]
+    yaw_deg: 0.0
+    ros2:
+      enabled: false
+      pub_state: true
+      pub_sensors: false
+      pub_graphical_sensors: false
+    sensors:
+      zed:
+        enabled: false            # no rendering in this profile (app.render: false) — nothing to attach to

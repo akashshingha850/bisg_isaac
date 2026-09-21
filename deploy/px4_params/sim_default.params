@@ -1,0 +1,20 @@
+# PX4 params for GPS-denied flight on ZED Mini VIO (sim + real, docs/hardware.md,
+# docs/interface-contract.md, .claude/skills/zed-contract/SKILL.md).
+# Values verified against the pinned firmware source (PX4_TAG, ADR-003):
+# /opt/PX4-Autopilot/src/modules/ekf2/{module,params_external_vision,params_gnss,params_magnetometer}.yaml
+#
+# Format (scripts/push_px4_params.py, NOT the QGC 5-column save format):
+#   NAME  VALUE  MAV_PARAM_TYPE
+# MAV_PARAM_TYPE: 6 = INT32 (enum/bitmask params below are stored as int32 in PX4),
+#                 9 = REAL32 (float params).
+#
+# EV_POS_X/Y/Z (vision sensor lever arm) are left at their PX4 default (0,0,0):
+# vio_mock/vio_relay publish base_link-referenced odometry already (interface-contract.md),
+# so there is no camera-to-body offset left for PX4 to compensate.
+
+EKF2_HGT_REF   3   6   # Vision (0=Baro 1=GPS 2=Range 3=Vision)
+EKF2_EV_CTRL   15  6   # bit0 hpos + bit1 vpos + bit2 3D vel + bit3 yaw (hardware.md: "15 pos+vel+yaw+hgt")
+EKF2_EV_DELAY  30  9   # ms; vio_mock injects a 30ms mock latency on top of a true sample timestamp —
+                       # this covers additional wire/serialization lag, not a duplicate of that delay
+EKF2_GPS_CTRL  0   6   # GPS fusion fully disabled (indoor / GPS-denied)
+EKF2_MAG_TYPE  5   6   # None — EV supplies yaw (EKF2_EV_CTRL bit3); avoids mag/vision yaw fighting

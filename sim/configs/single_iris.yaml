@@ -1,0 +1,68 @@
+# Scenario: one Iris quadrotor, PX4 SITL, warehouse world. Consumed by sim/launcher/launch.py.
+# Override at run time:  SIM_CONFIG=/workspace/sim/configs/<file>.yaml  and  SIM_HEADLESS=1
+
+app:
+  headless: false            # SIM_HEADLESS=1 overrides to true
+  render: true               # false = physics only (fastest headless tests)
+  log_level: INFO            # DEBUG | INFO | WARNING
+  heartbeat_steps: 500       # print vehicle position every N steps; 0 = off
+  exit_after_s: 0            # >0 = stop the sim after N seconds (used by tests)
+  stream: off                # off | webrtc — WebRTC livestream for headless runs (SIM_VIEW overrides).
+                             # Forces rendering on; watch with the Isaac Sim WebRTC Streaming Client
+                             # (TCP 49100 / UDP 47998). See docs/configuration.md.
+
+# --- Performance (docs/performance.md) ----------------------------------------
+# Only non-null keys are passed to SimulationApp / Kit. Defaults here are the safe,
+# visually-correct ones; sim/configs/headless_fast.yaml is the stripped-down test profile.
+perf:
+  disable_viewport_updates: null   # null = auto (true when headless). No viewport work in headless runs.
+  limit_cpu_threads: 16            # handbook: 16-32 is the sweet spot; this host has 12 cores
+  sync_loads: null                 # true (default) = pause rendering until assets are loaded
+  renderer: null                   # RaytracedLighting (RTX real-time, default) | PathTracing (offline quality)
+  width: null                      # render resolution; lower = less VRAM per camera (risk R1)
+  height: null
+  active_gpu: null                 # pin a GPU index on multi-GPU hosts
+  skip_material_loading: false     # true = much faster load, but untextured — physics-only tests only
+  min_frame_rate: null             # --/persistent/simulation/minFrameRate: PhysX catch-up clamp (e.g. 60)
+  physx_threads: null              # --/persistent/physics/numThreads (default 8; 0 = main thread)
+  extra_args: []                   # raw Kit args, e.g. ["--/app/renderer/skipMaterialLoading=true"]
+
+world:
+  # A key from pegasus.simulator.params.SIMULATION_ENVIRONMENTS:
+  #   "Default Environment", "Curved Gridroom", "Warehouse", "Warehouse with Shelves",
+  #   "Full Warehouse", "Simple Room", "Office", "Hospital", "Flat Plane", ...
+  preset: "Warehouse"
+  usd_path: null             # absolute /workspace/sim/worlds/... path wins over preset (Phase 4)
+  add_ground_plane: false    # only for render-only worlds without collision (3DGS)
+  # Simulation rates. null = Pegasus defaults (physics 1/250 s, render 1/60 s, device cpu).
+  # physics_dt also sets the PX4 sensor/MAVLink rate — do not change it casually.
+  physics_dt: null
+  rendering_dt: null
+  physics_device: null       # "cpu" | "cuda" (GPU dynamics; one GPU only)
+
+px4:
+  autolaunch: true
+  airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
+  enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
+  params_file: null               # deploy/px4_params/<file>.params, loaded after boot (Phase 3)
+
+vehicles:
+  - id: 0                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}
+    model: Iris              # key in pegasus.simulator.params.ROBOTS (custom USD via usd_path)
+    usd_path: null
+    position: [0.0, 0.0, 0.07]         # world ENU metres
+    yaw_deg: 0.0
+    ros2:                              # Pegasus ROS2Backend: ground-truth state on /drone_{id+1}/state/*
+      enabled: true                    # consumed only by vio_mock (ros2_ws) — parity rule, plan.md §8
+      pub_state: true
+      pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
+      pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
+    sensors:
+      zed:                             # ZED Mini rig (sim/launcher/zed_rig.py); matches interface-contract.md
+        enabled: true
+        mount_xyz_rpy: [0.10, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md)
+        baseline: 0.063                # metres, ZED Mini
+        resolution: [1280, 720]        # HD720
+        fps: 30.0
+        imu_rate: 200.0
+        depth_range: [0.1, 15.0]
