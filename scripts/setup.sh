@@ -43,7 +43,7 @@ if [[ $REBUILD == 0 ]] && docker image inspect "bisg/sim:${ISAAC_TAG}" >/dev/nul
 if [[ $REBUILD == 0 ]] && docker image inspect bisg/ros:jazzy >/dev/null 2>&1; then ok "bisg/ros:jazzy exists"; else compose build "${BARGS[@]}" ros; fi
 if [[ $ARM64 == 1 ]]; then
   ls /proc/sys/fs/binfmt_misc 2>/dev/null | grep -q aarch64 || die "no arm64 binfmt: run  docker run --privileged --rm tonistiigi/binfmt --install arm64"
-  docker buildx build --platform linux/arm64 -f "$ROOT/docker/ros.Dockerfile" -t bisg/ros:arm64 --load "$ROOT" && ok "bisg/ros:arm64"
+  docker buildx build --platform linux/arm64 -f "$ROOT/docker/ros/Dockerfile" -t bisg/ros:arm64 --load "$ROOT" && ok "bisg/ros:arm64"
 fi
 
 info "7/7 sanity"

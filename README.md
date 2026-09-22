@@ -29,7 +29,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 
 ```
 bisg_isaac/
-├── docker/            # Dockerfiles + compose.yaml with profiles (sim, ros, jetson)   [Phase 1]
+├── docker/            # one compose.yaml with profiles; each image's Dockerfile in its own folder (sim/, ros/) [Phase 1]
 ├── sim/               # Pegasus launcher, YAML scenario configs, worlds, sim-side nodes [Phase 1]
 ├── ros2_ws/src/       # ROS 2 packages shared by sim and hardware                     [Phase 2]
 │   ├── bisg_msgs/     #   fleet / vehicle-state messages

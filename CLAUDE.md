@@ -12,13 +12,15 @@ Read `docs/plan.md` for architecture, `docs/todo.md` for what is in progress. Up
 - Version pins live in `docs/plan.md` §4 and are applied from the pins block of `config/bisg.conf`. Change a pin only with an ADR update.
 - Settings layering (`docs/configuration.md`): `config/bisg.conf` = every project default, in topic comment blocks (view, sim, ros, drone, pins, links); `docker/.env` = this machine only; scenario YAML = world/vehicle content. A new knob goes in the matching block + `conf_default` in `scripts/_common.sh`, never hard-coded in a script. One key lives in exactly one place.
 - One key, `SIM_VIEW`, decides window + remote view: `gui|headless|web|webrtc|both|auto`, combined with `+` (`gui+webrtc`); `./bisg up <value>` overrides it per run. `web` (still frames on one TCP port) survives a VS Code/SSH tunnel; `webrtc` needs UDP 47998, so LAN or VPN only (`docs/remote-access.md`).
-- Containers are ROS 2 **Jazzy** (ADR-005). Host ROS Humble is debug-only; never make a script depend on it (the host moves to 24.04 later, `docs/plan.md` §12).
+- Containers are ROS 2 **Jazzy** (ADR-005), Ubuntu 24.04 base. The host has no ROS install at all; never make a script depend on host ROS.
 - Order: single-drone twin → assets/models → one real drone → swarm. Swarm work waits for Phase 6.
 - Never `git submodule update --remote` in `third_party/` without checking the pin.
 
 ## Host facts (this workstation)
-- Ubuntu 22.04 (24.04 migration planned), ROS 2 Humble on host (debug only), RTX 2080 Ti 11 GB, NVIDIA driver 580, Docker 29 with nvidia runtime, 62 GB RAM, 12 cores, 6 TB free on `/media/ubuntu/ssd`.
-- Isaac Sim 5.1 is known to run on this GPU. It boots slowly (2–5 min cold). Use `timeout` and `PYTHONUNBUFFERED=1` when driving it from scripts; prefer headless for tests.
+- Ubuntu 24.04.5 LTS, no ROS install on host, RTX 4500 Ada Generation 24 GB VRAM, NVIDIA driver **580.178.04**, Docker 29.1.3, 125 GB RAM, 24 cores. Driver must stay on the 580 branch — the 595.x/R590 branch this GPU shipped with segfaults Isaac Sim 5.1's RTX renderer (`docs/plan.md` §12); `scripts/check_env.sh` hard-fails on any 59x driver.
+- Bulk storage lives on `/opt` (1.9 TB ext4, ~1.4 TB free) — **not** `/media/ubuntu/ssd`, which does not exist on this box. `ARCHIVE_DIR` and any large-artifact paths must point under `/opt`.
+- GPU access from containers works: user `bisg` is in the `docker` group and the NVIDIA Container Toolkit + `nvidia` runtime are installed and verified (`./bisg check`, `docker run --gpus all`).
+- Isaac Sim 5.1 is known to run on this GPU. It boots slowly (~2 min warm, up to 5 min cold). Use `timeout` and `PYTHONUNBUFFERED=1` when driving it from scripts; prefer headless for tests.
 
 ## Skills
 Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, swarm-spawn, jetson-deploy, sim-regression). See `docs/skills.md`.

@@ -3,7 +3,7 @@
 # workstation (against PX4 SITL) and the Jetson Orin NX (against the Pixracer).
 #
 # Build amd64 (workstation):  docker compose -f docker/compose.yaml build ros
-# Build arm64 (Jetson):        docker buildx build --platform linux/arm64 -f docker/ros.Dockerfile -t bisg/ros:arm64 .
+# Build arm64 (Jetson):        docker buildx build --platform linux/arm64 -f docker/ros/Dockerfile -t bisg/ros:arm64 .
 
 FROM ros:jazzy-ros-base
 ARG DEBIAN_FRONTEND=noninteractive
@@ -31,7 +31,7 @@ RUN rosdep init 2>/dev/null || true && rosdep update --rosdistro jazzy || true
 RUN printf '%s\n' 'source /opt/ros/jazzy/setup.bash' '[ -f /workspace/ros2_ws/install/setup.bash ] && source /workspace/ros2_ws/install/setup.bash' >> /etc/bash.bashrc
 
 WORKDIR /workspace/ros2_ws
-COPY docker/ros-entrypoint.sh /usr/local/bin/ros-entrypoint.sh
+COPY docker/ros/entrypoint.sh /usr/local/bin/ros-entrypoint.sh
 RUN chmod +x /usr/local/bin/ros-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
 CMD ["bash"]

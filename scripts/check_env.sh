@@ -28,6 +28,10 @@ if command -v nvidia-smi >/dev/null; then
   vram_total=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
   pass "GPU: $gpu, driver $drv, VRAM free ${vram_free}/${vram_total} MiB"
   [[ ${drv%%.*} -ge 570 ]] || die "driver ${drv} < 570 (Isaac Sim 5.1 needs >= 570)"
+  # R590 branch (595.x) segfaults Isaac 5.1's RTX renderer in librtx.scenedb.plugin.so right after
+  # "app ready" on Ada/Blackwell GPUs (isaac-sim/IsaacSim#648, #619, #651, #537) — confirmed on this
+  # host 2026-09-21. Validated branch is 580.x (580.178.04 confirmed good on two different GPUs).
+  [[ ${drv%%.*} -ge 590 && ${drv%%.*} -lt 600 ]] && die "driver ${drv} is on the R590 branch — known to crash Isaac Sim 5.1's RTX renderer on startup. Downgrade to 580.x: sudo apt install nvidia-driver-580-open"
   [[ -f /var/run/reboot-required ]] && wrn "host reboot pending ($(tr '\n' ' ' < /var/run/reboot-required.pkgs 2>/dev/null | cut -c1-60)) — a driver/kernel upgrade will break GPU containers until you reboot"
   [[ ${vram_free} -ge 6000 ]] || wrn "less than 6 GB VRAM free; close other GPU apps before starting the sim"
 else
@@ -38,7 +42,7 @@ if command -v docker >/dev/null; then
   pass "docker $(docker --version | awk '{print $3}' | tr -d ,)"
   docker info 2>/dev/null | grep -q "Runtimes:.*nvidia" && pass "nvidia container runtime present" || die "nvidia runtime missing (install nvidia-container-toolkit, run: sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker)"
   docker compose version >/dev/null 2>&1 && pass "docker compose $(docker compose version --short)" || die "docker compose v2 missing"
-  docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi -L >/dev/null 2>&1 && pass "GPU visible inside a container" || wrn "GPU test container failed (image not pulled or runtime broken)"
+  docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi -L >/dev/null 2>&1 && pass "GPU visible inside a container" || wrn "GPU test container failed (image not pulled or runtime broken)"
 else
   die "docker not found"
 fi

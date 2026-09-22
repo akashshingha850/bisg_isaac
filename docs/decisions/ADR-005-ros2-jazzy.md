@@ -5,15 +5,17 @@ Status: accepted (2026-09-12)
 ## Context
 The companion computer is a **Jetson Orin NX on JetPack 7.2**, which is L4T r38 on **Ubuntu 24.04**
 with CUDA 13. Stereolabs ships ZED SDK images for that L4T on 24.04 bases, and the ZED ROS 2
-wrapper in that environment builds against **Jazzy**. The workstation host runs Ubuntu 22.04 with
-ROS 2 Humble, but per ADR-002 nothing runs natively on the host.
+wrapper in that environment builds against **Jazzy**. At the time of this decision the workstation
+host ran Ubuntu 22.04 with ROS 2 Humble; per ADR-002 nothing runs natively on the host, so this
+distro choice was host-OS-independent by design. (The host itself has since moved to Ubuntu 24.04 —
+`docs/plan.md` §12 — which only reinforces the decision below.)
 
 ## Decision
 - All `bisg/*` containers use **ROS 2 Jazzy** (`ros:jazzy-ros-base`, Ubuntu 24.04), on amd64 and arm64.
 - Isaac Sim 5.1's bundled ROS 2 bridge is run with its **Jazzy** library set.
 - MAVROS from `ros-jazzy-mavros` + `ros-jazzy-mavros-extras`.
-- Host ROS 2 Humble is used only for ad-hoc debugging; Humble ↔ Jazzy interoperate over DDS for
-  `ros2 topic echo`-style probes but not for building our packages.
+- The host has no ROS install at all (see CLAUDE.md); every ROS 2 process, including ad-hoc
+  debugging, runs inside a `bisg/ros` container.
 
 ## Reasons
 - One distro across sim, workstation containers and the Jetson; a Humble container on a JetPack 7

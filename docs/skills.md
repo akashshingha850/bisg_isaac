@@ -40,6 +40,5 @@ launch/QoS), `graphify` (codebase questions once code exists), `humanizer` (docs
 ## 3. Possible future skills (not created yet)
 
 - `twin-assets` — Phase 4: vehicle measurement → USD + Pegasus preset; site capture → USD → collision proxies → geo-reference checklist (collider complexity and instancing rules from `docs/performance.md`).
-- `os-migration` — the 22.04 → 24.04 host move (plan.md §12) as a runnable checklist.
 - `px4-log-review` — pull `.ulg` from SITL/Pixracer, run `flight_review`-style checks on EKF innovations and EV delay.
 - `fleet-ops` — Phase 7: pre-mission fleet checklist, kill-switch drill, per-drone health summary.

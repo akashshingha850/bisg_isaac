@@ -28,15 +28,21 @@ launcher, and an ArduPilot/Gazebo swarm workspace) are not reused. Lessons carri
 - Mixing bridges (uXRCE-DDS in sim, something else on hardware) breaks the twin idea → one
   bridge, MAVROS, on both sides (ADR-001).
 
-What the host provides today: Ubuntu 22.04, ROS 2 Humble, Docker 29 with the nvidia runtime,
-NVIDIA driver 580, RTX 2080 Ti, 62 GB RAM, 12 cores, 6 TB free SSD.
+What the host provided at project start (old PC): Ubuntu 22.04, ROS 2 Humble, Docker 29 with the
+nvidia runtime, NVIDIA driver 580, RTX 2080 Ti, 62 GB RAM, 12 cores, 6 TB free SSD.
+
+What the host provides now (new PC, migrated 2026-09-21, see §12): Ubuntu 24.04.5, no host ROS,
+Docker 29.1.3 with the nvidia runtime, NVIDIA driver **580.178.04** (see §12 note — the 595.x/R590
+branch this GPU shipped with does not work), RTX 4500 Ada Generation 24 GB VRAM, 125 GB RAM,
+24 cores, bulk storage on `/opt` (not `/media/ubuntu/ssd`).
 
 Hardware (confirmed 2026-09-12): **Jetson Orin NX on JetPack 7.2** (L4T r38, Ubuntu 24.04,
 CUDA 13), **ZED Mini** (USB 3, 63 mm baseline, IMU), **Pixracer** (px4_fmu-v4). Drone count for
 the swarm phase is still open; the swarm itself is a later migration of the single-drone twin.
 
-Workstation OS: Ubuntu 22.04 today, **migration to 24.04 planned** (see §12). All runtime lives in
-containers, so the migration touches only the host layer.
+Workstation OS: migration to 24.04 is **done** (§12) — completed by moving to a new PC rather than
+an in-place upgrade. All runtime lives in containers, so the migration touched only the host layer;
+no image or volume state carried over (rebuilt from source on the new machine).
 
 ## 3. Target architecture
 
@@ -77,7 +83,7 @@ Key properties:
 
 | Component | Pin | Why / notes | Decision |
 |---|---|---|---|
-| OS | workstation Ubuntu 22.04 → **24.04 planned** (§12); Jetson Orin NX **JetPack 7.2** (L4T r38, Ubuntu 24.04, CUDA 13) | host OS is irrelevant to containers except driver/toolkit/display | ADR-005 |
+| OS | workstation **Ubuntu 24.04.5**; Jetson Orin NX **JetPack 7.2** (L4T r38, Ubuntu 24.04, CUDA 13) | host OS is irrelevant to containers except driver/toolkit/display | ADR-005 |
 | ROS 2 | **Jazzy** (Ubuntu 24.04 containers) | JetPack 7 is 24.04 → ZED SDK images and wrapper are Jazzy; Isaac 5.x bundles a Jazzy bridge (verify for 5.1); LTS to 2029 | ADR-005 |
 | Isaac Sim | **5.1.0** (`nvcr.io/nvidia/isaac-sim:5.1.0`) | known to run on the 2080 Ti; Pegasus has a matching release | ADR-002 |
 | Pegasus Simulator | **v5.1.0** (the release for Isaac Sim 5.1.0; cloned in the sim image at build time) | fork only if a patch is unavoidable | — |
@@ -96,7 +102,9 @@ a pin means editing this table, the ADR and `config/bisg.conf`, then `./bisg set
 
 ## 5. Docker strategy
 
-Three image families, one `docker/compose.yaml` with profiles:
+Three image families, one `docker/compose.yaml` with profiles. Each image's Dockerfile and
+entrypoint live together in their own folder (`docker/sim/`, `docker/ros/`); the single root
+compose file's services just point their `build:` at that folder:
 
 | Image | Base | Contains | Profiles |
 |---|---|---|---|
@@ -211,24 +219,25 @@ Still open (record in `hardware.md` when known):
 - [ADR-004 CycloneDDS + zenoh bridge for the fleet network](decisions/ADR-004-dds.md)
 - [ADR-005 ROS 2 Jazzy in all containers](decisions/ADR-005-ros2-jazzy.md)
 
-## 12. Workstation OS migration (22.04 → 24.04, planned)
+## 12. Workstation OS migration (22.04 → 24.04) — done 2026-09-21/22
 
-Tracked here so nothing in the project silently depends on 22.04. Do the migration between phases,
-ideally right after Phase 1 (only one image family to re-validate) or before Phase 5.
+Done by moving to a new PC (not an in-place upgrade), so no image/volume state carried over —
+everything was rebuilt from source. Tracked here so nothing in the project silently depends on
+22.04 or on the old machine's specifics.
 
-What changes on the host, and what to re-check:
+What changed on the host, what actually happened, and how it was re-checked:
 
-| Host layer | 22.04 today | After 24.04 | Re-check |
+| Host layer | 22.04 / old PC | 24.04 / new PC | Re-check |
 |---|---|---|---|
-| NVIDIA driver | 580 | reinstall (≥ 570 for Isaac 5.1) | `nvidia-smi`, `scripts/check_env.sh` |
-| Container toolkit | nvidia runtime present | reinstall `nvidia-container-toolkit`, `nvidia-ctk runtime configure` | `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi` |
-| Display server | X11 session | 24.04 defaults to **Wayland** → Isaac GUI passthrough needs XWayland (`xhost +local:`) or an X11 session; livestream is the fallback | Phase 1 `sim` profile |
-| Host ROS 2 | Humble (debug only) | Jazzy native (optional) — matches the containers | `ros2 topic list` against a running `ros` container |
-| Docker | 29 | keep; compose v2 | `docker compose version` |
-| Disk / SSD mounts | `/media/ubuntu/ssd` | same mount path so compose volume paths and cache volumes survive | `docker volume ls` |
+| NVIDIA driver | 580 | New PC shipped with **595.91.07** (R590 branch) — **confirmed incompatible**: segfaults Isaac Sim 5.1's RTX renderer in `librtx.scenedb.plugin.so` right after `app ready` (known upstream bug, isaac-sim/IsaacSim#648/#619/#651/#537). Downgraded to **580.178.04**, which fixed it. `scripts/check_env.sh` now hard-fails on any 59x driver. | `nvidia-smi`, `scripts/check_env.sh` |
+| Container toolkit | nvidia runtime present | `nvidia-container-toolkit` had to be installed fresh (apt repo was pre-configured but package wasn't installed); `docker-compose-v2` also had to be installed separately (Ubuntu's `docker.io` package doesn't bundle it) | `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi` — passed |
+| `docker` group | — | new user `bisg` was not a member; `usermod -aG docker` + `newgrp` needed | `docker info` without sudo |
+| Display server | X11 session | still an X11 session on the new PC (`DISPLAY=:0`); Wayland concern didn't materialize | Phase 1 `sim` profile — GUI not re-tested this round, headless confirmed |
+| Host ROS 2 | Humble (debug only) | **no ROS installed at all** on the new host | `ros2 topic list` against a running `ros` container — not yet re-run |
+| Docker | 29 | 29.1.3, compose v2 (once installed) | `docker compose version` |
+| Disk / bulk storage | `/media/ubuntu/ssd` (6 TB) | that mount **does not exist** on the new PC; bulk storage is `/opt` (1.9 TB, ~1.4 TB free). `ARCHIVE_DIR` overridden in `docker/.env` | `df -h /opt` |
 
-Rules until then:
-- No project script may assume host ROS Humble or any 22.04-only apt package.
-- Cache volumes are named Docker volumes (not bind mounts under `/home`), so a reinstall keeps them if `/var/lib/docker` is preserved or moved to the SSD.
-- Before migrating: `docker save` the `bisg/*` and `isaac-sim` images to the SSD; export the list of named volumes.
-- After migrating: run the Phase 1 headless smoke test and the latest phase's exit test before continuing work.
+Rules (retroactively satisfied by the rebuild, kept here for the next migration):
+- No project script may assume host ROS Humble or any 22.04-only apt package — confirmed true; new host has no ROS at all and nothing broke.
+- Cache volumes are named Docker volumes, so they survive a host reinstall if preserved/moved — moot this time (new PC, fresh volumes).
+- Verified after migrating: Phase 1 headless smoke test (arm → 1.6 m → land → disarm) **PASS**; MAVROS `connected: true` on `/drone_1`; clean `./bisg down` (~10 s, no stray containers).

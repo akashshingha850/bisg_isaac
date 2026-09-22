@@ -17,15 +17,20 @@ Phase definitions and exit tests are in [roadmap.md](roadmap.md).
 - [x] Views for headless runs (`docs/remote-access.md`): `SIM_STREAM=off|web|webrtc|both`, `./bisg up --web|--stream|--both`, `./bisg view`; WebRTC enables `omni.services.livestream.nvcf` (TCP 49100 + UDP 47998), `web` serves captured frames on `SIM_WEB_PORT` so a VS Code/SSH tunnel can reach it (2026-09-13). **Verified live 2026-09-13**: `web` serves 1280x720 PNGs that update (page/frame/freshness checked over HTTP, TCP 8899 listening); `webrtc` reports ready with TCP 49100 listening (UDP 47998 opens on client negotiation — an actual client connection is still unverified, needs the NVIDIA app); smoke test passes with both views on
 - [ ] Review the 7 Claude Code skill stubs in `.claude/skills/`; delete or merge any that feel redundant
 
-## Tracked — workstation OS migration 22.04 → 24.04 (plan.md §12)
+## Done — workstation OS migration 22.04 → 24.04 (plan.md §12) — 2026-09-21/22
 
-Do it between phases (best: right after Phase 1). Before/after steps:
-- [ ] Before: `docker save` `isaac-sim` + `bisg/*` images to the SSD; `docker volume ls > docs/volumes-before-migration.txt`; note driver version
-- [ ] Before: confirm no script depends on host ROS Humble or 22.04-only packages (`grep -r "humble\|/opt/ros" scripts sim docker`)
-- [ ] After: NVIDIA driver ≥ 570, `nvidia-container-toolkit`, `nvidia-ctk runtime configure`, `docker run --gpus all ... nvidia-smi`
-- [ ] After: display server — X11 session or XWayland with `xhost +local:`; `sim` profile GUI check
-- [ ] After: (optional) native ROS 2 Jazzy for debugging; `ros2 topic list` sees a running `ros` container
-- [ ] After: re-run the Phase 1 headless smoke test + the latest phase exit test; tick this list in `Done`
+Done via a new PC, not an in-place upgrade, so no images/volumes carried over — rebuilt from
+source instead. Skipped the "before" steps below for that reason (nothing to save from a machine
+this session has no access to); everything else ran for real on the new host:
+- [x] Before steps N/A (new physical machine, not a reinstall of the old one — no `docker save`/volume export to do)
+- [x] Before: confirmed no script depends on host ROS Humble or 22.04-only packages — new host has no `/opt/ros` at all and setup/build/smoke all passed clean
+- [x] After: host preflight — `nvidia-container-toolkit` installed fresh, `nvidia-ctk runtime configure --runtime=docker`, `docker-compose-v2` installed (Ubuntu's `docker.io` doesn't bundle it), `bisg` added to `docker` group, `docker run --gpus all ... nvidia-smi` passed
+- [x] After: **driver gotcha found and fixed** — new PC shipped with NVIDIA driver 595.91.07 (R590 branch), confirmed 100%-reproducible crash: Isaac Sim 5.1 segfaults in `librtx.scenedb.plugin.so` ~0ms after `app ready` (known upstream bug, isaac-sim/IsaacSim#648/#619/#651/#537 — driver too new, not an Ada-support issue). Fixed by downgrading to **580.178.04** (same branch the old PC used). `scripts/check_env.sh` now hard-fails on any 59x driver so this can't silently regress
+- [x] After: display server — still X11 (`DISPLAY=:0`), `xhost +local:` works; GUI profile not re-verified this round (headless only)
+- [x] After: native host ROS 2 — skipped (optional); host intentionally has no ROS install
+- [x] After: `docs/plan.md` §12 rewritten with what actually happened; `CLAUDE.md` Host facts updated; `config/bisg.conf` `ARCHIVE_DIR` comment + `docker/.env` override added for `/opt` (no `/media/ubuntu/ssd` on this box)
+- [x] After: fresh build — `./bisg setup --third-party` pulled `nvcr.io/nvidia/isaac-sim:5.1.0` + `ros:jazzy-ros-base`, built `bisg/sim:5.1.0` and `bisg/ros:jazzy` clean; `third_party/PegasusSimulator` (v5.1.0) and `third_party/zed-ros2-wrapper` (v5.4.1) converted to real git submodules (repo has been `git init`'d since the last time these were plain clones) — staged, not yet committed
+- [x] After: re-ran Phase 1 headless smoke test — `[launch] sim ready` 143s, PX4 ready 146s, `./bisg smoke` **PASS** (arm → 1.6 m → land → disarm); MAVROS `connected: true` on `/drone_1`; `./bisg down` clean in ~10s, no stray containers
 
 ## Next — Phase 1: Dockerized single-drone sim
 
@@ -133,3 +138,6 @@ Phase 8 — Task library + CI
 
 ## Done
 - 2026-09-12 — Phase 0 documentation set created; hardware/ordering/PX4 policy decided
+- 2026-09-21/22 — Workstation migration 22.04 → 24.04 done via new PC; host prepped (docker group, nvidia-container-toolkit, docker-compose-v2), found+fixed a driver-595/R590 incompatibility with Isaac Sim 5.1 (downgraded to 580.178.04), rebuilt `bisg/sim`+`bisg/ros` images from scratch, converted `third_party/*` clones to git submodules, re-ran Phase 1 smoke test clean. See plan.md §12.
+- 2026-09-22 — Dropped remaining Ubuntu 22.04 mentions from docs/scripts now that the workstation is settled on 24.04 (CLAUDE.md, ADR-005, `docs/setup.md`, `docs/plan.md` §4 pin table, `docs/skills.md`; `scripts/check_env.sh`'s GPU test image moved from `nvidia/cuda:...-ubuntu22.04` to the `...-ubuntu24.04` tag). Restructured `docker/`: one `docker/compose.yaml` with all profiles still, but each image's Dockerfile + entrypoint now live in their own folder (`docker/sim/`, `docker/ros/`) instead of flat `docker/sim.Dockerfile` / `docker/sim-entrypoint.sh` etc. Verified `docker compose -f docker/compose.yaml --profile <sim|sim-headless|ros|tools> config` resolves identically to before the move. Rebuilt `bisg/sim`+`bisg/ros` from the new Dockerfile paths (all expensive layers — apt, PX4 SITL build, Pegasus clone/install, rosdep — hit cache, only the entrypoint COPY layer re-ran); `./bisg up headless` booted clean (97s to `[launch] sim ready`, 100s to PX4 ready), `./bisg smoke` PASS (armed → airborne 1.63 m → landed/disarmed), `./bisg mavros up` connected (`connected: true`) against the running SITL; `./bisg down` left no stray containers.
+- 2026-09-22 — Installed the `graphify` Claude Code skill (global, `~/.claude/skills/graphify/`) and ran it on this repo. It flagged a real inconsistency: CLAUDE.md's Host facts still listed the broken NVIDIA driver `595.91.07` (the one §12 downgraded away from) instead of the actual `580.178.04`; fixed, and refreshed the "known gaps" line since docker-group + nvidia-container-toolkit are both confirmed working now.

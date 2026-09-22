@@ -122,7 +122,7 @@ warned about before the container starts.
 | Key | Default | Used by |
 |---|---|---|
 | `DRONE_ID` | `1` | namespace `/drone_N`, `MAV_SYS_ID N`, PX4 SITL instance `N-1` |
-| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/ros-entrypoint.sh`) |
+| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/ros/entrypoint.sh`) |
 | `GCS_URL` | empty → no second link | MAVROS `gcs_url:=` (QGroundControl, logger) |
 | `MAVLINK_GCS_PORT` | `14550` | `./bisg debug mavlink` probe |
 | `ROS_DOMAIN_ID` | `0` | every container |

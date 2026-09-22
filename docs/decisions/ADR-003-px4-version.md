@@ -12,7 +12,7 @@ releases. The twin is only valid if SITL and the flashed firmware match. The use
   generally work because Pegasus only relies on the simulator TCP link and standard `px4-rc.*` startup.
 - The same tag is flashed to the Pixracer (`px4_fmu-v4_default`).
 - Pegasus tag: the release matching Isaac Sim 5.1.0.
-- The pin is recorded in `third_party/` submodule commits, `docker/sim.Dockerfile` (`PX4_TAG` arg),
+- The pin is recorded in `third_party/` submodule commits, `docker/sim/Dockerfile` (`PX4_TAG` arg),
   `deploy/px4_params/README.md`, and here.
 
 ## Selection procedure (Phase 1)

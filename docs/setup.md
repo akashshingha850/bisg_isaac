@@ -6,7 +6,7 @@ One command after the host prerequisites: `./bisg setup`. Everything else lives 
 
 | Need | Why | Check |
 |---|---|---|
-| Ubuntu 22.04 or 24.04, NVIDIA driver ≥ 570 | Isaac Sim 5.1 | `nvidia-smi` |
+| Ubuntu 24.04, NVIDIA driver ≥ 570 | Isaac Sim 5.1 | `nvidia-smi` |
 | Docker Engine ≥ 24 with Compose v2 | all runtime | `docker compose version` |
 | nvidia-container-toolkit, `nvidia` runtime registered | GPU in containers | `docker info \| grep -i runtimes` |
 | X11 session (or XWayland) and `xhost` | GUI profile only | `echo $DISPLAY`, `xhost` |

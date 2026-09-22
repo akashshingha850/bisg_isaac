@@ -37,7 +37,7 @@ Exit test
 **Goal:** one command brings up Isaac Sim + Pegasus + PX4 SITL with one drone that can be flown from QGroundControl.
 
 Deliverables
-- `docker/sim.Dockerfile` (Isaac 5.1 base, Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
+- `docker/sim/Dockerfile` (Isaac 5.1 base, Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
 - `docker/compose.yaml` profiles `sim` and `sim-headless`.
 - `sim/launcher/launch.py` + `sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
 - `third_party/` submodules pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
@@ -51,7 +51,7 @@ Exit test
 **Goal:** move the drone from a ROS 2 node through MAVROS, with the same node that will later run on the Jetson.
 
 Deliverables
-- `docker/ros.Dockerfile` (ROS 2 **Jazzy** on Ubuntu 24.04, MAVROS + extras, geographiclib, CycloneDDS, colcon build of `ros2_ws`), amd64 + arm64 buildx.
+- `docker/ros/Dockerfile` (ROS 2 **Jazzy** on Ubuntu 24.04, MAVROS + extras, geographiclib, CycloneDDS, colcon build of `ros2_ws`), amd64 + arm64 buildx.
 - `ros2_ws/src/bisg_msgs` (`VehicleState`, `VehicleCmd`, `Task`), `bisg_vehicle` (`offboard_controller` node + Python API), `bisg_bringup/launch/sim_drone.launch.py`.
 - MAVROS per-drone launch wrapper with namespace + `fcu_url` derivation; `use_sim_time` wiring; Isaac `/clock` (Isaac bridge set to Jazzy libs).
 - Smoke test that the `ros` container sees Isaac bridge topics (ADR-004 validated).

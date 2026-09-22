@@ -87,7 +87,7 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 - `tests/smoke_takeoff.py`: PASS. MAVROS: `connected: true`, 155 topics, pose ~14 Hz, IMU ~24 Hz (default PX4 onboard stream rates).
 
 ## Common failures
-- **`docker compose stop` takes the full grace period and exits 137**: the launcher must be PID 1. `/isaac-sim/python.sh` is a bash wrapper that runs Python as a child and ignores SIGTERM; `docker/sim-entrypoint.sh` therefore replicates its environment and `exec`s `/isaac-sim/kit/python/bin/python3` directly. Do not switch the entrypoint back to `python.sh`.
+- **`docker compose stop` takes the full grace period and exits 137**: the launcher must be PID 1. `/isaac-sim/python.sh` is a bash wrapper that runs Python as a child and ignores SIGTERM; `docker/sim/entrypoint.sh` therefore replicates its environment and `exec`s `/isaac-sim/kit/python/bin/python3` directly. Do not switch the entrypoint back to `python.sh`.
 - **`rmw_create_node: failed to create domain` / "failed to increase socket receive buffer"**: a CycloneDDS profile asked for a buffer larger than `net.core.rmem_max`. Our `docker/cyclonedds.xml` sets no minimum; optionally `sudo sysctl -w net.core.rmem_max=10485760` for large point clouds later.
 - **`ros2 topic list` shows nothing although MAVROS runs**: stale ROS 2 daemon in the `ros` container; `ros2 daemon stop` then retry (or `--no-daemon`).
 - **No window**: `DISPLAY` wrong, `xhost +local:` not run, Wayland without XWayland. Try the headless profile to separate GPU issues from display issues.

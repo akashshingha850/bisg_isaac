@@ -79,7 +79,7 @@ ENV ROS_DISTRO=jazzy \
 
 # Our code is bind-mounted at /workspace (see compose); nothing project-specific is baked in.
 USER root
-COPY docker/sim-entrypoint.sh /usr/local/bin/sim-entrypoint.sh
+COPY docker/sim/entrypoint.sh /usr/local/bin/sim-entrypoint.sh
 RUN chmod 755 /usr/local/bin/sim-entrypoint.sh && mkdir -p /workspace && chown ${ISAAC_USER} /workspace
 USER ${ISAAC_USER}
 WORKDIR /workspace

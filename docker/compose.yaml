@@ -7,6 +7,10 @@
 # Settings live in config/bisg.conf (see ./bisg config); ./bisg exports them before calling
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
 # Profiles: sim | sim-headless | ros | tools. Jetson profile lives in deploy/jetson/compose.yaml.
+#
+# One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
+# docker/ros/ (docker/ros/Dockerfile backs the mavros/vehicle/ros services below, since
+# they're the same image with different commands).
 name: bisg
 
 x-nvidia: &nvidia
@@ -19,7 +23,7 @@ x-sim-base: &sim-base
   image: bisg/sim:${ISAAC_TAG:-5.1.0}
   build:
     context: ..
-    dockerfile: docker/sim.Dockerfile
+    dockerfile: docker/sim/Dockerfile
     args:
       ISAAC_TAG: ${ISAAC_TAG:-5.1.0}
       PX4_TAG: ${PX4_TAG:-v1.17.0}
@@ -45,6 +49,16 @@ x-sim-base: &sim-base
     - isaac-data:/isaac-sim/.local/share/ov/data:rw
     - isaac-pkg:/isaac-sim/.local/share/ov/pkg:rw
     - isaac-documents:/isaac-sim/Documents:rw
+
+x-ros-base: &ros-base
+  image: bisg/ros:jazzy
+  build:
+    context: ..
+    dockerfile: docker/ros/Dockerfile
+  network_mode: host
+  ipc: host
+  volumes:
+    - ..:/workspace:rw
 
 services:
   sim:
@@ -85,52 +99,33 @@ services:
 
   # MAVROS for one drone (Phase 2 makes this a generated per-drone service).
   mavros:
-    image: bisg/ros:jazzy
-    build:
-      context: ..
-      dockerfile: docker/ros.Dockerfile
+    <<: *ros-base
     container_name: bisg-mavros-${DRONE_ID:-1}
     profiles: ["ros"]
-    network_mode: host
-    ipc: host
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DRONE_ID: ${DRONE_ID:-1}
       FCU_URL: ${FCU_URL:-}
       GCS_URL: ${GCS_URL:-}          # second MAVROS link (QGC / logger); empty = off
-    volumes:
-      - ..:/workspace:rw
     command: ["mavros"]
     restart: unless-stopped
 
   # vio_mock: sim-only mock VIO source (ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
   vehicle:
-    image: bisg/ros:jazzy
-    build:
-      context: ..
-      dockerfile: docker/ros.Dockerfile
+    <<: *ros-base
     container_name: bisg-vehicle-${DRONE_ID:-1}
     profiles: ["ros"]
-    network_mode: host
-    ipc: host
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DRONE_ID: ${DRONE_ID:-1}
-    volumes:
-      - ..:/workspace:rw
     command: ["vio_mock"]
     restart: unless-stopped
 
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
   ros:
-    image: bisg/ros:jazzy
-    build:
-      context: ..
-      dockerfile: docker/ros.Dockerfile
+    <<: *ros-base
     container_name: bisg-ros
     profiles: ["ros", "tools"]
-    network_mode: host
-    ipc: host
     stdin_open: true
     tty: true
     environment:

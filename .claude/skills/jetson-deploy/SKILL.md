@@ -8,7 +8,7 @@ description: Deploy the ROS/ZED/vehicle containers to a Jetson, flash and parame
 Safety first: any step with props ON requires the RC kill switch verified that day and a second person.
 
 ## Images
-- Build on the workstation: `docker buildx build --platform linux/arm64 -f docker/ros.Dockerfile -t <registry>/bisg/ros:arm64 --push .`
+- Build on the workstation: `docker buildx build --platform linux/arm64 -f docker/ros/Dockerfile -t <registry>/bisg/ros:arm64 --push .`
 - Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-r38.x` with a ZED SDK minor that lists JetPack 7.2 (see `docs/hardware.md`). Mismatch = SDK refuses to start.
 - On the Jetson: `docker compose -f deploy/jetson/compose.yaml --profile jetson pull && up -d`.
 
