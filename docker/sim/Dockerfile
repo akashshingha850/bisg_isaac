@@ -11,7 +11,6 @@ ARG ISAAC_TAG=5.1.0
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_TAG}
 
 ARG PX4_TAG=v1.17.0
-ARG PEGASUS_TAG=v5.1.0
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ISAAC_USER=isaac-sim
 
@@ -52,9 +51,14 @@ USER ${ISAAC_USER}
 RUN cd ${PX4_DIR} && make px4_sitl_default -j"$(nproc)" \
     && find build/px4_sitl_default -name "*.o" -delete
 
-# --- isaac-sim: Pegasus at the pinned tag, installed into Isaac's Python ----------
-RUN git clone --depth 1 --branch ${PEGASUS_TAG} \
-        https://github.com/PegasusSimulator/PegasusSimulator.git ${PEGASUS_DIR} \
+# --- isaac-sim: Pegasus, built from the third_party/PegasusSimulator submodule -----
+# Built FROM the submodule (not re-cloned) so local commits there reach the image — the
+# submodule tracks a local branch on top of the pinned tag (see third_party/README.md).
+# Requires `git submodule update --init third_party/PegasusSimulator` before this build.
+COPY --chown=${ISAAC_USER}:${ISAAC_USER} third_party/PegasusSimulator/ ${PEGASUS_DIR}/
+RUN test -f ${PEGASUS_DIR}/extensions/pegasus.simulator/setup.py || \
+      { echo "ERROR: third_party/PegasusSimulator is empty/uninitialized." >&2; \
+        echo "Run: git submodule update --init third_party/PegasusSimulator" >&2; exit 1; } \
     && sed -i "s|^px4_dir:.*|px4_dir: ${PX4_DIR}|" \
         ${PEGASUS_DIR}/extensions/pegasus.simulator/config/configs.yaml
 # setup.py needs ISAACSIM_PATH to patch apps/isaacsim.exp.base.kit (replicator agent ext).

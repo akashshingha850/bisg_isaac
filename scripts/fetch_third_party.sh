@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Clone the pinned upstream repos into third_party/ for reading, patching and the ZED build scripts.
-# The sim image clones PX4 and Pegasus itself at build time, so these are NOT required to build/run the sim.
+# Clone the pinned upstream repos into third_party/ for reading, local edits and the ZED build scripts.
+# The sim image clones PX4 fresh at build time (NOT required for that); Pegasus is built FROM the
+# third_party/PegasusSimulator submodule (git submodule update --init required before building sim).
 # After `git init`, convert to submodules:  git submodule add -b <tag> <url> third_party/<name>
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"      # tags and repo URLs come from config/bisg.conf / docker/.env

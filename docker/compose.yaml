@@ -27,7 +27,6 @@ x-sim-base: &sim-base
     args:
       ISAAC_TAG: ${ISAAC_TAG:-5.1.0}
       PX4_TAG: ${PX4_TAG:-v1.17.0}
-      PEGASUS_TAG: ${PEGASUS_TAG:-v5.1.0}
   <<: *nvidia
   network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
   # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in

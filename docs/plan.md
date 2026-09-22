@@ -86,7 +86,7 @@ Key properties:
 | OS | workstation **Ubuntu 24.04.5**; Jetson Orin NX **JetPack 7.2** (L4T r38, Ubuntu 24.04, CUDA 13) | host OS is irrelevant to containers except driver/toolkit/display | ADR-005 |
 | ROS 2 | **Jazzy** (Ubuntu 24.04 containers) | JetPack 7 is 24.04 → ZED SDK images and wrapper are Jazzy; Isaac 5.x bundles a Jazzy bridge (verify for 5.1); LTS to 2029 | ADR-005 |
 | Isaac Sim | **5.1.0** (`nvcr.io/nvidia/isaac-sim:5.1.0`) | known to run on the 2080 Ti; Pegasus has a matching release | ADR-002 |
-| Pegasus Simulator | **v5.1.0** (the release for Isaac Sim 5.1.0; cloned in the sim image at build time) | fork only if a patch is unavoidable | — |
+| Pegasus Simulator | **v5.1.0** (the release for Isaac Sim 5.1.0; built from the `third_party/PegasusSimulator` submodule) | local edits on a `local` git branch in the submodule, rebased onto new tags — no fork, no push (`third_party/README.md`) | — |
 | PX4 | **v1.17.0** (newest stable on 2026-09-12; `gazebo-classic_iris` airframe and `px4_fmu-v4` board both present) — pending the ADR-003 flight check; same tag for SITL and Pixracer | firmware on the Pixracer and SITL in sim must be the same version so params/EKF2 behave identically | ADR-003 |
 | PX4 ↔ ROS 2 bridge | **MAVROS 2.15.1** (apt `ros-jazzy-mavros` + extras, amd64 + arm64 verified) | user requirement; serial-friendly on Pixracer; uxrce_dds_client availability on fmu-v4 flash is uncertain | ADR-001 |
 | DDS | **CycloneDDS** (`rmw_cyclonedds_cpp`) everywhere; zenoh-bridge-ros2dds across WiFi | reliable across containers with `network_mode: host`; multicast over WiFi is not | ADR-004 |
@@ -108,16 +108,19 @@ compose file's services just point their `build:` at that folder:
 
 | Image | Base | Contains | Profiles |
 |---|---|---|---|
-| `bisg/sim` | `nvcr.io/nvidia/isaac-sim:5.1.0` (public pull, no NGC login; Ubuntu 24.04, non-root user `isaac-sim`) | PX4 `v1.17.0` cloned + `px4_sitl_default` built, Pegasus `v5.1.0` cloned + pip-installed into Isaac's python, internal **Jazzy** bridge + CycloneDDS selected by ENV; repo bind-mounted at `/workspace` | `sim`, `sim-headless` |
+| `bisg/sim` | `nvcr.io/nvidia/isaac-sim:5.1.0` (public pull, no NGC login; Ubuntu 24.04, non-root user `isaac-sim`) | PX4 `v1.17.0` cloned + `px4_sitl_default` built, Pegasus `v5.1.0` built from the `third_party/PegasusSimulator` submodule + pip-installed into Isaac's python, internal **Jazzy** bridge + CycloneDDS selected by ENV; repo bind-mounted at `/workspace` | `sim`, `sim-headless` |
 | `bisg/ros` | `ros:jazzy-ros-base` (Ubuntu 24.04, multi-arch: amd64 + arm64) | MAVROS + geographiclib datasets, CycloneDDS, `ros2_ws` built | `ros` (workstation), `jetson` |
 | `bisg/zed` | built by `docker/zed/build.sh` from Stereolabs' scripts (`third_party/zed-ros2-wrapper`) | ZED SDK 5.4.1 + wrapper (Jazzy); `desktop` and `l4t-r38` variants | `jetson` |
 
 Rules:
 - `network_mode: host` for every service (DDS discovery and MAVLink UDP just work). Isolate
   runs with `ROS_DOMAIN_ID`, not Docker networks.
-- Upstream sources (PX4, Pegasus) are cloned **inside the image build** at the pinned tags, so the
-  repo has no large submodules to init before a build. `third_party/` holds optional read/patch clones
-  (`scripts/fetch_third_party.sh`) and the ZED wrapper build scripts.
+- PX4 is cloned **inside the image build** at the pinned tag, so `bisg/sim` never needs a
+  submodule init just for PX4. Pegasus is different: `bisg/sim` builds **from the
+  `third_party/PegasusSimulator` submodule** (not a fresh clone), so local edits there reach the
+  image — this means `git submodule update --init third_party/PegasusSimulator` **is** required
+  before `docker compose build sim`. `third_party/` also holds `zed-ros2-wrapper`, used directly
+  by its `docker/` build scripts. See `third_party/README.md` for the local-branch workflow.
 - Isaac caches (`kit`, `ov`, `pip`, `glcache`, `computecache`) are named volumes so a restart
   does not re-shader-compile for 10 minutes.
 - GUI: X11 socket + `DISPLAY` passthrough (nvidia runtime + `/tmp/.X11-unix` mount). Headless is the
