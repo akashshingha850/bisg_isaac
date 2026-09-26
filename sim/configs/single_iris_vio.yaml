@@ -1,0 +1,9 @@
+# Scenario: single_iris, GPS-denied — PX4 EKF2 fuses vision (vio_mock -> mavros/odometry/out)
+# for position, velocity, yaw and height; GPS and magnetometer are off (deploy/px4_params).
+# Needs the vehicle service running (`./bisg all`, or `./bisg vehicle up`): without vio_mock
+# there is no position source and PX4 will not arm.
+#   SIM_SCENARIO=single_iris_vio ./bisg all headless
+extends: single_iris.yaml
+
+px4:
+  params_file: deploy/px4_params/sim_default.params

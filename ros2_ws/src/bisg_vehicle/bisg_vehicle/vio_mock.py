@@ -19,6 +19,14 @@ and a fixed latency, as the vehicle's VIO estimate:
 Only this node and vio_relay (real hardware) may subscribe to ground truth (parity
 rule, plan.md §8) — no other node should read state/pose or state/twist.
 
+Timestamps: run with use_sim_time:=true (docker/compose.yaml sets USE_SIM_TIME). PX4 SITL
+runs on sim time, and the stamp on mavros/odometry/out is what PX4 fuses the sample at (after
+MAVLink timesync). Each sample is stamped with this node's clock when it arrives, i.e. its
+capture time in sim time, and published latency_s later. The incoming state/pose stamp is
+NOT reused: Pegasus's backend node stamps with the wall clock, which drifts from sim time by
+(1 - rtf) s/s — that mismatch kept timesync from converging and let the vision height
+estimate run away in flight (docs/todo.md, 2026-09-25).
+
 Simplification (documented, not hidden): odom is treated as coincident with map (no
 drift model yet), so the "noisy VIO" position is ground truth + white noise, not a
 driftful estimate. Revisit once real ZED Mini VIO characterises actual drift.
@@ -86,7 +94,10 @@ class VioMock(Node):
         for i in (21, 28, 35):      # rot_x,rot_y,rot_z diagonal — orientation noise not modelled yet
             pose_cov[i] = 0.05
 
-        self._queue.append((self.get_clock().now().nanoseconds / 1e9, msg.header.stamp, pos, msg.pose.orientation, pose_cov))
+        now = self.get_clock().now()
+        if now.nanoseconds == 0:  # use_sim_time and no /clock received yet: a 0 stamp would reach PX4
+            return
+        self._queue.append((now.nanoseconds / 1e9, now.to_msg(), pos, msg.pose.orientation, pose_cov))
 
     def _drain_queue(self):
         now = self.get_clock().now().nanoseconds / 1e9

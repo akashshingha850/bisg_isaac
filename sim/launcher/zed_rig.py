@@ -4,7 +4,7 @@ ZED Mini stereo/depth/IMU rig, attached to a Pegasus vehicle body.
 Publishes directly under the contract topic names in docs/interface-contract.md
 (zed/zed_node/...) instead of going through Pegasus's ROS2Backend graphical-sensor
 path, whose topic naming (`<cam>/color/image_raw`) does not match the ZED wrapper.
-Intrinsics are a placeholder pinhole model (HD720, ~90 deg HFOV) — replace with the
+Intrinsics are a placeholder pinhole model (HD720, 84 deg HFOV) — replace with the
 factory K once the real unit is measured (docs/hardware.md "ZED Mini model table").
 
 Called from sim/launcher/launch.py after the vehicle prim exists (needs
@@ -32,6 +32,12 @@ LOG = logging.getLogger("launch")
 _OPTICAL_QUAT = Rotation.from_euler("xyz", [-90.0, 0.0, -90.0], degrees=True).as_quat()  # (x,y,z,w)
 
 
+def _quat_wxyz(rot: Rotation):
+    """Isaac Sim core APIs (set_local_pose, set_world_pose) take quaternions scalar-first."""
+    x, y, z, w = rot.as_quat()
+    return np.array([w, x, y, z])
+
+
 def _quat_xyzw(rot: Rotation):
     q = rot.as_quat()
     return {"x": float(q[0]), "y": float(q[1]), "z": float(q[2]), "w": float(q[3])}
@@ -52,7 +58,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
     enable_extension("isaacsim.ros2.bridge")
     enable_extension("isaacsim.sensors.physics")
 
-    mount = [float(x) for x in cfg.get("mount_xyz_rpy", [0.10, 0.0, -0.02, 0, 0, 0])]
+    mount = [float(x) for x in cfg.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])]
     mount_xyz, mount_rpy = mount[:3], mount[3:]
     baseline = float(cfg.get("baseline", 0.063))
     width, height = [int(x) for x in cfg.get("resolution", [1280, 720])]
@@ -66,32 +72,36 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
     fp = ns.lstrip("/") + "/"
 
     # ZED Mini HD720 placeholder pinhole intrinsics (TBD in docs/hardware.md until measured).
-    fx = fy = (width / 2.0) / math.tan(math.radians(84.0) / 2.0)
-    cx, cy = width / 2.0, height / 2.0
-    diag_fov = math.degrees(2 * math.atan(math.hypot(width, height) / 2.0 / fx))
+    # image_rect_color is rectified, so an ideal pinhole with zero distortion is the right model.
+    fx = (width / 2.0) / math.tan(math.radians(84.0) / 2.0)
+    # USD pinhole: fx [px] = focalLength / horizontalAperture * width. Only the ratio matters; a 3 um
+    # pixel pitch gives mm-sized numbers. Square pixels, principal point at the image centre.
+    pixel_mm = 0.003
+    focal_mm = fx * pixel_mm
 
     cams = {}
     for side, y_sign in (("left", +1.0), ("right", -1.0)):
         prim_path = f"{body_path}/zed_{side}_camera_frame"
         local_pos = np.array(mount_xyz) + mount_rot.apply([0.0, y_sign * baseline / 2.0, 0.0])
-        # Isaac cameras look down -Z by default; MonocularCamera's proven convention adds a
-        # 180 deg yaw so "orientation 0" faces the vehicle's forward (+X, FLU).
-        local_rot = mount_rot * Rotation.from_euler("Z", 180.0, degrees=True)
-
+        # camera_axes="world" (the default) is +X forward / +Z up, i.e. FLU, so the mount rotation alone
+        # points the lens along base_link +X. Isaac wants the quaternion scalar-first (w, x, y, z);
+        # scipy's as_quat() is (x, y, z, w). Passing it unconverted (until 2026-09-25) read identity as
+        # a 180 deg yaw — the rig looked backwards; a compensating "180 deg yaw" copied from Pegasus's
+        # MonocularCamera (whose 180 deg roll is the same trick) turned into a 180 deg pitch.
         cam = Camera(prim_path=prim_path, frequency=fps, resolution=(width, height))
-        cam.set_local_pose(np.array(local_pos), local_rot.as_quat())
+        cam.set_local_pose(np.array(local_pos), _quat_wxyz(mount_rot), camera_axes="world")
         cam.initialize()
-        cam.set_lens_distortion_model("OmniLensDistortionOpenCvPinholeAPI")
-        cam.set_rational_polynomial_properties(
-            nominal_width=width, nominal_height=height,
-            optical_centre_x=cx, optical_centre_y=cy,
-            max_fov=diag_fov, distortion_model=[0.0] * 8,
-        )
+        # Intrinsics straight on the USD camera; read_camera_info() derives camera_info K from these.
+        # (A lens-distortion model with its own fx never reached the render: K stayed at the USD
+        # default 50 mm focal length, ~24 deg HFOV instead of 84.)
+        cam.prim.GetAttribute("focalLength").Set(focal_mm)
+        cam.prim.GetAttribute("horizontalAperture").Set(width * pixel_mm)
+        cam.prim.GetAttribute("verticalAperture").Set(height * pixel_mm)
         cam.set_clipping_range(near, far)
         if side == "left":
             cam.add_distance_to_image_plane_to_frame()
         cams[side] = cam
-        LOG.info("zed rig: %s camera at %s (prim %s)", side, local_pos, prim_path)
+        LOG.info("zed rig: %s camera at %s (prim %s), fx=%.1f px (HFOV 84 deg)", side, local_pos, prim_path, fx)
 
     for side, cam in cams.items():
         render_path = cam._render_product_path
@@ -132,17 +142,22 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
 
     imu_graph_path = f"{body_path}/zed_imu_pub"
     keys = og.Controller.Keys
+    # Driven by OnPhysicsStep in an on-demand graph, not OnTick: action graphs only evaluate on
+    # rendered frames (1 in 4 physics steps with the launcher's render cadence), which capped the
+    # IMU at ~62 Hz sim time (43 Hz measured at rtf 0.66) against the contract's 200 Hz. Now one
+    # sample per physics step: 250 Hz sim time at the default physics_dt.
     (imu_graph, _, _, _) = og.Controller.edit(
-        {"graph_path": imu_graph_path, "evaluator_name": "execution"},
+        {"graph_path": imu_graph_path, "evaluator_name": "execution",
+         "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND},
         {
             keys.CREATE_NODES: [
-                ("on_tick", "omni.graph.action.OnTick"),
+                ("on_tick", "isaacsim.core.nodes.OnPhysicsStep"),
                 ("sim_time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
                 ("read_imu", "isaacsim.sensors.physics.IsaacReadIMU"),
                 ("pub_imu", "isaacsim.ros2.bridge.ROS2PublishImu"),
             ],
             keys.CONNECT: [
-                ("on_tick.outputs:tick", "read_imu.inputs:execIn"),
+                ("on_tick.outputs:step", "read_imu.inputs:execIn"),
                 ("read_imu.outputs:execOut", "pub_imu.inputs:execIn"),
                 ("read_imu.outputs:angVel", "pub_imu.inputs:angularVelocity"),
                 ("read_imu.outputs:linAcc", "pub_imu.inputs:linearAcceleration"),
@@ -162,7 +177,8 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
         target_prim_paths=[imu_prim_path],
     )
     og.Controller.evaluate_sync(imu_graph)
-    LOG.info("zed rig: imu at %s -> %s/zed/zed_node/imu/data (%d Hz)", imu_local, ns, int(imu_rate))
+    LOG.info("zed rig: imu at %s -> %s/zed/zed_node/imu/data (every physics step; sensor %d Hz)",
+             imu_local, ns, int(imu_rate))
 
     # --- static TF for the rig: base_link -> zed_camera_link -> {left,right} -> optical, + imu ---
     tf_graph_path = f"{body_path}/zed_tf_pub"

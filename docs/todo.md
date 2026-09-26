@@ -2,6 +2,7 @@
 
 Live checklist. Move items to **Done** with a date; keep **Now** short (≤ 10 items).
 Phase definitions and exit tests are in [roadmap.md](roadmap.md).
+Known defects, with causes and candidate fixes, are in [bugs.md](bugs.md).
 
 ## Now — Phase 0: Foundations
 
@@ -64,17 +65,24 @@ Phase 2 — ROS 2 + MAVROS
 - [x] `bisg/ros:arm64` cross-built under qemu (`docker buildx build --platform linux/arm64 -f docker/ros.Dockerfile -t bisg/ros:arm64 --load .`, ~15 min); MAVROS + geoid verified inside (2026-09-12)
 - [ ] `bisg_msgs`, `bisg_vehicle/offboard_controller` (+ Python API), `mission_square`
 - [ ] MAVROS launch wrapper: `ns`, `fcu_url`, `tgt_system` from drone id
-- [ ] `/clock` + `use_sim_time` verified in MAVROS and our nodes
+- [x] `/clock` + `use_sim_time` verified in MAVROS and our nodes (2026-09-25): launcher publishes `/clock` every physics step; MAVROS plugin nodes need a runtime param set (`docker/ros/mavros_sim_time.py`) — see Phase 3
 - [ ] Cross-container topic smoke test (Isaac Jazzy bridge → ros container)
 
 Phase 3 — Sensors, ZED Mini contract, VIO
 - [x] Stereo (63 mm) + depth + IMU rig under ZED names; TF tree; camera_info (2026-09-21): `sim/launcher/zed_rig.py`,
   wired from `sim/configs/*.yaml` `sensors.zed`. Verified live: `/drone_1/zed/zed_node/{left,right}/image_rect_color`
-  (rgb8), `.../depth/depth_registered` (32FC1), `.../{left,right}/camera_info`, `.../imu/data` (~17 Hz measured,
-  target 200 Hz — rate not yet tuned, see below) all publishing real data; static TF `drone_1/base_link ->
+  (rgb8), `.../depth/depth_registered` (32FC1), `.../{left,right}/camera_info`, `.../imu/data` all publishing
+  real data (IMU rate fixed 2026-09-25, image delivery needs the host sysctl — see below); static TF `drone_1/base_link ->
   zed_camera_link -> {left,right}_camera_frame -> optical` + `zed_imu_link` on `/drone_1/tf_static`.
   Camera intrinsics are a placeholder pinhole model (84° HFOV, HD720) — replace with factory K once the real
   unit is measured (`docs/hardware.md` ZED Mini model table still has mount pose/K as TBD).
+  **2026-09-25: the footage was unusable until now and nobody had looked at it.** Three rig bugs: the lens sat
+  inside the Iris nose (mount x 0.10, body ends at 0.156) and saw only fuselage; the pose quaternion was passed
+  in scipy (x,y,z,w) order to an API that wants (w,x,y,z), with a 180° yaw hack cancelling it; the focal length
+  never reached the camera (camera_info fx 1527 @640 px = 24° HFOV). Fixed: mount x 0.18, `_quat_wxyz()`, USD
+  focalLength/aperture. Checked frames on the ground, hovering and banked ~20° mid-square: clear forward view,
+  no airframe/props/legs, 0 depth pixels < 0.5 m in flight, stereo parallax sign correct. `tests/vio_flight.py`
+  still PASS (0.056 m). Captured at 480x270 — HD720 frames still need the host sysctl (bugs.md B2).
 - [x] `vio_mock` → `mavros/odometry/out` (2026-09-21): `ros2_ws/src/bisg_vehicle` (new package), reads Pegasus
   ground-truth `state/pose`/`state/twist` (ROS2Backend `pub_state`, parity rule plan.md §8), adds Gaussian
   position noise + 30 ms latency, publishes `zed/zed_node/odom` (sensor QoS, `drone_1/`-prefixed frames per
@@ -91,22 +99,36 @@ Phase 3 — Sensors, ZED Mini contract, VIO
   (`/opt/PX4-Autopilot/src/modules/ekf2/{module,params_external_vision,params_gnss,params_magnetometer}.yaml`
   inside the sim container), not guessed: `EKF2_HGT_REF=3`(Vision) `EKF2_EV_CTRL=15`(pos+vel+yaw)
   `EKF2_EV_DELAY=30` `EKF2_GPS_CTRL=0` `EKF2_MAG_TYPE=5`(None). `EKF2_HGT_REF`/`EKF2_MAG_TYPE` are
-  `reboot_required` — pushing alone isn't enough, `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN` is needed after (confirmed
-  safe on SITL: params persist through it). With the full set applied + reboot, arms and accepts a takeoff
-  command with GPS fully disabled (confirmed by binary-search: full param revert arms cleanly, so this really is
-  the GPS-denied config working, not a leftover GPS path).
-- [ ] **Known bug — height estimate diverges once airborne under `EKF2_HGT_REF=Vision`**: on the ground the
-  estimate is healthy (`pos_horiz_accuracy` ~0.016 m, all `ESTIMATOR_STATUS` flags good) and arming/takeoff are
-  accepted, but during the 2026-09-21 test flight `mavros/local_position/pose.z` diverged to ~-81 m while Isaac's
-  own ground truth showed the vehicle actually climbing to ~9 m (target was 2 m) — the position controller,
-  trusting the bad estimate, drove a runaway climb. Recovered by commanding `MAV_CMD_NAV_LAND` (estimate kept
-  diverging, did not help) then a full `./bisg restart` (SITL/EKF2 state doesn't survive a container recreate,
-  so this always returns to a clean slate — no separate "undo" needed). Root cause not yet found: prime suspects
-  are `EKF2_EV_POS_Z` lever-arm handling once the vehicle actually moves off `z≈0`, or a hidden interaction with
-  `EKF2_EV_DELAY` visible only once the vehicle has real dynamics (both looked fine sitting still, which is why
-  ground testing alone didn't catch it). **Do not fly this GPS-denied config further** (sim or otherwise) until
-  this is root-caused — arming clean does not mean the height estimate stays sane after takeoff.
-  Current container is back on PX4 defaults (GPS-based) and confirmed flying clean.
+  `reboot_required`. **Corrected 2026-09-25**: SITL refuses the reboot (COMMAND_ACK DENIED) and Pegasus runs PX4
+  from a fresh temp dir, so pushed params never took full effect — EKF2 kept its GPS-anchored origin and yaw
+  alignment, which is why it "armed and accepted takeoff". Now applied at boot instead (launcher
+  `px4.params_file` → `PX4_PARAM_*` env, scenario `single_iris_vio`); `EKF2_EV_DELAY` 30 → 0 (samples are
+  stamped at capture time, EKF2 subtracts the delay again).
+- [x] **GPS-denied flight works in sim** (2026-09-25) — the 2026-09-21 height runaway is root-caused and fixed.
+  `tests/vio_flight.py` (Phase 3 exit test: OFFBOARD takeoff, hover, 3 m square, land) PASS, max |estimate −
+  ground truth| x 0.059 / y 0.076 / z 0.028 m (bound 0.3 m). Causes, all fixed:
+  1. **Two clocks.** PX4 SITL runs on sim time (Pegasus stamps HIL_SENSOR; PX4 sets its clock from it) while
+     Pegasus's `state/pose`, vio_mock and MAVROS stamped wall time. The offset drifts at (1 − rtf) s/s, so PX4
+     timesync never converged: EV samples were stamped on arrival, or with a stale offset once it briefly
+     "converged", and mistimed vision height in a climb diverged. Fix: `/clock` from the launcher's physics
+     callback; `use_sim_time` on vio_mock and MAVROS (compose `USE_SIM_TIME=true`, Jetson default false);
+     vio_mock stamps with its own clock. MAVROS 2.15.1 plugin nodes ignore `-p` and `--params-file`
+     (`use_global_arguments(false)`), so `docker/ros/mavros_sim_time.py` sets it at runtime. Verified: observed
+     offset constant (−8 ms), EV `timestamp_sample` 27–32 ms before arrival = the mock latency.
+  2. **Params never applied** (see EV params item above) — the stale GPS origin also put local z at −90 m.
+  3. **No global position GPS-denied**: MAVROS sends EV as `LOCAL_FRD`, EKF2 never yaw-aligns → Hold (boot
+     mode) refuses to arm; AUTO.LAND engages but flew toward lat/lon 0,0 at ~6 m/s into a wall. Fly and land in
+     OFFBOARD; landing needs a descent *velocity* setpoint (land detector). Setting a global origin does not
+     help (tried, reverted).
+- [ ] Offboard-loss / RC-loss failsafe action for GPS-denied flight (`docs/hardware.md`): Land/Hold are unusable
+  (item above). Pick and prove one in SITL (Descend?) before any real VIO flight.
+- [ ] **Host action (needs sudo): `net.core.rmem_max`** — at the Ubuntu default 208 KB no HD720 ZED image or
+  depth frame is delivered (0 of them; 320x180 flows fine, so it is size, not the rig). `docs/setup.md` has the
+  sysctl; Cyclone now requests 16 MB. Re-measure image rates after.
+- [ ] Launcher RTF metric under-reports: `/clock` advances ~1.15x wall while `[launch] perf ... rtf=0.65`
+  (render frames step physics more than once per loop iteration). `docs/performance.md` numbers need a redo.
+- [ ] Rebuild `bisg/ros:arm64` — `docker/ros/entrypoint.sh` changed (MAVROS now `ros2 run mavros_node` with the
+  same param files as `px4.launch`; hardware path unchanged otherwise, `USE_SIM_TIME` defaults to false)
 - [ ] `tests/check_contract.py` — not written; `./bisg debug echo|hz` used for manual verification above
 
 Phase 4 — Digital-twin assets and models
@@ -137,6 +159,11 @@ Phase 8 — Task library + CI
 - ZED SDK on simulated stream — only if a ZED X is ever used (Stereolabs Isaac integration)
 
 ## Done
+- 2026-09-25 — ZED feed analysis + GPS-denied VIO flight (Phase 3). ZED: IMU 43 Hz wall (render-cadence-bound)
+  → 246 Hz sim via an OnPhysicsStep graph (contract 200 Hz); camera_info 17.8 Hz sim (15–30 ✓); all ZED/VIO/MAVROS
+  stamps now on one clock (images were sim time, odom/MAVROS wall); HD720 images blocked by host rmem_max
+  (open item). ROS workspace had never been built on the new PC (vio_mock crash-looped: `./bisg ros build`).
+  VIO: see the Phase 3 "GPS-denied flight works in sim" item. Phase 1 smoke (GPS scenario) still PASS after the changes.
 - 2026-09-12 — Phase 0 documentation set created; hardware/ordering/PX4 policy decided
 - 2026-09-21/22 — Workstation migration 22.04 → 24.04 done via new PC; host prepped (docker group, nvidia-container-toolkit, docker-compose-v2), found+fixed a driver-595/R590 incompatibility with Isaac Sim 5.1 (downgraded to 580.178.04), rebuilt `bisg/sim`+`bisg/ros` images from scratch, converted `third_party/*` clones to git submodules, re-ran Phase 1 smoke test clean. See plan.md §12.
 - 2026-09-22 — Dropped remaining Ubuntu 22.04 mentions from docs/scripts now that the workstation is settled on 24.04 (CLAUDE.md, ADR-005, `docs/setup.md`, `docs/plan.md` §4 pin table, `docs/skills.md`; `scripts/check_env.sh`'s GPU test image moved from `nvidia/cuda:...-ubuntu22.04` to the `...-ubuntu24.04` tag). Restructured `docker/`: one `docker/compose.yaml` with all profiles still, but each image's Dockerfile + entrypoint now live in their own folder (`docker/sim/`, `docker/ros/`) instead of flat `docker/sim.Dockerfile` / `docker/sim-entrypoint.sh` etc. Verified `docker compose -f docker/compose.yaml --profile <sim|sim-headless|ros|tools> config` resolves identically to before the move. Rebuilt `bisg/sim`+`bisg/ros` from the new Dockerfile paths (all expensive layers — apt, PX4 SITL build, Pegasus clone/install, rosdep — hit cache, only the entrypoint COPY layer re-ran); `./bisg up headless` booted clean (97s to `[launch] sim ready`, 100s to PX4 ready), `./bisg smoke` PASS (armed → airborne 1.63 m → landed/disarmed), `./bisg mavros up` connected (`connected: true`) against the running SITL; `./bisg down` left no stray containers.

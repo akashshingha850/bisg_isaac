@@ -31,9 +31,25 @@ def parse_args():
     return args
 
 
+def load_scenario(path):
+    """Read a scenario YAML. `extends: <file>` (relative to this file) loads that scenario
+    first and deep-merges this one over it, so a variant only lists what it changes."""
+    with open(path, "r") as f:
+        cfg = yaml.safe_load(f) or {}
+    base = cfg.pop("extends", None)
+    if not base:
+        return cfg
+
+    def merge(a, b):
+        out = dict(a)
+        for k, v in b.items():
+            out[k] = merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+        return out
+    return merge(load_scenario(os.path.join(os.path.dirname(path), base)), cfg)
+
+
 ARGS = parse_args()
-with open(ARGS.config, "r") as f:
-    CFG = yaml.safe_load(f) or {}
+CFG = load_scenario(ARGS.config)
 
 APP_CFG = CFG.get("app", {})
 HEADLESS = bool(APP_CFG.get("headless", False)) or ARGS.headless or os.environ.get("SIM_HEADLESS", "0") == "1"
@@ -275,6 +291,62 @@ def resolve_vehicle_usd(v_cfg):
     return ROBOTS[model]
 
 
+def apply_px4_params(params_file):
+    """Hand a deploy/px4_params/*.params file to PX4 SITL at boot.
+
+    PX4's posix rcS runs `param set <name> <value>` for every PX4_PARAM_<name> env var before
+    any module starts, and Pegasus launches PX4 with this process's environment. So the
+    reboot_required EKF2 params (EKF2_HGT_REF, EKF2_MAG_TYPE) take effect on the first boot:
+    there is no push + reboot step, which SITL can't do anyway (Pegasus runs PX4 from a fresh
+    temp dir each launch, so a saved param never survives). Applies to every PX4 instance.
+    """
+    if not params_file:
+        return
+    path = params_file if os.path.isabs(params_file) else os.path.join("/workspace", params_file)
+    with open(path) as f:
+        for line in f:
+            line = line.split("#", 1)[0].split()
+            if line:  # "NAME VALUE MAV_PARAM_TYPE" (scripts/push_px4_params.py format)
+                os.environ[f"PX4_PARAM_{line[0]}"] = line[1]
+                LOG.info("px4 param %s = %s (%s)", line[0], line[1], params_file)
+
+
+class SimClock:
+    """Publish /clock (sim time) once per physics step (docs/interface-contract.md).
+
+    PX4 SITL runs on sim time: Pegasus stamps every HIL_SENSOR with its accumulated physics time
+    and PX4 sets its own clock from it. Everything ROS-side must run on the same clock
+    (use_sim_time), or MAVLink timesync sees two clocks drifting apart at (1 - rtf) s/s, never
+    converges, and PX4 stamps external-vision samples on arrival or with a stale offset.
+    This is driven by the physics callback, not an OmniGraph tick: action graphs only
+    evaluate on rendered frames (1 in `render_every` steps).
+    """
+
+    def __init__(self, world):
+        from isaacsim.core.utils.extensions import enable_extension  # noqa: WPS433
+        enable_extension("isaacsim.ros2.bridge")  # puts Isaac's bundled Jazzy rclpy on sys.path
+        import rclpy  # noqa: WPS433
+        from rclpy.qos import QoSProfile, ReliabilityPolicy  # noqa: WPS433
+        from rosgraph_msgs.msg import Clock  # noqa: WPS433
+
+        try:
+            rclpy.init()
+        except RuntimeError:  # already initialised (Pegasus ROS2Backend does the same)
+            pass
+        self.world = world
+        self.msg = Clock()
+        self.node = rclpy.create_node("bisg_sim_clock")
+        # Reliable keep-last-1: compatible with best-effort time-source readers and with ros2 CLI tools.
+        self.pub = self.node.create_publisher(Clock, "/clock", QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE))
+        world.add_physics_callback("bisg_sim_clock", self.on_step)
+        LOG.info("sim clock: publishing /clock every physics step (use_sim_time:=true on the ROS side)")
+
+    def on_step(self, _step_size):
+        # Same base as IsaacReadSimulationTime, which stamps the ZED images/IMU/TF.
+        self.msg.clock.sec, self.msg.clock.nanosec = divmod(int(round(self.world.current_time * 1e9)), 1_000_000_000)
+        self.pub.publish(self.msg)
+
+
 class App:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -304,10 +376,12 @@ class App:
             GroundPlane(prim_path="/World/bisg_ground", size=500.0, z_position=float(world_cfg.get("ground_z", 0.0)), visible=False)
 
         px4_cfg = cfg.get("px4", {})
+        apply_px4_params(px4_cfg.get("params_file"))
         for v in cfg.get("vehicles", []):
             self.spawn_vehicle(v, px4_cfg)
 
         self.world.reset()
+        self.clock = SimClock(self.world) if cfg.get("app", {}).get("ros_clock", True) else None
 
     def spawn_vehicle(self, v, px4_cfg):
         vid = int(v.get("id", 0))

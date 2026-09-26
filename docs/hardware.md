@@ -38,11 +38,11 @@ Add a udev rule so the FC always appears as `/dev/px4`, and give the container u
 | `SER_TEL2_BAUD` | 921600 | |
 | `EKF2_EV_CTRL` | 15 (pos + vel + yaw + hgt) or 11 without vel | external vision fusion |
 | `EKF2_HGT_REF` | Vision | VIO altitude |
-| `EKF2_EV_DELAY` | 30–80 ms (tune from log) | VIO latency |
+| `EKF2_EV_DELAY` | 0 while odom is stamped at image capture time; else the capture→stamp lag (tune from log) | EKF2 subtracts it from the (timesync'd) sample stamp, so a correctly stamped sample plus a non-zero delay counts the latency twice |
 | `EKF2_GPS_CTRL` | 0 (indoor) | GPS-denied |
 | `EKF2_MAG_TYPE` | none, if yaw from EV | indoor mag is unreliable |
 | `COM_RCL_EXCEPT` | 4 (offboard) if flying without RC link | only after RC kill switch is proven |
-| `COM_OF_LOSS_T`, `COM_OBL_RC_ACT` | short timeout, Land/Hold | offboard loss failsafe |
+| `COM_OF_LOSS_T`, `COM_OBL_RC_ACT` | short timeout; action **TBD — not Land/Hold while GPS-denied** | offboard loss failsafe. EV arrives as `LOCAL_FRD`, so EKF2 has no global position: Hold/RTL won't engage and AUTO.LAND flies toward lat/lon 0,0 (sim, 2026-09-25). Candidates: Descend, or Land only once a global origin + north-aligned yaw exist. Must be proven in SITL before the bench checklist |
 | `CBRK_*` | none disabled in flight | bench only |
 
 Param names are checked against the pinned PX4 tag in Phase 1 (newer releases rename some). The same file is loaded into SITL (Phase 3) so sim and hardware EKF2 behave the same.
@@ -67,7 +67,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 | FOV (approx.) | 90° H × 60° V (per lens, HD720) — take exact K from the camera's factory calibration via the SDK and copy it here |
 | Depth range | 0.1–15 m (ULTRA/NEURAL modes) |
 | IMU | built-in, published at 200 Hz by the wrapper (`zed_imu_link`) |
-| Mount pose `xyz_rpy` on `base_link` | TBD (measure on the frame in Phase 4, e.g. `[0.10, 0.0, -0.02, 0, 0, 0]` forward-facing) |
+| Mount pose `xyz_rpy` on `base_link` | TBD (measure on the frame in Phase 4). Sim uses `[0.18, 0.0, -0.02, 0, 0, 0]`: the lens must sit **ahead of the frame** and the props **outside the ~90° HFOV**; the old example `0.10` put the sim lens inside the Iris nose. Re-run the view check (bugs.md B13) for the real mount |
 | Positional tracking | SDK VIO → `zed/zed_node/odom`; `vio_relay` republishes to `mavros/odometry/out` |
 
 Limits worth knowing: ZED Mini is USB, so no GMSL capture card; it is not supported by Stereolabs' Isaac Sim streaming integration (ZED X family), hence the topic-contract approach.

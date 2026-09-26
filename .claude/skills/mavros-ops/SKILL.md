@@ -30,7 +30,17 @@ Each step returns a result object with the ACK/`success` so missions read top to
 - MAVROS publishes sensor topics best-effort → subscribe with `SensorDataQoS` or match with `ros2 topic info -v`.
 
 ## Time
-- Sim: `use_sim_time:=true` for MAVROS and all our nodes; Isaac publishes `/clock`. Timesync plugin keeps PX4 ↔ ROS offset.
+- Sim: `use_sim_time:=true` for MAVROS and all our nodes; the launcher publishes `/clock` every physics step.
+  PX4 SITL runs on **sim time** (Pegasus stamps HIL_SENSOR, PX4 sets its clock from it), so anything on the wall
+  clock drifts at (1 − rtf) s/s and PX4 timesync never converges → vision samples mis-stamped → EV height runaway.
+- MAVROS 2.15.1 plugin nodes use `use_global_arguments(false)`: they ignore `-p` **and every `--params-file`**
+  (so `px4_config.yaml` plugin sections are dead too, e.g. `timesync_rate` is 0). `docker/ros/mavros_sim_time.py`
+  sets `use_sim_time` on them at runtime. Check: `ros2 param get /drone_1/mavros/time use_sim_time`.
+- Timesync locked? `./bisg debug px4 listener timesync_status` (observed offset constant) and
+  `listener vehicle_visual_odometry`: `timestamp_sample` ≠ `timestamp` (equal = PX4 is stamping on arrival).
+- GPS-denied: MAVROS sends EV as `LOCAL_FRD` → EKF2 never yaw-aligns → no global position. Hold/Takeoff/RTL
+  refuse; AUTO.LAND engages but flies toward lat/lon 0,0. Fly and land in OFFBOARD; land with a descent
+  **velocity** setpoint (the land detector ignores position setpoints). `tests/vio_flight.py` is the reference.
 - Real: wall clock; chrony to GCS.
 
 ## Quick probes

@@ -10,6 +10,8 @@ app:
   stream: off                # off | webrtc — WebRTC livestream for headless runs (SIM_VIEW overrides).
                              # Forces rendering on; watch with the Isaac Sim WebRTC Streaming Client
                              # (TCP 49100 / UDP 47998). See docs/configuration.md.
+  ros_clock: true            # publish /clock (sim time) every physics step; PX4 SITL runs on sim time,
+                             # so MAVROS + our nodes need use_sim_time:=true (docs/interface-contract.md)
 
 # --- Performance (docs/performance.md) ----------------------------------------
 # Only non-null keys are passed to SimulationApp / Kit. Defaults here are the safe,
@@ -44,7 +46,8 @@ px4:
   autolaunch: true
   airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
   enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
-  params_file: null               # deploy/px4_params/<file>.params, loaded after boot (Phase 3)
+  params_file: null               # deploy/px4_params/<file>.params, applied at PX4 boot via PX4_PARAM_*
+                                  # env vars (so reboot_required params work). single_iris_vio sets it.
 
 vehicles:
   - id: 0                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}
@@ -60,7 +63,10 @@ vehicles:
     sensors:
       zed:                             # ZED Mini rig (sim/launcher/zed_rig.py); matches interface-contract.md
         enabled: true
-        mount_xyz_rpy: [0.10, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md)
+        mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
+                                       # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
+                                       # nose and saw only fuselage. 0.18 clears it; props stay outside the
+                                       # 84-90 deg HFOV. Re-check the view if this or the airframe changes.
         baseline: 0.063                # metres, ZED Mini
         resolution: [1280, 720]        # HD720
         fps: 30.0

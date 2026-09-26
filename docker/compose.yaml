@@ -106,6 +106,7 @@ services:
       DRONE_ID: ${DRONE_ID:-1}
       FCU_URL: ${FCU_URL:-}
       GCS_URL: ${GCS_URL:-}          # second MAVROS link (QGC / logger); empty = off
+      USE_SIM_TIME: "true"           # PX4 SITL runs on sim time; /clock from the launcher (interface-contract.md)
     command: ["mavros"]
     restart: unless-stopped
 
@@ -117,6 +118,7 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DRONE_ID: ${DRONE_ID:-1}
+      USE_SIM_TIME: "true"           # stamps must be on PX4's clock, see vio_mock.py
     command: ["vio_mock"]
     restart: unless-stopped
 

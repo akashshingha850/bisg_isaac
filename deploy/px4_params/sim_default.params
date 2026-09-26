@@ -3,6 +3,10 @@
 # Values verified against the pinned firmware source (PX4_TAG, ADR-003):
 # /opt/PX4-Autopilot/src/modules/ekf2/{module,params_external_vision,params_gnss,params_magnetometer}.yaml
 #
+# SITL: applied at PX4 boot by the launcher (scenario `px4.params_file`, sim/configs/single_iris_vio.yaml).
+# scripts/push_px4_params.py can still push it to a running PX4, but EKF2_HGT_REF/EKF2_MAG_TYPE are
+# reboot_required and a SITL reboot is refused — pushing alone leaves EKF2 on its GPS-anchored origin.
+#
 # Format (scripts/push_px4_params.py, NOT the QGC 5-column save format):
 #   NAME  VALUE  MAV_PARAM_TYPE
 # MAV_PARAM_TYPE: 6 = INT32 (enum/bitmask params below are stored as int32 in PX4),
@@ -14,7 +18,9 @@
 
 EKF2_HGT_REF   3   6   # Vision (0=Baro 1=GPS 2=Range 3=Vision)
 EKF2_EV_CTRL   15  6   # bit0 hpos + bit1 vpos + bit2 3D vel + bit3 yaw (hardware.md: "15 pos+vel+yaw+hgt")
-EKF2_EV_DELAY  30  9   # ms; vio_mock injects a 30ms mock latency on top of a true sample timestamp —
-                       # this covers additional wire/serialization lag, not a duplicate of that delay
+EKF2_EV_DELAY  0   9   # ms. vio_mock stamps each sample with its capture time (sim clock) and MAVLink
+                       # timesync maps that onto PX4 time, so the 30 ms mock latency is already in the
+                       # timestamp; EKF2 subtracts EV_DELAY on top, so a non-zero value double-counts it.
+                       # Real ZED: same rule while the wrapper stamps odom with image capture time.
 EKF2_GPS_CTRL  0   6   # GPS fusion fully disabled (indoor / GPS-denied)
 EKF2_MAG_TYPE  5   6   # None — EV supplies yaw (EKF2_EV_CTRL bit3); avoids mag/vision yaw fighting

@@ -30,10 +30,10 @@
     "semantic_hash": "416bf481000c12de1b4bd7bdf53daa8a"
   },
   "scripts/fetch_third_party.sh": {
-    "mtime": 1789997305.8720696,
-    "seen": 1790072503.9206858,
-    "ast_hash": "d50cafb9a123c1be7386552997ad34df",
-    "semantic_hash": "d50cafb9a123c1be7386552997ad34df"
+    "mtime": 1790080047.2251608,
+    "seen": 1790348362.8894737,
+    "ast_hash": "ade4eb6dc8fe8da8fa6c9bca3f167f0f",
+    "semantic_hash": "ade4eb6dc8fe8da8fa6c9bca3f167f0f"
   },
   "scripts/launch.sh": {
     "mtime": 1789997305.8720696,
@@ -108,10 +108,10 @@
     "semantic_hash": "294e4ab9dad17f0067515cf2e239da1f"
   },
   "CLAUDE.md": {
-    "mtime": 1790070722.277375,
-    "seen": 1790072503.9206917,
-    "ast_hash": "392dd856614cf9007019a236ace04ef2",
-    "semantic_hash": "392dd856614cf9007019a236ace04ef2"
+    "mtime": 1790072528.1025715,
+    "seen": 1790348362.8894887,
+    "ast_hash": "d802639a4863667ba12d523a177133eb",
+    "semantic_hash": "d802639a4863667ba12d523a177133eb"
   },
   "README.md": {
     "mtime": 1790070882.0574725,
@@ -144,10 +144,10 @@
     "semantic_hash": "fafd376eeb30c51c4d37897f4dfa96a7"
   },
   "docker/compose.yaml": {
-    "mtime": 1790070846.8959918,
-    "seen": 1790072503.920694,
-    "ast_hash": "1f16a76948e2db1fee52454e17ed1cf4",
-    "semantic_hash": "1f16a76948e2db1fee52454e17ed1cf4"
+    "mtime": 1790080039.5832803,
+    "seen": 1790348362.8894975,
+    "ast_hash": "d6417658640c88acdac3e7a95e182161",
+    "semantic_hash": "d6417658640c88acdac3e7a95e182161"
   },
   "docker/zed/README.md": {
     "mtime": 1789997305.8692687,
@@ -216,10 +216,10 @@
     "semantic_hash": "8efd630882fc0a639ffea167a546d3d5"
   },
   "docs/plan.md": {
-    "mtime": 1790070878.4255254,
-    "seen": 1790072503.9207,
-    "ast_hash": "171904ee24212d178e0f3e695b60c5ec",
-    "semantic_hash": "171904ee24212d178e0f3e695b60c5ec"
+    "mtime": 1790080067.0178225,
+    "seen": 1790348362.88951,
+    "ast_hash": "7e757c60efd8312b8e8fbbcf54d55849",
+    "semantic_hash": "7e757c60efd8312b8e8fbbcf54d55849"
   },
   "docs/remote-access.md": {
     "mtime": 1789997305.8695562,
@@ -240,10 +240,10 @@
     "semantic_hash": "8e8764486752122e436d821b48e956a2"
   },
   "docs/setup.md": {
-    "mtime": 1790070774.7820952,
-    "seen": 1790072503.9207017,
-    "ast_hash": "4ea8512f7491ece39c6d2be48c219973",
-    "semantic_hash": "4ea8512f7491ece39c6d2be48c219973"
+    "mtime": 1790080085.6565602,
+    "seen": 1790348362.889514,
+    "ast_hash": "99fed777b8e97086acdf609a42f02229",
+    "semantic_hash": "99fed777b8e97086acdf609a42f02229"
   },
   "docs/skills.md": {
     "mtime": 1790070812.921505,
@@ -252,10 +252,10 @@
     "semantic_hash": "7240c919dcbf95622966d1e119d54841"
   },
   "docs/todo.md": {
-    "mtime": 1790071283.2445793,
-    "seen": 1790072503.9207025,
-    "ast_hash": "72fd71c68ad038e04d34b7de53e3e9cf",
-    "semantic_hash": "72fd71c68ad038e04d34b7de53e3e9cf"
+    "mtime": 1790080106.7452307,
+    "seen": 1790348362.8895156,
+    "ast_hash": "f0cb2b7086f66e648829eac08be1c2b1",
+    "semantic_hash": "f0cb2b7086f66e648829eac08be1c2b1"
   },
   "ros2_ws/src/README.md": {
     "mtime": 1789997305.8718796,
@@ -330,9 +330,9 @@
     "semantic_hash": "dafb7601e30322ff0f537bdab385cc23"
   },
   "third_party/README.md": {
-    "mtime": 1789997305.8724816,
-    "seen": 1790072503.9207046,
-    "ast_hash": "48f34f0893bcf51dd470af5024da1f3a",
-    "semantic_hash": "48f34f0893bcf51dd470af5024da1f3a"
+    "mtime": 1790080099.2213483,
+    "seen": 1790348362.8895216,
+    "ast_hash": "eedc864e8e8275a0b51f4e4e5d23c1ba",
+    "semantic_hash": "eedc864e8e8275a0b51f4e4e5d23c1ba"
   }
 }

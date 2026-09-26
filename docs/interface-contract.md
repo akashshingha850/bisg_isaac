@@ -48,7 +48,7 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 |---|---|---|---|
 | `mavros/setpoint_position/local` | `geometry_msgs/PoseStamped` | `bisg_vehicle/offboard_controller` | ≥ 10 Hz while OFFBOARD |
 | `mavros/setpoint_raw/local` | `mavros_msgs/PositionTarget` | same | velocity/accel setpoints |
-| `mavros/odometry/out` | `nav_msgs/Odometry` | `vio_relay` (real) / `vio_mock` (sim) | ENU/FLU in; MAVROS converts to PX4 NED/FRD; frame ids `odom`/`base_link` |
+| `mavros/odometry/out` | `nav_msgs/Odometry` | `vio_relay` (real) / `vio_mock` (sim) | ENU/FLU in; MAVROS converts to PX4 NED/FRD; frame ids `odom`/`base_link`; stamp = sample capture time on the vehicle clock (sim time in sim) — PX4 fuses the sample at that time, so a wrong clock is a wrong measurement |
 | `vehicle/cmd` | `bisg_msgs/VehicleCmd` | fleet manager | takeoff / goto / land / rtl / hold / task-specific |
 
 ## Services (under `/drone_<n>/`)
@@ -62,7 +62,7 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 |---|---|---|
 | `/fleet/task` | `bisg_msgs/Task` | task id, type, area/waypoints, assigned drone ids |
 | `/fleet/status` | `bisg_msgs/FleetStatus` | aggregated `VehicleState` list |
-| `/clock` | `rosgraph_msgs/Clock` | sim only; all nodes `use_sim_time:=true` in sim |
+| `/clock` | `rosgraph_msgs/Clock` | sim only, published every physics step by the launcher; all nodes `use_sim_time:=true` in sim — PX4 SITL runs on sim time, so this includes every MAVROS plugin node (`docker/ros/mavros_sim_time.py`) |
 
 ## QoS
 

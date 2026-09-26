@@ -21,7 +21,14 @@ curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
 sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
 ```
-Optional but recommended for DDS with big messages later: `sudo sysctl -w net.core.rmem_max=10485760` (persist in `/etc/sysctl.d/`).
+**Required for the ZED camera topics:** raise the UDP receive buffer limit. At the Ubuntu default (208 KB) a
+1280x720 image (2.7 MB, ~42 UDP fragments) never arrives whole, so `camera_info` flows while every
+`image_rect_color` / `depth_registered` subscriber gets nothing — no error anywhere (measured 2026-09-25:
+0 images at HD720, all three streams fine at 320x180). `docker/cyclonedds.xml` asks for 16 MB and takes what
+the kernel allows:
+```
+echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system
+```
 
 ## `./bisg setup`
 

@@ -32,6 +32,7 @@ RUN printf '%s\n' 'source /opt/ros/jazzy/setup.bash' '[ -f /workspace/ros2_ws/in
 
 WORKDIR /workspace/ros2_ws
 COPY docker/ros/entrypoint.sh /usr/local/bin/ros-entrypoint.sh
+COPY docker/ros/mavros_sim_time.py /usr/local/lib/bisg/mavros_sim_time.py
 RUN chmod +x /usr/local/bin/ros-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
 CMD ["bash"]
