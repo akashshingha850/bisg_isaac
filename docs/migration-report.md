@@ -5,6 +5,8 @@ Plan followed: [`migrate.md`](migrate.md) · Every error hit along the way: [`mi
 
 ## 1. Verdict
 
+> Detailed 5.1 vs 6.0 numbers, with and without the ZED rig, measured in one matched run: [`isaac-5.1-vs-6.0.md`](isaac-5.1-vs-6.0.md).
+
 The stack runs on **Isaac Sim 6.0.0** with the same ROS 2 interface as before. The three tests that gate the twin all
 pass and match the 5.1 baseline: arm/takeoff/land smoke, GPS-denied VIO flight (position error 0.05–0.07 m vs 0.06–0.07 m
 before) and the ZED depth-box check (front face −0.2 mm, identical). Topic names, frames and namespaces are unchanged;
