@@ -1336,7 +1336,7 @@ The migration is complete when all of the following pass.
 * [ ] QGroundControl connects — **PARTIAL (MAVLink heartbeat on udp 14550 verified; QGC not installed on this host)**
 * [x] vehicle arms — **DONE**
 * [x] takeoff works — **DONE**
-* [ ] position hold works — **NOT TESTED (GPS-denied scenario cannot hold; GPS scenario only smoke-tested arm/takeoff/land)**
+* [x] position hold works — **DONE** (`tests/hold_position.py`: 0.03 m drift over 20 sim s)
 * [x] landing works — **DONE**
 
 ## ROS 2
@@ -1374,9 +1374,9 @@ The migration is complete when all of the following pass.
 * [x] 2 drones work — **DONE (also 4; 8 boots)**
 * [x] unique MAV_SYS_ID values — **DONE**
 * [x] unique namespaces — **DONE**
-* [ ] unique sensor topics — **PARTIAL (checked with state topics only; ZED rig not run with 2 drones)**
+* [x] unique sensor topics — **DONE** (`two_iris_vio_lowres`: separate `/drone_1|2/zed/…` streams)
 * [x] independent control — **DONE (each instance armed/flew separately)**
-* [ ] no cross-drone TF collisions — **NOT TESTED (TF only exists with the ZED rig)**
+* [x] no cross-drone TF collisions — **DONE** (12 static transforms, per-drone `drone_N/` prefixes)
 
 ---
 

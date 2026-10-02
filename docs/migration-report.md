@@ -14,11 +14,12 @@ Two regressions you should know about before relying on it:
 
 | | 5.1 baseline | 6.0 | Status |
 |---|---|---|---|
-| Simulation speed (sim s per wall s, with ZED) | **1.18×** | **0.33×** (0.47× without ZED) | **Open** — M8: Pegasus's per-step Python costs ~3× more |
+| Simulation speed, with ZED rig | **1.18×** | **0.33×** | **Open** — M8: Pegasus's per-step Python |
+| Simulation speed, no ZED rig (re-measured on both) | **1.97×** (`/clock` 491 Hz) | **0.48×** (119 Hz) | **Open** — ~4× slower |
 | Cold boot to `sim ready` | ~100 s warm | 190 s cold / **30 s warm** | Fixed — M6 (shader cache was not persisted) |
 
 Not done: Isaac ROS 4.6 (not part of this repo's plan, §10), a real QGroundControl / WebRTC client session, and the
-`vehicle reset` and `position hold` acceptance items (§5). Nothing was pushed to origin.
+`vehicle reset` acceptance item (§5). A second test round the same day (§4.4) closed position hold, the native GUI window and the 2-drone ZED rig. Nothing was pushed to origin.
 
 ## 2. Final version pins
 
@@ -86,7 +87,18 @@ Topic list is identical to 5.1; `/drone_1/tf_static` carries all 6 ZED frames
 | `web` (still frames, TCP 8899) | works: page 200, 1.8 MB PNG of the warehouse, Iris and test box |
 | `webrtc` | server starts, TCP 49100 listening. Broken at first (M4), fixed. **No real client connected** (needs the NVIDIA app + UDP 47998) |
 | ZED preview window + depth overlay (`omni.ui`) | created without errors under the full UI; not looked at on a screen |
-| native `gui` window on `:0` | not run |
+| native `gui` window on `:0` | works (see §4.4) |
+
+### 4.4 Second test round (same day)
+
+| Test | Result |
+|---|---|
+| **Position hold** (new `tests/hold_position.py`, `single_iris_nozed`, GPS): take off to 2 m, hold 20 sim s in AUTO.LOITER | PASS — max drift 0.032 m horizontal, 0.026 m vertical (bound 0.3 m) |
+| **Native GUI window** (`DISPLAY=:0 ./bisg up gui -c single_iris_vio_lowres`) | PASS — "Isaac Sim Python 6.0.0" window 1440×900, viewport renders, ZED left\|depth preview docked, live point-cloud overlay on the box (screenshot checked). First GUI boot 195 s (separate shader set). `docker/.env` has a stale `DISPLAY=:1`; the shell's `:0` wins |
+| **ZED rig on 2 drones** (`two_iris_vio_lowres`) | PASS — `/drone_1/zed/…` and `/drone_2/zed/…` each at ~29 Hz sim (images, depth, camera_info) and ~230–240 Hz IMU; 12 static transforms, each namespace uses only its own `drone_N/` frames, no collisions |
+| **5.1 vs 6.0 speed without the ZED rig**, same scenario, 5.1 run from a git worktree of the baseline tag | 5.1: `/clock` **491 Hz** (rtf 1.97), smoke PASS, 2.9 GB VRAM, 325 % CPU, boot 73 s · 6.0: 119 Hz (rtf 0.48) |
+
+Still untested: vehicle reset (the launcher has no reset hook), real QGroundControl, real WebRTC client.
 
 ## 5. Acceptance criteria (`migrate.md` §41)
 
@@ -95,10 +107,7 @@ Ticked in `migrate.md` with the evidence next to each item. Summary of what is *
 | Item | Why |
 |---|---|
 | vehicle reset works | not tested |
-| position hold works | the VIO scenario cannot hold (no global position, bugs.md B1) and the GPS scenario was only run through arm/takeoff/land |
 | QGroundControl connects | MAVLink stream on 14550 verified with pymavlink; QGC is not installed here |
-| unique sensor topics (multi-drone) | ZED rig was never run with 2 drones; only the Pegasus `state/*` topics were checked per namespace |
-| cross-drone TF collisions | same reason |
 | all five Isaac ROS items | out of scope (§10 item 8) |
 
 Rotor geometry (§20) was verified indirectly: the 6.0 flights are as stable and as accurate as the 5.1 ones, so thrust, roll, pitch

@@ -29,7 +29,7 @@ Follow-ups (open):
 - [ ] Decide what `headless_fast` means now (M9: `app.render: false` is no longer physics-only, rtf 0.53 vs 1.27); redo `docs/performance.md` on 6.0
 - [ ] Push `isaac-5.1-baseline` and `migrate/isaac-6.0` (your call), merge, then mirror Pegasus PR #144 to a fork or tag (M18)
 - [ ] Finish the sensor port off deprecated APIs (`isaacsim.sensors.camera`, `isaacsim.core.utils`, `isaacsim.ros2.bridge` shim) before looking at Isaac Sim 6.1 (M12)
-- [ ] Manual: real QGroundControl session, real WebRTC client, native `gui` window, `vehicle reset`, GPS-scenario position hold; run the ZED rig with 2 drones (unique topics / TF)
+- [ ] Manual: real QGroundControl session, real WebRTC client, `vehicle reset` (no launcher hook yet). Done 2026-10-02: GPS position hold (`tests/hold_position.py`), native `gui` window, ZED rig on 2 drones, 5.1 vs 6.0 speed without ZED (491 vs 119 Hz)
 - [ ] Re-test whether the NVIDIA 59x driver crash still exists on Isaac Sim 6.0 (keep the guard in `scripts/check_env.sh` until then)
 - [ ] Isaac ROS 4.6 integration: not in `plan.md` — needs its own plan before any work (`migrate.md` §38)
 - [ ] Box colour (M10) and the `CMODE(...)` string for a late-started MAVROS (M11): cosmetic

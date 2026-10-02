@@ -140,7 +140,7 @@ step depends on `world.rendering_dt`, not on a constant 60.
 | Scenario | 5.1 | 6.0 |
 |---|---:|---:|
 | `single_iris_vio` (ZED) | 296 Hz (rtf 1.18) | 80–97 Hz (rtf 0.32–0.39) |
-| `single_iris_nozed` | — | 120 Hz (rtf 0.48) |
+| `single_iris_nozed` | 491 Hz (rtf 1.97) | 120 Hz (rtf 0.48) |
 | 2 / 4 / 8 drones, no ZED | — | 73 / 41 / 23 Hz |
 
 Total drone-steps per second is roughly constant (119 → 184 from 1 to 8 drones): one Python thread is the bottleneck, GPU use stays at 6–40 %.

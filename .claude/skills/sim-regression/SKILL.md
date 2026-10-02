@@ -15,7 +15,8 @@ After any Isaac / Pegasus / PX4 pin or launcher-API change, all three must pass 
 1. `./bisg up headless -c single_iris_nozed && ./bisg smoke` (arm → ~1.6 m → land → disarm)
 2. `SIM_SCENARIO=single_iris_vio ./bisg all headless`, then `docker exec bisg-ros python3 /workspace/tests/vio_flight.py --drone 1` (|est − truth| ≤ 0.3 m; migration value ≤ 0.07 m)
 3. `docker exec bisg-ros python3 /workspace/tests/zed_depth_box.py` (front face within 30 mm; migration value < 1 mm)
-Sim-level multi-drone: `-c two_iris_nozed` / `four_iris_nozed` / `eight_iris_nozed`, then `docker exec bisg-sim /isaac-sim/python.sh tests/smoke_takeoff.py --instance N`.
+Position hold (GPS scenario only): `docker exec bisg-sim /isaac-sim/python.sh tests/hold_position.py --instance 0 --alt 2 --hold 20` (drift ≤ 0.3 m; measured 0.03 m).
+Sim-level multi-drone: `-c two_iris_nozed` / `four_iris_nozed` / `eight_iris_nozed`, `two_iris_vio_lowres` (two ZED rigs), then `docker exec bisg-sim /isaac-sim/python.sh tests/smoke_takeoff.py --instance N`.
 Use `single_iris_vio_lowres` when you need images/depth on a host without the `rmem_max` sysctl (bugs.md B2).
 
 ## Scenario file
