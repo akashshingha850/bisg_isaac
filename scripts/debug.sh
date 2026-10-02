@@ -97,7 +97,7 @@ cmd_dds(){
   for c in "$SIM_NAME" "$ROS_NAME" "bisg-mavros-${DRONE_ID}"; do container_running "$c" && echo "  $c: $(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$c" | grep -E '^(RMW_IMPLEMENTATION|ROS_DOMAIN_ID|CYCLONEDDS_URI)=' | tr '\n' ' ')"; done
   container_running "$ROS_NAME" && { ros_exec 'ros2 daemon stop >/dev/null 2>&1; ros2 daemon start >/dev/null 2>&1'; echo "  ros2 daemon restarted in $ROS_NAME"; } || true
 }
-cmd_clean_cache(){ compose "${ALL_PROFILES[@]}" down >/dev/null 2>&1 || true; docker volume rm bisg_isaac-cache-main bisg_isaac-cache-compute 2>/dev/null && ok "shader/compute caches removed (next boot is slower)" || warn "nothing removed"; }
+cmd_clean_cache(){ compose "${ALL_PROFILES[@]}" down >/dev/null 2>&1 || true; docker volume rm bisg_isaac-cache-main bisg_isaac-cache-compute bisg_isaac-cache-kit 2>/dev/null && ok "shader/compute caches removed (next boot is slower)" || warn "nothing removed"; }
 cmd_clean_all(){ read -r -p "Delete ALL bisg volumes (caches, downloaded assets, logs)? [y/N] " a; [[ $a == y ]] || exit 0; compose "${ALL_PROFILES[@]}" down -v --remove-orphans; ok "volumes removed"; }
 
 cmd_report(){

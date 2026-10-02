@@ -53,7 +53,7 @@ while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_f
 conf_default SIM_VIEW auto;        conf_default SIM_SCENARIO single_iris;  conf_default SIM_WAIT_TIMEOUT 600
 conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
 conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
-conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.16.0;           conf_default PEGASUS_TAG pr144-fcb99c0
+conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive

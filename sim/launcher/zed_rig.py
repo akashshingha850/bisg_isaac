@@ -18,9 +18,9 @@ import omni.graph.core as og
 from isaacsim.core.utils import stage as _stage_utils
 from isaacsim.core.utils.prims import set_targets
 from isaacsim.core.experimental.utils.app import enable_extension
+from isaacsim.core.rendering_manager import RenderingManager
 from isaacsim.ros2.core.impl.camera_info_utils import read_camera_info  # moved from isaacsim.ros2.bridge in 6.0
 from isaacsim.sensors.camera.camera import Camera
-from isaacsim.sensors.physics import IMUSensor
 from scipy.spatial.transform import Rotation
 import omni.replicator.core as rep
 import omni.syntheticdata as syntheticdata
@@ -61,7 +61,11 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
     Returns {"left": Camera, "right": Camera, "fx", "fy", "cx", "cy"} (intrinsics in pixels).
     """
     enable_extension("isaacsim.ros2.bridge")
-    enable_extension("isaacsim.sensors.physics")
+    # Isaac 6.0: isaacsim.sensors.physics (IMUSensor) moved to extsDeprecated and does not load under the
+    # python kit; isaacsim.sensors.experimental.physics is its replacement and is on by default. The
+    # OmniGraph node isaacsim.sensors.physics.IsaacReadIMU (isaacsim.sensors.physics.nodes) is unchanged.
+    enable_extension("isaacsim.sensors.experimental.physics")
+    from isaacsim.sensors.experimental.physics import IMU, IMUSensor  # noqa: WPS433
 
     mount = [float(x) for x in cfg.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])]
     mount_xyz, mount_rpy = mount[:3], mount[3:]
@@ -139,16 +143,30 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
                                      frameId=frame_id, queueSize=1)
             writer_depth.attach([render_path])
 
-        gate_path = syntheticdata.SyntheticData._get_node_path("PostProcessDispatchIsaacSimulationGate", render_path)
-        try:
-            og.Controller.attribute(gate_path + ".inputs:step").set(max(1, int(round(60.0 / fps))))
-        except Exception as exc:  # noqa: BLE001 — a missed rate gate must not abort the rig build
-            LOG.warning("zed rig: could not set %s publish rate gate (%s)", side, exc)
+        # Publish every `gate_step`-th rendered frame: one app update per RenderingManager dt, so the rate is
+        # (1/render_dt)/gate_step. camera_info uses the PostProcessDispatch gate; each image writer has its own
+        # per-render-var gate (<rendervar>IsaacSimulationGate), which the 5.1 code never set, so images went out at
+        # the full render rate (~60 Hz sim) instead of `fps`.
+        gate_step = max(1, int(round(1.0 / (RenderingManager.get_dt() * fps))))
+        gates = ["PostProcessDispatchIsaacSimulationGate"]
+        if pub_images:
+            gates.append(f"{syntheticdata.SyntheticData.convert_sensor_type_to_rendervar('LdrColor')}IsaacSimulationGate")
+        if side == "left" and pub_depth:
+            gates.append(f"{syntheticdata.SyntheticData.convert_sensor_type_to_rendervar('DistanceToImagePlane')}IsaacSimulationGate")
+        for gate in gates:
+            try:
+                og.Controller.attribute(syntheticdata.SyntheticData._get_node_path(gate, render_path) + ".inputs:step").set(gate_step)
+            except Exception as exc:  # noqa: BLE001 — a missed rate gate must not abort the rig build
+                LOG.warning("zed rig: could not set %s %s rate gate (%s)", side, gate, exc)
+        LOG.info("zed rig: %s publishes every %d rendered frame(s) (render dt %.4f s -> %.1f Hz sim)", side, gate_step,
+                 RenderingManager.get_dt(), 1.0 / (RenderingManager.get_dt() * gate_step))
 
     # --- IMU: physically-simulated sensor on zed_imu_link, published at imu_rate ---
     imu_prim_path = f"{body_path}/zed_imu_link"
     imu_local = np.array(mount_xyz)
-    IMUSensor(prim_path=imu_prim_path, name="zed_imu", frequency=int(imu_rate), translation=imu_local)
+    # The experimental sensor has no `frequency`: it samples every physics step, which is what the graph
+    # below reads (OnPhysicsStep); `imu_rate` is only logged now.
+    imu_sensor = IMUSensor(IMU.create(imu_prim_path, translations=[imu_local.tolist()]))
 
     keys = og.Controller.Keys
     if pub_imu:  # sensors.publish_imu
@@ -232,4 +250,4 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
     # Pinhole intrinsics of both cameras (square pixels, principal point at the centre).
     LOG.info("zed rig: publishing left/right images %s, depth map %s, imu %s (zed_wrapper switches)",
              pub_images, pub_depth, pub_imu)
-    return {**cams, "fx": fx, "fy": fx, "cx": width / 2.0, "cy": height / 2.0, "baseline": baseline}
+    return {**cams, "imu_sensor": imu_sensor, "fx": fx, "fy": fx, "cx": width / 2.0, "cy": height / 2.0, "baseline": baseline}

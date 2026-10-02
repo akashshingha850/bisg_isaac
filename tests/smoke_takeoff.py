@@ -33,6 +33,8 @@ def main():
     ap.add_argument("--alt", type=float, default=2.0)
     ap.add_argument("--timeout", type=float, default=300.0, help="overall budget in seconds (cold sim boot included)")
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--patience", type=float, default=1.0,
+                    help="multiply the arm/climb/land waits (20/60/90 s wall) for a slow sim, e.g. 4 for 8 drones at rtf 0.09")
     a = ap.parse_args()
 
     port = 14540 + a.instance
@@ -88,12 +90,12 @@ def main():
     m.mav.param_set_send(m.target_system, m.target_component, b"MIS_TAKEOFF_ALT", a.alt, mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
     pump(0.5)
     send_cmd(mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 1)
-    if not wait_until(lambda: (pump(0.5), state["armed"])[1], 20, "armed"):
+    if not wait_until(lambda: (pump(0.5), state["armed"])[1], 20 * a.patience, "armed"):
         return 3
     print("[smoke] armed", flush=True)
     send_cmd(mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, float("nan"), float("nan"), float("nan"), float("nan"))
     target = 0.75 * a.alt
-    if not wait_until(lambda: (pump(0.5), state["rel_alt"] >= target)[1], 60, f"rel_alt >= {target:.1f} m"):
+    if not wait_until(lambda: (pump(0.5), state["rel_alt"] >= target)[1], 60 * a.patience, f"rel_alt >= {target:.1f} m"):
         print(f"[smoke] rel_alt={state['rel_alt']:.2f}", flush=True)
         return 4
     print(f"[smoke] airborne rel_alt={state['rel_alt']:.2f} m", flush=True)
@@ -101,7 +103,7 @@ def main():
 
     # 3. land + wait for disarm
     send_cmd(mavutil.mavlink.MAV_CMD_NAV_LAND)
-    if not wait_until(lambda: (pump(0.5), not state["armed"])[1], 90, "disarm after landing"):
+    if not wait_until(lambda: (pump(0.5), not state["armed"])[1], 90 * a.patience, "disarm after landing"):
         return 5
     print("[smoke] landed and disarmed — PASS", flush=True)
     return 0

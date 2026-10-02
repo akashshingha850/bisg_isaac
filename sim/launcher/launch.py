@@ -76,6 +76,12 @@ _h.setFormatter(logging.Formatter("[launch] %(levelname)s %(message)s"))
 LOG.addHandler(_h)
 LOG.propagate = False
 LOG.info("config=%s headless=%s render=%s view=%s", ARGS.config, HEADLESS, RENDER, STREAM if VIEW else "off")
+_T0 = time.time()
+
+
+def phase(what):
+    """Boot-phase timing: `[launch] INFO boot +NNs: <what>` (where the cold/warm boot time goes)."""
+    LOG.info("boot +%.0fs: %s", time.time() - _T0, what)
 
 # ---------------------------------------------------------------------------
 # Isaac Sim must be created before any other omni / isaacsim / pegasus import.
@@ -119,24 +125,30 @@ if PERF.get("min_frame_rate") is not None:     # PhysX catch-up clamp: higher = 
     _extra.append(f"--/persistent/simulation/minFrameRate={int(PERF['min_frame_rate'])}")
 if PERF.get("physx_threads") is not None:
     _extra.append(f"--/persistent/physics/numThreads={int(PERF['physx_threads'])}")
-if STREAMING and STREAM_ADDR:
-    # Clients outside this machine need the address they should send media to (LAN/public IP).
-    _extra.append(f"--/app/livestream/publicEndpointAddress={STREAM_ADDR}")
-    _extra.append("--/app/livestream/port=49100")
+if STREAMING:
+    # Isaac 6.0: omni.kit.livestream.app (the 5.1 omni.services.livestream.nvcf is gone). Its defaults live in
+    # isaacsim.exp.full.streaming.kit, which the python kit we run does not load, so set them here.
+    _extra += ["--/exts/omni.kit.livestream.app/primaryStream.signalPort=49100",
+               "--/exts/omni.kit.livestream.app/primaryStream.streamPort=47998",
+               "--/exts/omni.kit.livestream.app/primaryStream.streamType=webrtc"]
+    if STREAM_ADDR:
+        # Clients outside this machine need the address they should send media to (LAN/public IP).
+        _extra.append(f"--/exts/omni.kit.livestream.app/primaryStream.publicIp={STREAM_ADDR}")
 if _extra:
     _app_cfg["extra_args"] = _extra
 LOG.info("SimulationApp config: %s", _app_cfg)
 
 simulation_app = SimulationApp(_app_cfg)
+phase("SimulationApp up")
 
 if STREAMING:
     # Same sequence as NVIDIA's own standalone example
-    # (/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py):
-    # omni.services.livestream.nvcf pulls in the omni.kit.livestream.webrtc backend.
+    # (/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py).
     from isaacsim.core.experimental.utils.app import enable_extension  # noqa: E402
 
     simulation_app.set_setting("/app/window/drawMouse", True)
-    enable_extension("omni.services.livestream.nvcf")
+    if not enable_extension("omni.kit.livestream.app"):
+        raise SystemExit("[launch] could not enable omni.kit.livestream.app — WebRTC stream unavailable")
     _where = STREAM_ADDR or "127.0.0.1"
     print(f"[launch] livestream webrtc ready — connect the Isaac Sim WebRTC Streaming Client to {_where} "
           f"(TCP 49100 signalling, UDP 47998 media)", flush=True)
@@ -154,6 +166,7 @@ from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS  # noqa: E4
 from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig  # noqa: E402
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig  # noqa: E402
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface  # noqa: E402
+phase("pegasus imported")
 
 
 class WebView:
@@ -401,6 +414,7 @@ class App:
         world_usd = resolve_world(world_cfg)
         LOG.info("loading world %s", world_usd)
         self.pg.load_asset(world_usd, "/World/layout")   # synchronous (load_environment defers to the first update)
+        phase("world asset referenced")
         if world_cfg.get("add_ground_plane", False):
             from isaacsim.core.experimental.objects import GroundPlane  # noqa: WPS433
             GroundPlane("/World/bisg_ground", sizes=500.0, positions=[[0.0, 0.0, float(world_cfg.get("ground_z", 0.0))]])
@@ -415,6 +429,7 @@ class App:
         for v in cfg.get("vehicles", []):
             self.spawn_vehicle(v, px4_cfg)
 
+        phase("vehicles spawned")
         self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
         eye, target = cfg.get("app", {}).get("viewport_eye"), cfg.get("app", {}).get("viewport_target")
         if eye and target and (not HEADLESS or STREAMING):
@@ -496,14 +511,37 @@ class App:
         if self.web:
             self.web.start()
         self.timeline.play()
+        phase("timeline.play, first update")
         simulation_app.update()
+        phase("sim ready")
         print("[launch] sim ready", flush=True)
         t_hb = time.time()
         step_hb = SimulationManager.get_num_physics_steps()
 
+        # `app.profile_s: N` — cProfile the loop for N wall seconds and log the top cumulative-time entries
+        # (Python callbacks run from C++ show up too: Pegasus update_state, backends, graphs). docs/performance.md.
+        prof_s = float(app_cfg.get("profile_s", 0) or 0)
+        prof = None
+        if prof_s:
+            import cProfile  # noqa: WPS433
+            prof = cProfile.Profile()
+            prof.enable()
+            t_prof = time.time()
+
         while simulation_app.is_running() and not self.stop:
             simulation_app.update()
             step = SimulationManager.get_num_physics_steps()
+            if prof is not None and time.time() - t_prof > prof_s:
+                import io, pstats  # noqa: WPS433,E401
+                prof.disable()
+                out = io.StringIO()
+                st = pstats.Stats(prof, stream=out).sort_stats("cumulative")
+                st.print_stats(45)
+                LOG.info("profile (%.0f s, cumulative):\n%s", prof_s, out.getvalue())
+                out = io.StringIO()
+                pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(30)
+                LOG.info("profile (%.0f s, own time):\n%s", prof_s, out.getvalue())
+                prof = None
             if self.web:
                 self.web.maybe_capture()
             for p in self.previews:

@@ -11,7 +11,7 @@
 ARG ISAAC_TAG=6.0.0
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_TAG}
 
-ARG PX4_TAG=v1.16.0
+ARG PX4_TAG=v1.17.0
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ISAAC_USER=isaac-sim
 
@@ -73,7 +73,7 @@ RUN ${ISAACSIM_PYTHON} -m pip install --no-cache-dir --editable \
 # Cache / log mount points must exist and be owned by isaac-sim, otherwise the named
 # volumes in compose are created root-owned and Isaac cannot write to them.
 # /isaac-sim/kit/logs holds the human-readable Kit log (Kit/Isaac-Sim Python/<ver>/kit_*.log).
-RUN mkdir -p /isaac-sim/.cache /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
+RUN mkdir -p /isaac-sim/.cache /isaac-sim/kit/cache /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
         /isaac-sim/.nvidia-omniverse/config /isaac-sim/.local/share/ov/data \
         /isaac-sim/.local/share/ov/pkg /isaac-sim/Documents /isaac-sim/kit/logs
 

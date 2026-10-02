@@ -27,8 +27,8 @@ if command -v nvidia-smi >/dev/null; then
   vram_free=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1)
   vram_total=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
   pass "GPU: $gpu, driver $drv, VRAM free ${vram_free}/${vram_total} MiB"
-  [[ ${drv%%.*} -ge 570 ]] || die "driver ${drv} < 570 (Isaac Sim 5.1 needs >= 570)"
-  # R590 branch (595.x) segfaults Isaac 5.1's RTX renderer in librtx.scenedb.plugin.so right after
+  [[ ${drv%%.*} -ge 570 ]] || die "driver ${drv} < 570 (Isaac Sim 5.1/6.0 need >= 570)"
+  # R590 branch (595.x) segfaults Isaac 5.1's RTX renderer (NOT re-tested on Isaac 6.0 — keep the guard until it is) in librtx.scenedb.plugin.so right after
   # "app ready" on Ada/Blackwell GPUs (isaac-sim/IsaacSim#648, #619, #651, #537) — confirmed on this
   # host 2026-09-21. Validated branch is 580.x (580.178.04 confirmed good on two different GPUs).
   [[ ${drv%%.*} -ge 590 && ${drv%%.*} -lt 600 ]] && die "driver ${drv} is on the R590 branch — known to crash Isaac Sim 5.1's RTX renderer on startup. Downgrade to 580.x: sudo apt install nvidia-driver-580-open"

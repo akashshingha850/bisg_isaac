@@ -26,7 +26,7 @@ x-sim-base: &sim-base
     dockerfile: docker/sim/Dockerfile
     args:
       ISAAC_TAG: ${ISAAC_TAG:-6.0.0}
-      PX4_TAG: ${PX4_TAG:-v1.16.0}
+      PX4_TAG: ${PX4_TAG:-v1.17.0}
   <<: *nvidia
   network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
   # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in
@@ -36,12 +36,20 @@ x-sim-base: &sim-base
   stdin_open: true
   tty: true
   stop_grace_period: 60s        # Isaac close can take a while; SIGKILL after this
+  # The 6.0 base image ships a HEALTHCHECK that greps a Kit log for "AppReady" under .nvidia-omniverse/logs/Kit;
+  # our python-kit launcher never writes there, so the container would show (unhealthy) while running fine.
+  # "Ready" for us is `[launch] sim ready` + PX4 "Ready for takeoff" (./bisg wait).
+  healthcheck:
+    disable: true
   volumes:
     - ..:/workspace:rw                          # sim/, tests/, docker/cyclonedds.xml
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
     # Isaac caches as named volumes (paths from the Isaac container docs)
     - isaac-cache-main:/isaac-sim/.cache:rw
     - isaac-cache-compute:/isaac-sim/.nv/ComputeCache:rw
+    # Isaac 6.0 writes the RTX shader + driver shader caches here (5.1 used ~/.cache). Without this volume every
+    # fresh container recompiles ~140 s of shaders at boot (boot 195 s instead of ~100 s warm).
+    - isaac-cache-kit:/isaac-sim/kit/cache:rw
     - isaac-logs:/isaac-sim/.nvidia-omniverse/logs:rw
     - isaac-kit-logs:/isaac-sim/kit/logs:rw               # kit_*.log text log (./bisg debug kitlog)
     - isaac-config:/isaac-sim/.nvidia-omniverse/config:rw
@@ -141,6 +149,7 @@ volumes:
   isaac-kit-logs:
   isaac-cache-main:
   isaac-cache-compute:
+  isaac-cache-kit:
   isaac-logs:
   isaac-config:
   isaac-data:
