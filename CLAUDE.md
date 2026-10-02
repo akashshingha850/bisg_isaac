@@ -16,6 +16,8 @@ Read `docs/plan.md` for architecture, `docs/todo.md` for what is in progress. Up
 - Order: single-drone twin → assets/models → one real drone → swarm. Swarm work waits for Phase 6.
 - Never `git submodule update --remote` in `third_party/` without checking the pin.
 
+- **Perception backend is switchable** (ADR-006, `docs/perception.md`, skill `perception`): `PERCEPTION_BACKEND=mock|isaac_ros|ros2` in `config/bisg.conf`. `mock` (vio_mock) is the default and what the tests assume; `isaac_ros` = Isaac ROS 4.6 (release-4 = Jazzy; release-5 is Lyrical-only) in the `bisg/perception` image, `ros2` = CPU rtabmap + stereo_image_proc. Isaac Sim's ROS 2 *bridge* is the sim's transport for all of them, not an alternative. Backends publish `perception/odom` + `perception/disparity`; `vio_relay` maps them onto the contract. `./bisg perception up|down|status|bench|report`. Never two vision sources into MAVROS. HD720 images need the `rmem_max` sysctl (bugs.md B2); without it use `single_iris_vio_midres` (448×252).
+
 ## Host facts (this workstation)
 - Ubuntu 24.04.5 LTS, no ROS install on host, RTX 4500 Ada Generation 24 GB VRAM, NVIDIA driver **580.178.04**, Docker 29.1.3, 125 GB RAM, 24 cores. Driver must stay on the 580 branch — the 595.x/R590 branch this GPU shipped with segfaults Isaac Sim 5.1's RTX renderer (`docs/plan.md` §12); `scripts/check_env.sh` hard-fails on any 59x driver.
 - Bulk storage lives on `/opt` (1.9 TB ext4, ~1.4 TB free) — **not** `/media/ubuntu/ssd`, which does not exist on this box. `ARCHIVE_DIR` and any large-artifact paths must point under `/opt`.
@@ -23,4 +25,4 @@ Read `docs/plan.md` for architecture, `docs/todo.md` for what is in progress. Up
 - Isaac Sim 5.1 is known to run on this GPU. It boots slowly (~2 min warm, up to 5 min cold). Use `timeout` and `PYTHONUNBUFFERED=1` when driving it from scripts; prefer headless for tests.
 
 ## Skills
-Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, swarm-spawn, jetson-deploy, sim-regression). See `docs/skills.md`.
+Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, swarm-spawn, jetson-deploy, sim-regression, perception). See `docs/skills.md`.

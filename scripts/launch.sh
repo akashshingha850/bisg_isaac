@@ -210,6 +210,7 @@ cmd_config(){
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
   show "ros 2"      ROS_DOMAIN_ID
+  show "perception" PERCEPTION_BACKEND PERCEPTION_DEPTH PERCEPTION_IMU ISAAC_ROS_RELEASE
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ISAAC_IMAGE ROS_BASE_IMAGE
   show "links"      PEGASUS_REPO ZED_WRAPPER_REPO PX4_REPO ARCHIVE_DIR
@@ -225,7 +226,17 @@ cmd_config(){
   echo "  edit: ./bisg config --edit   (machine-only values: ${ENV_FILE#$ROOT/})"
 }
 
-cmd_all(){ cmd_up "${1:-headless}" --no-wait; compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle + ros started"; cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state; }
+cmd_all(){
+  cmd_up "${1:-headless}" --no-wait
+  if [[ "${PERCEPTION_BACKEND:-mock}" == mock ]]; then
+    compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle (vio_mock) + ros started"
+  else   # PERCEPTION_BACKEND=isaac_ros|ros2: the perception container is the vision source instead of vio_mock (docs/perception.md)
+    compose --profile ros up -d mavros ros >/dev/null
+    PERCEPTION_BACKEND_RUN="$PERCEPTION_BACKEND" PERCEPTION_FEED_MAVROS=true compose --profile perception up -d perception >/dev/null
+    ok "mavros + perception[$PERCEPTION_BACKEND] + ros started"
+  fi
+  cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state
+}
 cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; }
 cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; }
 cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }

@@ -40,6 +40,9 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 | `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
 | `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | sim `zed_depth.py` / ZED wrapper | optional, `mapping.mapping_enabled`; sim frame `odom`, wrapper `map` |
 | `zed/zed_node/imu/data` | `sensor_msgs/Imu` | 200 Hz | Isaac IMU / ZED | frame `zed_imu_link` |
+| `zed/zed_node/right/camera_info` | `sensor_msgs/CameraInfo` | same | Isaac cam / ZED | `P[0,3] = −fx·baseline` (stereo consumers read the baseline here); the sim rig sets it since 2026-10-03 |
+| `perception/odom` | `nav_msgs/Odometry` | 15–30 Hz | `isaac_ros` / `ros2` backend (docs/perception.md) | optional, backend interface: `odom` → `base_link`; `vio_relay` maps it onto `zed/zed_node/odom` + `mavros/odometry/out` |
+| `perception/disparity` | `stereo_msgs/DisparityImage` | 15–30 Hz | `isaac_ros` / `ros2` backend | optional, left optical frame. **`t` differs by backend**: stereo_image_proc = baseline in m, Isaac ROS = `−P[0,3]` (px·m) |
 | `zed/zed_node/odom` | `nav_msgs/Odometry` | 30–60 Hz | `vio_mock` / ZED positional tracking | `odom` → `base_link` (wrapper default `zed_camera_link`; relay re-parents to `base_link`) |
 | `vehicle/state` | `bisg_msgs/VehicleState` | 2 Hz | `bisg_vehicle/health` | id, mode, armed, battery %, pose, vio_ok, last_error |
 | `tf`, `tf_static` | | | | frames above |

@@ -8,6 +8,7 @@
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
 #   ./bisg stop | down | restart
+#   ./bisg perception build|up [mock|isaac_ros|ros2]|down|status|bench [isaac_ros|ros2|all]|report    perception backend (docs/perception.md)
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
 #   ./bisg check                        host preflight only (scripts/check_env.sh)
 set -euo pipefail
@@ -16,6 +17,7 @@ case "${1:-}" in
   setup) shift; exec "$HERE/scripts/setup.sh" "$@";;
   check) exec "$HERE/scripts/check_env.sh";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
-  -h|--help|help|"") sed -n 2,12p "$0";;
+  perception) shift; exec "$HERE/scripts/perception.sh" "$@";;
+  -h|--help|help|"") sed -n 2,13p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

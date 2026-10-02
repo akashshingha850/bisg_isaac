@@ -124,6 +124,13 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
             writer_rgb.attach([render_path])
 
         info, _ = read_camera_info(render_product_path=render_path)
+        # Stereo consumers (stereo_image_proc, Isaac ROS disparity, cuVSLAM) read the baseline from the RIGHT camera's
+        # projection matrix: P[0,3] = -fx * baseline, exactly what the ZED wrapper publishes. read_camera_info() leaves
+        # it 0, which makes every stereo node see a zero baseline (depth = inf / meaningless). docs/perception.md.
+        p_mat = np.array(info.p, dtype=np.float64).reshape(3, 4)
+        if side == "right":
+            p_mat[0, 3] = -float(info.k[0]) * baseline
+        info.p = p_mat.reshape(-1)
         writer_info = rep.writers.get("ROS2PublishCameraInfo")
         writer_info.initialize(
             nodeNamespace=ns, topicName=f"zed/zed_node/{side}/camera_info", frameId=frame_id, queueSize=1,
@@ -139,11 +146,21 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
                                      frameId=frame_id, queueSize=1)
             writer_depth.attach([render_path])
 
-        gate_path = syntheticdata.SyntheticData._get_node_path("PostProcessDispatchIsaacSimulationGate", render_path)
-        try:
-            og.Controller.attribute(gate_path + ".inputs:step").set(max(1, int(round(60.0 / fps))))
-        except Exception as exc:  # noqa: BLE001 — a missed rate gate must not abort the rig build
-            LOG.warning("zed rig: could not set %s publish rate gate (%s)", side, exc)
+        # Publish every `gate_step`-th rendered frame (the launcher renders ~60 Hz sim). camera_info uses the
+        # PostProcessDispatch gate; each image writer has its OWN per-render-var gate (<rendervar>IsaacSimulationGate)
+        # which was never set, so images went out at the full render rate, twice camera_info (bugs.md B9). Stereo /
+        # VSLAM consumers need image + camera_info to pair 1:1, so all gates now get the same step.
+        gate_step = max(1, int(round(60.0 / fps)))
+        gates = ["PostProcessDispatchIsaacSimulationGate"]
+        if pub_images:
+            gates.append(f"{syntheticdata.SyntheticData.convert_sensor_type_to_rendervar('LdrColor')}IsaacSimulationGate")
+        if side == "left" and pub_depth:
+            gates.append(f"{syntheticdata.SyntheticData.convert_sensor_type_to_rendervar('DistanceToImagePlane')}IsaacSimulationGate")
+        for gate in gates:
+            try:
+                og.Controller.attribute(syntheticdata.SyntheticData._get_node_path(gate, render_path) + ".inputs:step").set(gate_step)
+            except Exception as exc:  # noqa: BLE001 — a missed rate gate must not abort the rig build
+                LOG.warning("zed rig: could not set %s %s rate gate (%s)", side, gate, exc)
 
     # --- IMU: physically-simulated sensor on zed_imu_link, published at imu_rate ---
     imu_prim_path = f"{body_path}/zed_imu_link"

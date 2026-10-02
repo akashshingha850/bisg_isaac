@@ -33,6 +33,7 @@ the checks Claude runs; they are filled with real commands as phases land.
 | `swarm-spawn` | add drone N, generate compose, fleet manager tasks | update scenario YAML, regenerate compose, port/namespace checks, VRAM budget update | Phase 6 |
 | `jetson-deploy` | deploy to the Orin NX, flash Pixracer, bench checklist, serial issues | arm64 image pull, compose profile, params push, preflight and post-flight log pull | Phase 5 |
 | `sim-regression` | run tests, add a scenario, CI failures | headless scenario runner, JUnit interpretation, flake triage | Phase 8 (basic version from Phase 1) |
+| `perception` | Isaac ROS vs CPU ROS 2, VSLAM/depth from the sim cameras, `PERCEPTION_BACKEND` | switch backend, run/read the benchmark, rebuild `bisg/perception`, debug checklist |
 
 Global skills already available that fit this project: `ros2-engineering` (ROS 2 code review,
 launch/QoS), `graphify` (codebase questions once code exists), `humanizer` (docs prose).

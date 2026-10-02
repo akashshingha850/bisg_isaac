@@ -17,7 +17,6 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B6](#b6) | S2 | test | `tests/vio_flight.py` does not wait for PX4 timesync to lock |
 | [B7](#b7) | S3 | vio_mock | Twist covariance is zero; no drift or orientation noise |
 | [B8](#b8) | S3 | MAVROS | Plugins run on wall time for the first ~3 s; `/param` never switches |
-| [B9](#b9) | S3 | ZED | Images/depth publish at ~36 Hz sim, twice camera_info (rate gate not applied to them) |
 | [B10](#b10) | S3 | images | `bisg/ros:arm64` still has the old entrypoint |
 | [B11](#b11) | S3 | params | `push_px4_params.py` can't finish the job on SITL (reboot refused) |
 | [B12](#b12) | S3 | GUI | `/clock` + OnPhysicsStep IMU changes not re-verified in the GUI profile |
@@ -231,25 +230,6 @@ behaviour once Phase 5 bench logs exist.
 
 ---
 
-<a id="b9"></a>
-## B9 — ZED images/depth ignore the rate gate
-**Sev S3 · confirmed 2026-09-26 from a recorded flight** (`logs/flight_20260926_vio/`, 153 s sim):
-left 5462 / right 5447 / depth 5299 messages (~35.7 / 34.6 Hz sim), while camera_info on the same render
-products ran at ~18 Hz (1177 in 65 s). So images and camera_info don't pair 1:1: consumers that
-sync image + info will drop half the images. At HD720 that is also double the bytes on the DDS link (B2).
-
-Earlier observation:
-
-At 320x180 the images arrived at 42–47 Hz wall, while `camera_info` on the same render product runs at
-about 18 Hz sim. `zed_rig.py` sets `PostProcessDispatchIsaacSimulationGate.step` per render product, so the
-image and info writers should share one rate. It may be the smaller resolution rendering faster, or the gate
-may not apply to the image writers.
-
-**Next step.** After [B2](#b2) is fixed, measure all ZED topics at HD720 in sim time. If the images
-exceed 30 Hz, gate each writer separately, or set `frequency` on the `Camera` and drop the gate.
-
----
-
 <a id="b10"></a>
 ## B10 — `bisg/ros:arm64` has the old entrypoint
 **Sev S3 · the Jetson would run the pre-2026-09-25 entrypoint.**
@@ -339,6 +319,10 @@ sim-only values (mount, baseline, view) in the scenario.
 ---
 
 ## Fixed
+- **2026-10-03 — B9: ZED images/depth ignored the rate gate** (`sim/launcher/zed_rig.py`, on the Isaac 5.1 branch; fixed on `migrate/isaac-6.0` on 2026-10-02). Only the
+  `PostProcessDispatch…Gate` (camera_info) was set; each image writer has its own `<rendervar>IsaacSimulationGate`. All gates now share one step.
+  Verified: left/right image, depth and camera_info all at 21.9–22.3 Hz wall (≈ 18 Hz sim), 1:1 — needed by the stereo/VSLAM backends (docs/perception.md).
+- **2026-10-03 — right `camera_info` had no stereo baseline** (`zed_rig.py`): `P[0,3]` was 0, so stereo nodes saw a zero baseline. Now `−fx·baseline` (−11.195 at fx 177.7), like the ZED wrapper.
 - **2026-09-25 — ZED camera footage blocked / backwards / wrong FOV** (`sim/launcher/zed_rig.py`).
   - **Symptom:** frames were nearly black, and 90% of depth was under 0.2 m.
   - **Three stacked bugs:**

@@ -6,7 +6,7 @@
 #
 # Settings live in config/bisg.conf (see ./bisg config); ./bisg exports them before calling
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
-# Profiles: sim | sim-headless | ros | tools. Jetson profile lives in deploy/jetson/compose.yaml.
+# Profiles: sim | sim-headless | ros | tools | perception. Jetson profile lives in deploy/jetson/compose.yaml.
 #
 # One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
 # docker/ros/ (docker/ros/Dockerfile backs the mavros/vehicle/ros services below, since
@@ -120,6 +120,37 @@ services:
       DRONE_ID: ${DRONE_ID:-1}
       USE_SIM_TIME: "true"           # stamps must be on PX4's clock, see vio_mock.py
     command: ["vio_mock"]
+    restart: unless-stopped
+
+  # Perception backend (docs/perception.md): ONE service, the backend is chosen by PERCEPTION_BACKEND
+  # (isaac_ros = Isaac ROS 4.6 on the GPU, ros2 = traditional CPU ROS 2). Replaces `vehicle` (vio_mock) when it is not `mock`.
+  perception:
+    image: bisg/perception:jazzy
+    build:
+      context: ..
+      dockerfile: docker/perception/Dockerfile
+      args:
+        ISAAC_ROS_RELEASE: ${ISAAC_ROS_RELEASE:-release-4}
+    container_name: bisg-perception-${DRONE_ID:-1}
+    profiles: ["perception"]
+    <<: *nvidia
+    network_mode: host
+    ipc: host
+    volumes:
+      - ..:/workspace:rw
+    environment:
+      <<: *nvidia-env
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      DRONE_ID: ${DRONE_ID:-1}
+      USE_SIM_TIME: "true"
+      PERCEPTION_BACKEND: ${PERCEPTION_BACKEND_RUN:-isaac_ros}
+      PERCEPTION_FEED_MAVROS: ${PERCEPTION_FEED_MAVROS:-true}
+      PERCEPTION_DEPTH: ${PERCEPTION_DEPTH:-true}
+      PERCEPTION_ODOM: ${PERCEPTION_ODOM:-true}
+      PERCEPTION_IMU: ${PERCEPTION_IMU:-false}
+      PERCEPTION_ISAAC_CONFIDENCE: ${PERCEPTION_ISAAC_CONFIDENCE:-60000}
+      PERCEPTION_ISAAC_MAXDISP: ${PERCEPTION_ISAAC_MAXDISP:-64.0}
+    command: ["perception"]
     restart: unless-stopped
 
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.

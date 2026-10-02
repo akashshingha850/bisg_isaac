@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>bisg_perception</name>
+  <version>0.0.1</version>
+  <description>Switchable perception backends (Isaac ROS GPU / traditional CPU ROS 2) behind one interface, plus a benchmark — docs/perception.md</description>
+  <maintainer email="akashshingha850@gmail.com">bisg_isaac</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>stereo_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>rosgraph_msgs</depend>
+  <depend>tf2_msgs</depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>bisg_vehicle</exec_depend>
+  <!-- Deliberately NOT listed: isaac_ros_visual_slam, isaac_ros_stereo_image_proc, rtabmap_odom, stereo_image_proc.
+       They exist only in the bisg/perception image; listing them would break `rosdep install` in bisg/ros. -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

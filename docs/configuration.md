@@ -3,7 +3,7 @@
 Three files, each answering a different question.
 
 ```
-config/bisg.conf    the settings: what you see, which scenario, endpoints, pins, links
+config/bisg.conf    the settings: what you see, which scenario, perception backend, endpoints, pins, links
 docker/.env         this machine only (DISPLAY, local overrides) — git-ignored
 sim/configs/*.yaml  the scenario: world, vehicles, PX4 airframe, perf knobs
 ```

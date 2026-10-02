@@ -5,7 +5,7 @@ COMPOSE_FILE="$ROOT/docker/compose.yaml"
 ENV_FILE="$ROOT/docker/.env"
 SIM_NAME=bisg-sim
 ROS_NAME=bisg-ros
-ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools)
+ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools --profile perception)
 
 # --- output -------------------------------------------------------------------
 if [[ -t 1 ]]; then C_G=$'\e[32m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_0=$'\e[0m'; else C_G=; C_Y=; C_R=; C_B=; C_0=; fi
@@ -54,6 +54,7 @@ conf_default SIM_VIEW auto;        conf_default SIM_SCENARIO single_iris;  conf_
 conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
 conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
 conf_default ISAAC_TAG 5.1.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG v5.1.0
+conf_default PERCEPTION_BACKEND mock; conf_default PERCEPTION_DEPTH true; conf_default PERCEPTION_IMU false; conf_default ISAAC_ROS_RELEASE release-4
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
