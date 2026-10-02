@@ -87,7 +87,7 @@ class ZedDepthProducts:
         self.map_xyz = np.zeros((0, 3), np.float32)
         self.map_rgb = np.zeros(0, np.uint32)
 
-        from isaacsim.core.utils.extensions import enable_extension  # noqa: WPS433
+        from isaacsim.core.experimental.utils.app import enable_extension  # noqa: WPS433
         enable_extension("isaacsim.ros2.bridge")
         import rclpy  # noqa: WPS433
         from rclpy.qos import qos_profile_sensor_data  # noqa: WPS433

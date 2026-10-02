@@ -17,8 +17,8 @@ import numpy as np
 import omni.graph.core as og
 from isaacsim.core.utils import stage as _stage_utils
 from isaacsim.core.utils.prims import set_targets
-from isaacsim.core.utils.extensions import enable_extension
-from isaacsim.ros2.bridge import read_camera_info
+from isaacsim.core.experimental.utils.app import enable_extension
+from isaacsim.ros2.core.impl.camera_info_utils import read_camera_info  # moved from isaacsim.ros2.bridge in 6.0
 from isaacsim.sensors.camera.camera import Camera
 from isaacsim.sensors.physics import IMUSensor
 from scipy.spatial.transform import Rotation

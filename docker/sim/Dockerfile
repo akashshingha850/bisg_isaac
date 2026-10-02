@@ -1,16 +1,17 @@
 # syntax=docker/dockerfile:1.6
-# bisg/sim — Isaac Sim 5.1.0 + PX4 SITL + Pegasus Simulator, one image.
+# bisg/sim — Isaac Sim 6.0.0 + PX4 SITL + Pegasus Simulator, one image.
 #
 # Build (from repo root):  docker compose -f docker/compose.yaml build sim
 # Pins are build args so ADR-003 changes are one-line edits in docker/.env.
 #
 # Facts about the base image (verified 2026-09-12): Ubuntu 24.04, runs as user
-# `isaac-sim` (uid 1234, HOME=/isaac-sim), no sudo, Isaac python 3.11 at /isaac-sim/python.sh.
+# `isaac-sim` (uid 1234, HOME=/isaac-sim), no sudo, Isaac python 3.12 at /isaac-sim/python.sh.
+# 5.1.0 baseline: git tag isaac-5.1-baseline (docs/migrate.md, docs/migration-report.md).
 
-ARG ISAAC_TAG=5.1.0
+ARG ISAAC_TAG=6.0.0
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_TAG}
 
-ARG PX4_TAG=v1.17.0
+ARG PX4_TAG=v1.16.0
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ISAAC_USER=isaac-sim
 
@@ -38,7 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- isaac-sim: clone PX4 at the pinned tag (shallow + shallow submodules) --------
 USER ${ISAAC_USER}
 RUN git clone --depth 1 --branch ${PX4_TAG} --recursive --shallow-submodules \
-        https://github.com/PX4/PX4-Autopilot.git ${PX4_DIR}
+        https://github.com/PX4/PX4-Autopilot.git ${PX4_DIR} \
+    # v1.16.0's px_update_git_header.py wants a `nuttx-X.Y.Z` tag in the NuttX submodule (even for SITL);
+    # --shallow-submodules leaves none, so the header step dies with IndexError. v1.17.0 does not need this.
+    && git -C ${PX4_DIR}/platforms/nuttx/NuttX/nuttx fetch --depth 1 --tags origin
 
 # --- root: PX4's own dependency script (apt + system-wide pip, no NuttX/Gazebo) ---
 USER root
@@ -68,17 +72,18 @@ RUN ${ISAACSIM_PYTHON} -m pip install --no-cache-dir --editable \
 
 # Cache / log mount points must exist and be owned by isaac-sim, otherwise the named
 # volumes in compose are created root-owned and Isaac cannot write to them.
-# /isaac-sim/kit/logs holds the human-readable Kit log (Kit/Isaac-Sim Python/5.1/kit_*.log).
+# /isaac-sim/kit/logs holds the human-readable Kit log (Kit/Isaac-Sim Python/<ver>/kit_*.log).
 RUN mkdir -p /isaac-sim/.cache /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
         /isaac-sim/.nvidia-omniverse/config /isaac-sim/.local/share/ov/data \
         /isaac-sim/.local/share/ov/pkg /isaac-sim/Documents /isaac-sim/kit/logs
 
 # --- Internal ROS 2 Jazzy bridge (base is 24.04; no host ROS needed) -------------
-# Isaac 5.1 ships exts/isaacsim.ros2.bridge/{humble,jazzy}; select Jazzy and CycloneDDS
+# Isaac 6.0 moved the bundled ROS libs from exts/isaacsim.ros2.bridge/ to
+# exts/isaacsim.ros2.core/{humble,jazzy}/{lib,rclpy}; select Jazzy and CycloneDDS
 # (librmw_cyclonedds_cpp.so is bundled) per ADR-004/005.
 ENV ROS_DISTRO=jazzy \
     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib \
+    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/isaac-sim/exts/isaacsim.ros2.core/jazzy/lib \
     CYCLONEDDS_URI=file:///workspace/docker/cyclonedds.xml
 
 # Our code is bind-mounted at /workspace (see compose); nothing project-specific is baked in.

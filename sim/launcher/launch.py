@@ -83,7 +83,7 @@ LOG.info("config=%s headless=%s render=%s view=%s", ARGS.config, HEADLESS, RENDE
 from isaacsim import SimulationApp  # noqa: E402
 
 # Performance knobs (docs/performance.md; NVIDIA "Sim Performance Optimization Handbook").
-# Every key below is a real SimulationApp launcher option in Isaac 5.1; `extra_args` are
+# Every key below is a real SimulationApp launcher option in Isaac 5.1/6.0; `extra_args` are
 # passed straight to Kit as command-line settings.
 PERF = CFG.get("perf", {}) or {}
 _app_cfg = {"headless": HEADLESS}
@@ -133,7 +133,7 @@ if STREAMING:
     # Same sequence as NVIDIA's own standalone example
     # (/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py):
     # omni.services.livestream.nvcf pulls in the omni.kit.livestream.webrtc backend.
-    from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
+    from isaacsim.core.experimental.utils.app import enable_extension  # noqa: E402
 
     simulation_app.set_setting("/app/window/drawMouse", True)
     enable_extension("omni.services.livestream.nvcf")
@@ -143,7 +143,11 @@ if STREAMING:
 
 import carb  # noqa: E402
 import omni.timeline  # noqa: E402
-from omni.isaac.core.world import World  # noqa: E402
+import omni.usd  # noqa: E402
+# Isaac Sim 6.0 removed omni.isaac.core.World (docs/migrate.md §14): physics/render settings, the physics
+# clock and per-step callbacks now come from SimulationManager / RenderingManager.
+from isaacsim.core.rendering_manager import RenderingManager  # noqa: E402
+from isaacsim.core.simulation_manager import SimulationEvent, SimulationManager  # noqa: E402
 from scipy.spatial.transform import Rotation  # noqa: E402
 
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS  # noqa: E402
@@ -291,14 +295,15 @@ def resolve_vehicle_usd(v_cfg):
     return ROBOTS[model]
 
 
-def spawn_objects(world, objects):
+def spawn_objects(objects):
     """Static test objects from the scenario (`world.objects`), e.g. a box to check ZED depth against.
 
     Each entry: {name, type: cuboid, position: [x,y,z] (centre, world ENU m), size: [sx,sy,sz] m,
     color: [r,g,b] 0-1}. Fixed (static colliders), so they show up in depth, cameras and physics.
     """
     import numpy as np  # noqa: WPS433
-    from isaacsim.core.api.objects import FixedCuboid  # noqa: WPS433
+    from isaacsim.core.experimental.objects import Cube  # noqa: WPS433
+    from pxr import UsdPhysics  # noqa: WPS433
 
     for i, o in enumerate(objects or []):
         kind = str(o.get("type", "cuboid"))
@@ -308,8 +313,10 @@ def spawn_objects(world, objects):
         pos = np.array([float(x) for x in o.get("position", [0.0, 0.0, 0.5])])
         size = np.array([float(x) for x in o.get("size", [1.0, 1.0, 1.0])])
         color = np.array([float(x) for x in o.get("color", [0.5, 0.5, 0.5])])
-        world.scene.add(FixedCuboid(prim_path=f"/World/test_objects/{name}", name=name, position=pos,
-                                    size=1.0, scale=size, color=color))
+        path = f"/World/test_objects/{name}"
+        Cube(path, sizes=1.0, colors=color.reshape(1, 3), positions=pos.reshape(1, 3), scales=size.reshape(1, 3))
+        # No RigidBodyAPI = static collider (what 5.1's FixedCuboid was).
+        UsdPhysics.CollisionAPI.Apply(omni.usd.get_context().get_stage().GetPrimAtPath(path))
         LOG.info("object %s: cuboid %s m at %s (faces x %.2f..%.2f, y %.2f..%.2f, z %.2f..%.2f)", name,
                  size.tolist(), pos.tolist(), *(v for a in range(3) for v in (pos[a] - size[a] / 2, pos[a] + size[a] / 2)))
 
@@ -345,8 +352,8 @@ class SimClock:
     evaluate on rendered frames (1 in `render_every` steps).
     """
 
-    def __init__(self, world):
-        from isaacsim.core.utils.extensions import enable_extension  # noqa: WPS433
+    def __init__(self):
+        from isaacsim.core.experimental.utils.app import enable_extension  # noqa: WPS433
         enable_extension("isaacsim.ros2.bridge")  # puts Isaac's bundled Jazzy rclpy on sys.path
         import rclpy  # noqa: WPS433
         from rclpy.qos import QoSProfile, ReliabilityPolicy  # noqa: WPS433
@@ -356,17 +363,16 @@ class SimClock:
             rclpy.init()
         except RuntimeError:  # already initialised (Pegasus ROS2Backend does the same)
             pass
-        self.world = world
         self.msg = Clock()
         self.node = rclpy.create_node("bisg_sim_clock")
         # Reliable keep-last-1: compatible with best-effort time-source readers and with ros2 CLI tools.
         self.pub = self.node.create_publisher(Clock, "/clock", QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE))
-        world.add_physics_callback("bisg_sim_clock", self.on_step)
+        self._cb = SimulationManager.register_callback(self.on_step, SimulationEvent.PHYSICS_POST_STEP)
         LOG.info("sim clock: publishing /clock every physics step (use_sim_time:=true on the ROS side)")
 
-    def on_step(self, _step_size):
+    def on_step(self, _step_size, _context=None):
         # Same base as IsaacReadSimulationTime, which stamps the ZED images/IMU/TF.
-        self.msg.clock.sec, self.msg.clock.nanosec = divmod(int(round(self.world.current_time * 1e9)), 1_000_000_000)
+        self.msg.clock.sec, self.msg.clock.nanosec = divmod(int(round(SimulationManager.get_simulation_time() * 1e9)), 1_000_000_000)
         self.pub.publish(self.msg)
 
 
@@ -375,7 +381,7 @@ class App:
         self.cfg = cfg
         self.timeline = omni.timeline.get_timeline_interface()
         self.pg = PegasusInterface()
-        # World settings must be set BEFORE the World is constructed.
+        # World settings are applied by initialize_world() (physics dt) and RenderingManager.set_dt (loop dt).
         # physics_dt drives the PX4 sensor/mavlink rate (Pegasus default 1/250 s) — changing it
         # changes flight behaviour, so it stays null unless a scenario opts in.
         world = cfg.get("world", {})
@@ -384,8 +390,8 @@ class App:
                                        rendering_dt=world.get("rendering_dt"),
                                        device=world.get("physics_device"))
             LOG.info("world settings: %s", self.pg._world_settings)
-        self.pg._world = World(**self.pg._world_settings)
-        self.world = self.pg.world
+        self.pg.initialize_world()
+        RenderingManager.set_dt(float(self.pg._world_settings.get("rendering_dt", 1.0 / 60.0)))
         self.vehicles = []
         self.previews = []  # ZED left|depth windows + depth products (zed_preview.py, zed_depth.py)
         self.stop = False
@@ -394,24 +400,26 @@ class App:
         world_cfg = cfg.get("world", {})
         world_usd = resolve_world(world_cfg)
         LOG.info("loading world %s", world_usd)
-        self.pg.load_environment(world_usd)
+        self.pg.load_asset(world_usd, "/World/layout")   # synchronous (load_environment defers to the first update)
         if world_cfg.get("add_ground_plane", False):
-            from omni.isaac.core.objects import GroundPlane  # noqa: WPS433
-            GroundPlane(prim_path="/World/bisg_ground", size=500.0, z_position=float(world_cfg.get("ground_z", 0.0)), visible=False)
+            from isaacsim.core.experimental.objects import GroundPlane  # noqa: WPS433
+            GroundPlane("/World/bisg_ground", sizes=500.0, positions=[[0.0, 0.0, float(world_cfg.get("ground_z", 0.0))]])
+            # 5.1 hid this plane (visible=False): it is only a collider under meshes that have none.
+            from pxr import UsdGeom  # noqa: WPS433
+            UsdGeom.Imageable(omni.usd.get_context().get_stage().GetPrimAtPath("/World/bisg_ground")).MakeInvisible()
 
-        spawn_objects(self.world, world_cfg.get("objects"))
+        spawn_objects(world_cfg.get("objects"))
 
         px4_cfg = cfg.get("px4", {})
         apply_px4_params(px4_cfg.get("params_file"))
         for v in cfg.get("vehicles", []):
             self.spawn_vehicle(v, px4_cfg)
 
-        self.world.reset()
-        self.clock = SimClock(self.world) if cfg.get("app", {}).get("ros_clock", True) else None
+        self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
         eye, target = cfg.get("app", {}).get("viewport_eye"), cfg.get("app", {}).get("viewport_target")
         if eye and target and (not HEADLESS or STREAMING):
-            from isaacsim.core.utils.viewports import set_camera_view  # noqa: WPS433
-            set_camera_view(eye=[float(x) for x in eye], target=[float(x) for x in target])
+            from isaacsim.core.rendering_manager import ViewportManager  # noqa: WPS433
+            ViewportManager.set_camera_view("/OmniverseKit_Persp", eye=[float(x) for x in eye], target=[float(x) for x in target])
             LOG.info("viewport camera: eye %s -> target %s", eye, target)
 
     def spawn_vehicle(self, v, px4_cfg):
@@ -467,7 +475,7 @@ class App:
                     or features.on("mapping.mapping_enabled") or (has_ui and view.get("point_cloud", True))):
                 from zed_depth import ZedDepthProducts  # noqa: WPS433
                 self.previews.append(ZedDepthProducts(cams, f"/drone_{vid + 1}", zed, features,
-                                                      sim_time=lambda: self.world.current_time, has_ui=has_ui))
+                                                      sim_time=SimulationManager.get_simulation_time, has_ui=has_ui))
 
     def run(self):
         app_cfg = self.cfg.get("app", {})
@@ -477,36 +485,35 @@ class App:
         step = 0
 
         physics_dt = float(self.pg._world_settings.get("physics_dt", 1.0 / 250.0))
-        # Rendering cadence. Isaac draws a frame on every world.step(render=True), so rendering once
-        # per physics step draws physics_dt/rendering_dt times more often than the world settings ask
-        # for (4x at the Pegasus defaults) and starves the physics loop: measured RTF 0.32 without a
-        # view and 0.12 with one. Render every Nth step instead; lower `world.rendering_dt` in the
-        # scenario for a smoother picture, raise it for more sim speed. See docs/performance.md.
-        rendering_dt = float(self.pg._world_settings.get("rendering_dt", 1.0 / 60.0))
-        render_every = max(1, int(round(rendering_dt / physics_dt))) if RENDER else 1
-        if RENDER:
-            LOG.info("render cadence: 1 frame per %d physics steps (physics_dt=%.4fs rendering_dt=%.4fs)",
-                     render_every, physics_dt, rendering_dt)
+        # Cadence (Isaac 6.0): one simulation_app.update() per RenderingManager dt (= world.rendering_dt),
+        # and Kit runs the physics sub-steps that fit in it (physics_dt each) — the render-per-N-steps
+        # logic the 5.1 launcher needed for World.step(render=True) is built in now.
+        # `step` below counts PHYSICS steps (SimulationManager), so heartbeat/perf lines keep their meaning.
+        if not RENDER:
+            LOG.warning("app.render=false: Isaac 6.0 has no World.step(render=False); the loop still calls "
+                        "simulation_app.update() (viewport updates are disabled when headless, so rendering is mostly skipped)")
+        LOG.info("loop cadence: 1 update per %.4fs (rendering_dt), physics_dt=%.4fs", RenderingManager.get_dt(), physics_dt)
         if self.web:
             self.web.start()
         self.timeline.play()
-        self.world.step(render=RENDER)
+        simulation_app.update()
         print("[launch] sim ready", flush=True)
         t_hb = time.time()
+        step_hb = SimulationManager.get_num_physics_steps()
 
         while simulation_app.is_running() and not self.stop:
-            self.world.step(render=RENDER and step % render_every == 0)
-            step += 1
+            simulation_app.update()
+            step = SimulationManager.get_num_physics_steps()
             if self.web:
                 self.web.maybe_capture()
             for p in self.previews:
                 p.maybe_update()
-            if hb and step % hb == 0:
+            if hb and step - step_hb >= hb:
                 # Real-time factor: >= 1.0 means the sim keeps up with wall clock.
                 # `./bisg debug perf` reads these lines; see docs/performance.md.
                 now = time.time()
-                sps = hb / max(now - t_hb, 1e-6)
-                t_hb = now
+                sps = (step - step_hb) / max(now - t_hb, 1e-6)
+                t_hb, step_hb = now, step
                 LOG.info("perf step %d %.0f steps/s rtf=%.2f", step, sps, sps * physics_dt)
                 for i, veh in enumerate(self.vehicles):
                     try:

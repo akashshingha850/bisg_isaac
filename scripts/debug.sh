@@ -50,7 +50,7 @@ cmd_echo(){ need_ros; ros_exec "timeout 30 ros2 topic echo --once $1" ; }
 
 cmd_kitlog(){
   local f=""; [[ "${1:-}" == "-f" ]] && f=1
-  # Text log: volume bisg_isaac-kit-logs = /isaac-sim/kit/logs -> Kit/Isaac-Sim Python/5.1/kit_<ts>.log
+  # Text log: volume bisg_isaac-kit-logs = /isaac-sim/kit/logs -> Kit/Isaac-Sim Python/<ver>/kit_<ts>.log
   # (the .nvidia-omniverse/logs volume only holds structured telemetry json).
   # path contains a space ("Isaac-Sim Python"): let find hand the names to ls -t, never word-split them
   # Do not let `docker run -v` create the volume: compose must own it, or every later

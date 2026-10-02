@@ -20,13 +20,13 @@ x-nvidia: &nvidia
     NVIDIA_DRIVER_CAPABILITIES: all
 
 x-sim-base: &sim-base
-  image: bisg/sim:${ISAAC_TAG:-5.1.0}
+  image: bisg/sim:${ISAAC_TAG:-6.0.0}
   build:
     context: ..
     dockerfile: docker/sim/Dockerfile
     args:
-      ISAAC_TAG: ${ISAAC_TAG:-5.1.0}
-      PX4_TAG: ${PX4_TAG:-v1.17.0}
+      ISAAC_TAG: ${ISAAC_TAG:-6.0.0}
+      PX4_TAG: ${PX4_TAG:-v1.16.0}
   <<: *nvidia
   network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
   # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in
@@ -39,7 +39,7 @@ x-sim-base: &sim-base
   volumes:
     - ..:/workspace:rw                          # sim/, tests/, docker/cyclonedds.xml
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    # Isaac caches as named volumes (paths from the Isaac 5.1 container docs)
+    # Isaac caches as named volumes (paths from the Isaac container docs)
     - isaac-cache-main:/isaac-sim/.cache:rw
     - isaac-cache-compute:/isaac-sim/.nv/ComputeCache:rw
     - isaac-logs:/isaac-sim/.nvidia-omniverse/logs:rw
