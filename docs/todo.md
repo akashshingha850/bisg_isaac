@@ -18,6 +18,18 @@ Known defects, with causes and candidate fixes, are in [bugs.md](bugs.md).
 - [x] Views for headless runs (`docs/remote-access.md`): `SIM_STREAM=off|web|webrtc|both`, `./bisg up --web|--stream|--both`, `./bisg view`; WebRTC enables `omni.services.livestream.nvcf` (TCP 49100 + UDP 47998), `web` serves captured frames on `SIM_WEB_PORT` so a VS Code/SSH tunnel can reach it (2026-09-13). **Verified live 2026-09-13**: `web` serves 1280x720 PNGs that update (page/frame/freshness checked over HTTP, TCP 8899 listening); `webrtc` reports ready with TCP 49100 listening (UDP 47998 opens on client negotiation — an actual client connection is still unverified, needs the NVIDIA app); smoke test passes with both views on
 - [ ] Review the 7 Claude Code skill stubs in `.claude/skills/`; delete or merge any that feel redundant
 
+## Done — Isaac ROS perception backend + benchmark — 2026-10-03 (branch `isaac-5.1`)
+
+Docs: [perception.md](perception.md) (design, switching, results), [decisions/ADR-006-perception-backends.md](decisions/ADR-006-perception-backends.md), skill `perception`.
+`PERCEPTION_BACKEND=mock|isaac_ros|ros2` (default `mock`), image `bisg/perception` (Isaac ROS 4.6 = release-4/Jazzy + CPU rtabmap/stereo_image_proc), `./bisg perception build|up|down|status|bench|report`,
+ROS packages `bisg_perception` + `vio_relay` in `bisg_vehicle`. Sim fixes: right `camera_info` baseline, image/camera_info rate gate (B9). Benchmark run at 448×252 and 320×180.
+Open:
+- [ ] **Re-run the benchmark at HD720** once `net.core.rmem_max` is raised (needs sudo, docs/setup.md): `./bisg perception bench all -c single_iris_vio`. The 448×252 result (CPU more accurate, Isaac ROS 2–30× cheaper/faster) may change
+- [ ] Isaac ROS depth is dense but biased on this scene; try ESS (needs NGC model download) and a textured test scene; cuVSLAM height under-estimate during climb
+- [ ] Isaac ROS on the Orin NX (`release-4` `noble-jetpack` arm64 exists, untested); run the same two backends against the real ZED wrapper
+- [ ] Port to the 6.0 branch (cherry-pick `docker/perception`, `ros2_ws/src/bisg_perception`, `scripts/perception*`, config block, zed_rig P / gate changes are already there)
+- [ ] `tests/check_contract.py` should learn `perception/*` and the right-camera `P[0,3]`
+
 ## Done — workstation OS migration 22.04 → 24.04 (plan.md §12) — 2026-09-21/22
 
 Done via a new PC, not an in-place upgrade, so no images/volumes carried over — rebuilt from
