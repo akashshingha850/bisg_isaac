@@ -7,3 +7,11 @@ extends: single_iris.yaml
 
 px4:
   params_file: deploy/px4_params/sim_default.params
+
+world:
+  objects:                     # depth test target (tests/zed_depth_box.py): a 1 m cube straight ahead of the
+    - name: depth_box          # drone's start pose. Front face at x=3.5 -> 3.32 m from the ZED lens (mount x
+      type: cuboid             # 0.18). Top at 1 m: below the 2 m tests/vio_flight.py square, no collision.
+      position: [4.0, 0.0, 0.5]
+      size: [1.0, 1.0, 1.0]
+      color: [1.0, 0.45, 0.0]  # orange, easy to find in the images

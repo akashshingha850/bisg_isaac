@@ -43,7 +43,7 @@ def _quat_xyzw(rot: Rotation):
     return {"x": float(q[0]), "y": float(q[1]), "z": float(q[2]), "w": float(q[3])}
 
 
-def attach_zed_mini(vehicle, ns: str, cfg: dict):
+def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
     """Build the ZED Mini rig on `vehicle` (a Pegasus Multirotor) and publish it
     under ROS 2 namespace `ns` (e.g. "/drone_1"), matching the interface contract.
 
@@ -54,6 +54,11 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
       fps: camera update rate
       imu_rate: IMU publish rate (ZED Mini wrapper = 200)
       depth_range: [near, far] metres
+      preview / preview_hz: GUI window with left image + depth (sim/launcher/zed_preview.py)
+    features: zed_features.Features — the zed_wrapper switches (deploy/jetson/zed_params.yaml).
+      Here: video.publish_left_right, depth.publish_depth_map, sensors.publish_imu. None = all on.
+
+    Returns {"left": Camera, "right": Camera, "fx", "fy", "cx", "cy"} (intrinsics in pixels).
     """
     enable_extension("isaacsim.ros2.bridge")
     enable_extension("isaacsim.sensors.physics")
@@ -103,15 +108,20 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
         cams[side] = cam
         LOG.info("zed rig: %s camera at %s (prim %s), fx=%.1f px (HFOV 84 deg)", side, local_pos, prim_path, fx)
 
+    def on(key):
+        return True if features is None else features.on(key, True)
+    pub_images, pub_depth, pub_imu = on("video.publish_left_right"), on("depth.publish_depth_map"), on("sensors.publish_imu")
+
     for side, cam in cams.items():
         render_path = cam._render_product_path
         LOG.info("zed rig: %s render_product_path=%r", side, render_path)
         frame_id = f"{fp}zed_{side}_camera_optical_frame"
 
-        writer_rgb = rep.writers.get("LdrColorSDROS2PublishImage")
-        writer_rgb.initialize(nodeNamespace=ns, topicName=f"zed/zed_node/{side}/image_rect_color",
-                               frameId=frame_id, queueSize=1)
-        writer_rgb.attach([render_path])
+        if pub_images:  # video.publish_left_right
+            writer_rgb = rep.writers.get("LdrColorSDROS2PublishImage")
+            writer_rgb.initialize(nodeNamespace=ns, topicName=f"zed/zed_node/{side}/image_rect_color",
+                                   frameId=frame_id, queueSize=1)
+            writer_rgb.attach([render_path])
 
         info, _ = read_camera_info(render_product_path=render_path)
         writer_info = rep.writers.get("ROS2PublishCameraInfo")
@@ -123,7 +133,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
         )
         writer_info.attach([render_path])
 
-        if side == "left":
+        if side == "left" and pub_depth:  # depth.publish_depth_map
             writer_depth = rep.writers.get("DistanceToImagePlaneSDROS2PublishImage")
             writer_depth.initialize(nodeNamespace=ns, topicName="zed/zed_node/depth/depth_registered",
                                      frameId=frame_id, queueSize=1)
@@ -140,45 +150,46 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
     imu_local = np.array(mount_xyz)
     IMUSensor(prim_path=imu_prim_path, name="zed_imu", frequency=int(imu_rate), translation=imu_local)
 
-    imu_graph_path = f"{body_path}/zed_imu_pub"
     keys = og.Controller.Keys
-    # Driven by OnPhysicsStep in an on-demand graph, not OnTick: action graphs only evaluate on
-    # rendered frames (1 in 4 physics steps with the launcher's render cadence), which capped the
-    # IMU at ~62 Hz sim time (43 Hz measured at rtf 0.66) against the contract's 200 Hz. Now one
-    # sample per physics step: 250 Hz sim time at the default physics_dt.
-    (imu_graph, _, _, _) = og.Controller.edit(
-        {"graph_path": imu_graph_path, "evaluator_name": "execution",
-         "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND},
-        {
-            keys.CREATE_NODES: [
-                ("on_tick", "isaacsim.core.nodes.OnPhysicsStep"),
-                ("sim_time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
-                ("read_imu", "isaacsim.sensors.physics.IsaacReadIMU"),
-                ("pub_imu", "isaacsim.ros2.bridge.ROS2PublishImu"),
-            ],
-            keys.CONNECT: [
-                ("on_tick.outputs:step", "read_imu.inputs:execIn"),
-                ("read_imu.outputs:execOut", "pub_imu.inputs:execIn"),
-                ("read_imu.outputs:angVel", "pub_imu.inputs:angularVelocity"),
-                ("read_imu.outputs:linAcc", "pub_imu.inputs:linearAcceleration"),
-                ("read_imu.outputs:orientation", "pub_imu.inputs:orientation"),
-                ("sim_time.outputs:simulationTime", "pub_imu.inputs:timeStamp"),
-            ],
-            keys.SET_VALUES: [
-                ("pub_imu.inputs:topicName", "zed/zed_node/imu/data"),
-                ("pub_imu.inputs:nodeNamespace", ns),
-                ("pub_imu.inputs:frameId", f"{fp}zed_imu_link"),
-            ],
-        },
-    )
-    set_targets(
-        prim=_stage_utils.get_current_stage().GetPrimAtPath(f"{imu_graph_path}/read_imu"),
-        attribute="inputs:imuPrim",
-        target_prim_paths=[imu_prim_path],
-    )
-    og.Controller.evaluate_sync(imu_graph)
-    LOG.info("zed rig: imu at %s -> %s/zed/zed_node/imu/data (every physics step; sensor %d Hz)",
-             imu_local, ns, int(imu_rate))
+    if pub_imu:  # sensors.publish_imu
+        imu_graph_path = f"{body_path}/zed_imu_pub"
+        # Driven by OnPhysicsStep in an on-demand graph, not OnTick: action graphs only evaluate on
+        # rendered frames (1 in 4 physics steps with the launcher's render cadence), which capped the
+        # IMU at ~62 Hz sim time (43 Hz measured at rtf 0.66) against the contract's 200 Hz. Now one
+        # sample per physics step: 250 Hz sim time at the default physics_dt.
+        (imu_graph, _, _, _) = og.Controller.edit(
+            {"graph_path": imu_graph_path, "evaluator_name": "execution",
+             "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND},
+            {
+                keys.CREATE_NODES: [
+                    ("on_tick", "isaacsim.core.nodes.OnPhysicsStep"),
+                    ("sim_time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                    ("read_imu", "isaacsim.sensors.physics.IsaacReadIMU"),
+                    ("pub_imu", "isaacsim.ros2.bridge.ROS2PublishImu"),
+                ],
+                keys.CONNECT: [
+                    ("on_tick.outputs:step", "read_imu.inputs:execIn"),
+                    ("read_imu.outputs:execOut", "pub_imu.inputs:execIn"),
+                    ("read_imu.outputs:angVel", "pub_imu.inputs:angularVelocity"),
+                    ("read_imu.outputs:linAcc", "pub_imu.inputs:linearAcceleration"),
+                    ("read_imu.outputs:orientation", "pub_imu.inputs:orientation"),
+                    ("sim_time.outputs:simulationTime", "pub_imu.inputs:timeStamp"),
+                ],
+                keys.SET_VALUES: [
+                    ("pub_imu.inputs:topicName", "zed/zed_node/imu/data"),
+                    ("pub_imu.inputs:nodeNamespace", ns),
+                    ("pub_imu.inputs:frameId", f"{fp}zed_imu_link"),
+                ],
+            },
+        )
+        set_targets(
+            prim=_stage_utils.get_current_stage().GetPrimAtPath(f"{imu_graph_path}/read_imu"),
+            attribute="inputs:imuPrim",
+            target_prim_paths=[imu_prim_path],
+        )
+        og.Controller.evaluate_sync(imu_graph)
+        LOG.info("zed rig: imu at %s -> %s/zed/zed_node/imu/data (every physics step; sensor %d Hz)",
+                 imu_local, ns, int(imu_rate))
 
     # --- static TF for the rig: base_link -> zed_camera_link -> {left,right} -> optical, + imu ---
     tf_graph_path = f"{body_path}/zed_tf_pub"
@@ -218,3 +229,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict):
     )
     og.Controller.evaluate_sync(tf_graph)
     LOG.info("zed rig: static tf published on %s/tf_static (%d frames)", ns, len(frames))
+    # Pinhole intrinsics of both cameras (square pixels, principal point at the centre).
+    LOG.info("zed rig: publishing left/right images %s, depth map %s, imu %s (zed_wrapper switches)",
+             pub_images, pub_depth, pub_imu)
+    return {**cams, "fx": fx, "fy": fx, "cx": width / 2.0, "cy": height / 2.0, "baseline": baseline}

@@ -17,11 +17,13 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B6](#b6) | S2 | test | `tests/vio_flight.py` does not wait for PX4 timesync to lock |
 | [B7](#b7) | S3 | vio_mock | Twist covariance is zero; no drift or orientation noise |
 | [B8](#b8) | S3 | MAVROS | Plugins run on wall time for the first ~3 s; `/param` never switches |
-| [B9](#b9) | S3 | ZED | Image rate may ignore the rate gate (42 Hz seen at 320x180) |
+| [B9](#b9) | S3 | ZED | Images/depth publish at ~36 Hz sim, twice camera_info (rate gate not applied to them) |
 | [B10](#b10) | S3 | images | `bisg/ros:arm64` still has the old entrypoint |
 | [B11](#b11) | S3 | params | `push_px4_params.py` can't finish the job on SITL (reboot refused) |
 | [B12](#b12) | S3 | GUI | `/clock` + OnPhysicsStep IMU changes not re-verified in the GUI profile |
 | [B13](#b13) | S2 | ZED | No automated check that the camera view is unobstructed / pointing forward |
+| [B14](#b14) | S2 | contract | Image topic names are pre-5.0 ZED wrapper names; the pinned 5.4.1 wrapper uses new ones |
+| [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
 
 ---
 
@@ -94,8 +96,10 @@ and `depth/depth_registered` deliver **0** messages. There's no error anywhere.
    contract stays the same), or lower the default resolution to VGA for sim runs that don't need HD.
 4. Stagger the three writers, or put depth on a lower rate gate, so the bursts don't coincide.
 
+The point cloud (0.92 MB per 320x180 cloud) is hit too: 5.5–7 Hz arrive of 10 Hz published.
+
 **Verify.** After the fix, re-run the rate check (`ros2 topic hz` or the rates script) for all three
-image topics at HD720. Expect about 15–30 Hz sim time (the contract range). Then update the
+image topics at HD720, and for `point_cloud/cloud_registered`. Expect about 15–30 Hz sim time (the contract range). Then update the
 `todo.md` ZED item.
 
 ---
@@ -228,8 +232,13 @@ behaviour once Phase 5 bench logs exist.
 ---
 
 <a id="b9"></a>
-## B9 — ZED image rate may ignore the rate gate
-**Sev S3 · unverified.**
+## B9 — ZED images/depth ignore the rate gate
+**Sev S3 · confirmed 2026-09-26 from a recorded flight** (`logs/flight_20260926_vio/`, 153 s sim):
+left 5462 / right 5447 / depth 5299 messages (~35.7 / 34.6 Hz sim), while camera_info on the same render
+products ran at ~18 Hz (1177 in 65 s). So images and camera_info don't pair 1:1: consumers that
+sync image + info will drop half the images. At HD720 that is also double the bytes on the DDS link (B2).
+
+Earlier observation:
 
 At 320x180 the images arrived at 42–47 Hz wall, while `camera_info` on the same render product runs at
 about 18 Hz sim. `zed_rig.py` sets `PostProcessDispatchIsaacSimulationGate.step` per render product, so the
@@ -297,6 +306,35 @@ fuselage (see Fixed, 2026-09-25). Nothing in the pipeline *looks* at the pixels.
 4. Re-run the view check whenever `sensors.zed.mount_xyz_rpy`, the airframe USD (Phase 4
    `bisg_quad`) or the FOV changes. The real mount must also keep the lens ahead of the frame and the
    props outside the ~90° HFOV (`docs/hardware.md`).
+
+---
+
+<a id="b14"></a>
+## B14 — Contract image topic names don't match the pinned ZED wrapper
+**Sev S2 · anything written against the contract won't find the real drone's images.**
+
+`docs/interface-contract.md` and the sim use `left/image_rect_color`, `right/image_rect_color` (wrapper
+≤ 4.x names). zed-ros2-wrapper 5.4.1 (our pin) builds them as `<sensor>/<color|gray>/<rect|raw>/image`
+(`zed_camera_component_video_depth.cpp` `make_topic`): `left/color/rect/image`, `right/color/rect/image`,
+`rgb/color/rect/image`, … with camera_info next to each image. Depth, point cloud, IMU, odom, disparity,
+confidence and mapping names are unchanged.
+
+**Possible fixes.** (1) Rename in the contract first, then `zed_rig.py` writer topic names, the
+checkers in `tests/`, and any consumer, which is the correct fix per the contract rule. (2) Or remap on
+the Jetson (`ros2 launch … --ros-args -r`) to the old names; this is cheaper but diverges from Stereolabs'
+docs/tools. Decide before any perception node is written.
+
+<a id="b15"></a>
+## B15 — Sim rig parameters are a second copy of the wrapper's
+**Sev S3 · parity drift.**
+
+Feature switches come from `deploy/jetson/zed_params.yaml`, but the sim rig still takes resolution,
+fps and depth range from the scenario (`sensors.zed.resolution/fps/depth_range`). They already differ:
+sim near limit 0.1 m, wrapper `depth.min_depth` 0.2 m.
+
+**Possible fix.** Let `zed_rig.py` take `general.grab_resolution`, `general.grab_frame_rate` and
+`depth.min_depth/max_depth` from the same file (map HD720 → 1280×720 etc.), and keep only the
+sim-only values (mount, baseline, view) in the scenario.
 
 ---
 

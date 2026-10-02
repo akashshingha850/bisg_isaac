@@ -36,7 +36,9 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 | `zed/zed_node/right/image_rect_color` | `sensor_msgs/Image` | same | Isaac cam / ZED wrapper | |
 | `zed/zed_node/left/camera_info` | `sensor_msgs/CameraInfo` | same | | intrinsics from chosen ZED model |
 | `zed/zed_node/depth/depth_registered` | `sensor_msgs/Image` (`32FC1`, metres) | same | Isaac depth / ZED | |
-| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | optional | heavy; off by default |
+| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | heavy: sim publishes only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd); sim samples every 4th pixel |
+| `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
+| `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | sim `zed_depth.py` / ZED wrapper | optional, `mapping.mapping_enabled`; sim frame `odom`, wrapper `map` |
 | `zed/zed_node/imu/data` | `sensor_msgs/Imu` | 200 Hz | Isaac IMU / ZED | frame `zed_imu_link` |
 | `zed/zed_node/odom` | `nav_msgs/Odometry` | 30–60 Hz | `vio_mock` / ZED positional tracking | `odom` → `base_link` (wrapper default `zed_camera_link`; relay re-parents to `base_link`) |
 | `vehicle/state` | `bisg_msgs/VehicleState` | 2 Hz | `bisg_vehicle/health` | id, mode, armed, battery %, pose, vio_ok, last_error |

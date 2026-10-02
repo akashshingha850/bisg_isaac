@@ -291,6 +291,29 @@ def resolve_vehicle_usd(v_cfg):
     return ROBOTS[model]
 
 
+def spawn_objects(world, objects):
+    """Static test objects from the scenario (`world.objects`), e.g. a box to check ZED depth against.
+
+    Each entry: {name, type: cuboid, position: [x,y,z] (centre, world ENU m), size: [sx,sy,sz] m,
+    color: [r,g,b] 0-1}. Fixed (static colliders), so they show up in depth, cameras and physics.
+    """
+    import numpy as np  # noqa: WPS433
+    from isaacsim.core.api.objects import FixedCuboid  # noqa: WPS433
+
+    for i, o in enumerate(objects or []):
+        kind = str(o.get("type", "cuboid"))
+        if kind != "cuboid":
+            raise SystemExit(f"[launch] world.objects[{i}]: unsupported type {kind!r} (cuboid only)")
+        name = str(o.get("name", f"object_{i}"))
+        pos = np.array([float(x) for x in o.get("position", [0.0, 0.0, 0.5])])
+        size = np.array([float(x) for x in o.get("size", [1.0, 1.0, 1.0])])
+        color = np.array([float(x) for x in o.get("color", [0.5, 0.5, 0.5])])
+        world.scene.add(FixedCuboid(prim_path=f"/World/test_objects/{name}", name=name, position=pos,
+                                    size=1.0, scale=size, color=color))
+        LOG.info("object %s: cuboid %s m at %s (faces x %.2f..%.2f, y %.2f..%.2f, z %.2f..%.2f)", name,
+                 size.tolist(), pos.tolist(), *(v for a in range(3) for v in (pos[a] - size[a] / 2, pos[a] + size[a] / 2)))
+
+
 def apply_px4_params(params_file):
     """Hand a deploy/px4_params/*.params file to PX4 SITL at boot.
 
@@ -364,6 +387,7 @@ class App:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
         self.vehicles = []
+        self.previews = []  # ZED left|depth windows + depth products (zed_preview.py, zed_depth.py)
         self.stop = False
         self.web = WebView(WEB_PORT, WEB_INTERVAL) if WEB_VIEW else None
 
@@ -375,6 +399,8 @@ class App:
             from omni.isaac.core.objects import GroundPlane  # noqa: WPS433
             GroundPlane(prim_path="/World/bisg_ground", size=500.0, z_position=float(world_cfg.get("ground_z", 0.0)), visible=False)
 
+        spawn_objects(self.world, world_cfg.get("objects"))
+
         px4_cfg = cfg.get("px4", {})
         apply_px4_params(px4_cfg.get("params_file"))
         for v in cfg.get("vehicles", []):
@@ -382,6 +408,11 @@ class App:
 
         self.world.reset()
         self.clock = SimClock(self.world) if cfg.get("app", {}).get("ros_clock", True) else None
+        eye, target = cfg.get("app", {}).get("viewport_eye"), cfg.get("app", {}).get("viewport_target")
+        if eye and target and (not HEADLESS or STREAMING):
+            from isaacsim.core.utils.viewports import set_camera_view  # noqa: WPS433
+            set_camera_view(eye=[float(x) for x in eye], target=[float(x) for x in target])
+            LOG.info("viewport camera: eye %s -> target %s", eye, target)
 
     def spawn_vehicle(self, v, px4_cfg):
         vid = int(v.get("id", 0))
@@ -422,8 +453,21 @@ class App:
         zed = v.get("sensors", {}).get("zed", {})
         if zed.get("enabled", False):
             from zed_rig import attach_zed_mini  # noqa: WPS433
-            attach_zed_mini(veh, f"/drone_{vid + 1}", zed)
+            from zed_features import load_features  # noqa: WPS433
+            features = load_features(zed)  # zed_wrapper switches: deploy/jetson/zed_params.yaml + overrides
+            cams = attach_zed_mini(veh, f"/drone_{vid + 1}", zed, features)
             LOG.info("vehicle %d: ZED Mini rig attached on /drone_%d/zed/zed_node/...", vid, vid + 1)
+            # A UI exists with a window (not headless) or a WebRTC stream (which shows the full UI).
+            has_ui = not HEADLESS or STREAMING
+            if zed.get("preview", False) and has_ui:
+                from zed_preview import ZedPreview  # noqa: WPS433
+                self.previews.append(ZedPreview(cams, f"/drone_{vid + 1}", zed))
+            view = zed.get("view", {}) or {}
+            if (features.on("depth.publish_point_cloud") or features.on("depth.publish_disparity")
+                    or features.on("mapping.mapping_enabled") or (has_ui and view.get("point_cloud", True))):
+                from zed_depth import ZedDepthProducts  # noqa: WPS433
+                self.previews.append(ZedDepthProducts(cams, f"/drone_{vid + 1}", zed, features,
+                                                      sim_time=lambda: self.world.current_time, has_ui=has_ui))
 
     def run(self):
         app_cfg = self.cfg.get("app", {})
@@ -455,6 +499,8 @@ class App:
             step += 1
             if self.web:
                 self.web.maybe_capture()
+            for p in self.previews:
+                p.maybe_update()
             if hb and step % hb == 0:
                 # Real-time factor: >= 1.0 means the sim keeps up with wall clock.
                 # `./bisg debug perf` reads these lines; see docs/performance.md.

@@ -83,6 +83,27 @@ Phase 3 — Sensors, ZED Mini contract, VIO
   focalLength/aperture. Checked frames on the ground, hovering and banked ~20° mid-square: clear forward view,
   no airframe/props/legs, 0 depth pixels < 0.5 m in flight, stereo parallax sign correct. `tests/vio_flight.py`
   still PASS (0.056 m). Captured at 480x270 — HD720 frames still need the host sysctl (bugs.md B2).
+- [x] ZED depth checked in flight + GUI depth view (2026-09-26). Recorded flight (`logs/flight_20260926_vio/`:
+  rosbags left/right/depth/state + `analysis/depth_per_frame.csv`): 1054 airborne depth frames, none with a pixel
+  < 0.5 m at up to ±21° roll/pitch; floor rows at hover fit a camera pitch of −0.1..−0.2° vs truth +0.1°
+  (depth metric + rig level); 32FC1 metres, left optical frame, +inf beyond 15 m, no NaN. GUI: scenario
+  `sensors.zed.preview` opens a "ZED Mini /drone_N - left | depth" window (`sim/launcher/zed_preview.py`,
+  reads the render products directly, so HD720 works without DDS).
+- [x] ZED point cloud + depth test box (2026-09-26). `sim/launcher/zed_pointcloud.py` (now `zed_depth.py`): contract topic
+  `zed/zed_node/point_cloud/cloud_registered` (organized 320x180, x y z rgb, `zed_left_camera_frame`, sim time,
+  published only while subscribed) + live points over the GUI viewport (omni.ui.scene overlay — not
+  debug_draw, which rendered the dots into the ZED camera images). Scenario `world.objects` (launcher
+  `spawn_objects`): `single_iris_vio` has a 1 m orange `depth_box` at x=4. `tests/zed_depth_box.py` checks the
+  cloud against it: parked front face −0.1 mm, width 1.000 m; hovering (`--min-alt 1.9`) front +0.2 mm, top
+  +6.5 mm (pose/cloud pairing while climbing) — PASS. Floor from the hover cloud 1.98 m below the lens (2.04
+  expected). GUI view aimed at the drone (`app.viewport_eye/target`), ZED window docked in the bottom panel.
+- [x] ZED SDK feature switches (2026-09-26): `deploy/jetson/zed_params.yaml` now lists every wrapper feature with its
+  switch (video, sensors, depth, ROI, pos tracking, GNSS, mapping, OD, body tracking, streaming) and is read by the
+  sim too (`sim/launcher/zed_features.py`; scenario `sensors.zed.features` overrides; "NOT simulated" warning).
+  Sim emulates images, IMU, depth, point cloud, disparity (verified f·T/d = depth) and spatial mapping
+  (`mapping/fused_cloud` + GUI overlay; box face voxel 3.525 vs 3.500, 0% below floor after pairing each depth
+  frame with the camera pose at its render time — pairing with the current pose had smeared 11% of the map).
+  Reference table: `docs/zed-features.md`. Disabling switches in sim only checked in code, not boot-tested.
 - [x] `vio_mock` → `mavros/odometry/out` (2026-09-21): `ros2_ws/src/bisg_vehicle` (new package), reads Pegasus
   ground-truth `state/pose`/`state/twist` (ROS2Backend `pub_state`, parity rule plan.md §8), adds Gaussian
   position noise + 30 ms latency, publishes `zed/zed_node/odom` (sensor QoS, `drone_1/`-prefixed frames per
