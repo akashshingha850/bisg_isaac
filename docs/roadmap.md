@@ -37,7 +37,7 @@ Exit test
 **Goal:** one command brings up Isaac Sim + Pegasus + PX4 SITL with one drone that can be flown from QGroundControl.
 
 Deliverables
-- `docker/sim/Dockerfile` (Isaac 5.1 base, Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
+- `docker/sim/Dockerfile` (Isaac 6.0 base since the 2026-10 migration — was 5.1; Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
 - `docker/compose.yaml` profiles `sim` and `sim-headless`.
 - `sim/launcher/launch.py` + `sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
 - `third_party/` submodules pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.

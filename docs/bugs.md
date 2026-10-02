@@ -12,15 +12,13 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B1](#b1) | S1 | failsafe | No usable failsafe action while GPS-denied (Land/Hold/RTL) |
 | [B2](#b2) | S2 | DDS / ZED | HD720 ZED images and depth never reach a subscriber |
 | [B3](#b3) | S2 | MAVROS | Plugin nodes ignore `--params-file`, so `px4_config.yaml` plugin settings are dead |
-| [B4](#b4) | S2 | launcher | `[launch] perf ... rtf=` under-reports the real-time factor |
 | [B5](#b5) | S2 | Pegasus | `state/*` topics are stamped with wall time, not sim time |
 | [B6](#b6) | S2 | test | `tests/vio_flight.py` does not wait for PX4 timesync to lock |
 | [B7](#b7) | S3 | vio_mock | Twist covariance is zero; no drift or orientation noise |
 | [B8](#b8) | S3 | MAVROS | Plugins run on wall time for the first ~3 s; `/param` never switches |
-| [B9](#b9) | S3 | ZED | Images/depth publish at ~36 Hz sim, twice camera_info (rate gate not applied to them) |
 | [B10](#b10) | S3 | images | `bisg/ros:arm64` still has the old entrypoint |
 | [B11](#b11) | S3 | params | `push_px4_params.py` can't finish the job on SITL (reboot refused) |
-| [B12](#b12) | S3 | GUI | `/clock` + OnPhysicsStep IMU changes not re-verified in the GUI profile |
+| [B12](#b12) | S3 | GUI | `/clock` + OnPhysicsStep IMU changes not re-verified in the GUI profile (Isaac 6.0: full-UI path checked via `both`, native `gui` window not) |
 | [B13](#b13) | S2 | ZED | No automated check that the camera view is unobstructed / pointing forward |
 | [B14](#b14) | S2 | contract | Image topic names are pre-5.0 ZED wrapper names; the pinned 5.4.1 wrapper uses new ones |
 | [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
@@ -136,31 +134,6 @@ It does nothing for the other `px4_config.yaml` values.
 
 ---
 
-<a id="b4"></a>
-## B4 — Launcher RTF metric under-reports
-**Sev S2 · `docs/performance.md` numbers and any "is the sim fast enough" decision are off.**
-
-**Symptom.** The heartbeat printed `perf step … 163 steps/s rtf=0.65`. In the same run, `/clock`
-arrived at 288 msgs/s wall time and 250 msgs/s sim time: sim time ran about **1.15×** wall time, not 0.65×.
-The PX4 timesync drift measured before the fix (about 0.2 s/s) matches the higher number.
-
-**Cause (likely).** The launcher counts **loop iterations** × `physics_dt`
-(`sim/launcher/launch.py` `run()`). On render frames, `world.step(render=True)` also runs Kit's
-`app.update()`, which appears to advance physics again, so one iteration can be several physics steps.
-Not yet confirmed by reading Isaac's source.
-
-**Possible fixes.**
-1. Compute RTF from sim time: `(world.current_time - t_sim_prev) / (wall - wall_prev)`, the same clock
-   `/clock` publishes. Report physics steps/s as `Δsim / physics_dt`.
-2. Count physics steps in a physics callback (the `SimClock` callback already runs once per physics
-   step) instead of in the loop.
-3. Then re-measure the tables in `docs/performance.md`, and check whether the "render cadence fix"
-   (todo 2026-09-13) changed what we think it did.
-
-**Verify.** RTF from the heartbeat equals `Δ/clock / Δwall` measured from outside (`ros2 topic echo /clock`) within 2%.
-
----
-
 <a id="b5"></a>
 ## B5 — Pegasus `state/*` topics are stamped with wall time
 **Sev S2 · a trap for any consumer that uses the stamp.**
@@ -228,25 +201,6 @@ behaviour once Phase 5 bench logs exist.
 
 **Possible fixes.** Retry failed nodes for longer with backoff. Longer term, remove the helper entirely once
 [B3](#b3) is fixed upstream, because then `use_sim_time` can go in the params file.
-
----
-
-<a id="b9"></a>
-## B9 — ZED images/depth ignore the rate gate
-**Sev S3 · confirmed 2026-09-26 from a recorded flight** (`logs/flight_20260926_vio/`, 153 s sim):
-left 5462 / right 5447 / depth 5299 messages (~35.7 / 34.6 Hz sim), while camera_info on the same render
-products ran at ~18 Hz (1177 in 65 s). So images and camera_info don't pair 1:1: consumers that
-sync image + info will drop half the images. At HD720 that is also double the bytes on the DDS link (B2).
-
-Earlier observation:
-
-At 320x180 the images arrived at 42–47 Hz wall, while `camera_info` on the same render product runs at
-about 18 Hz sim. `zed_rig.py` sets `PostProcessDispatchIsaacSimulationGate.step` per render product, so the
-image and info writers should share one rate. It may be the smaller resolution rendering faster, or the gate
-may not apply to the image writers.
-
-**Next step.** After [B2](#b2) is fixed, measure all ZED topics at HD720 in sim time. If the images
-exceed 30 Hz, gate each writer separately, or set `frequency` on the `Camera` and drop the gate.
 
 ---
 
@@ -339,6 +293,14 @@ sim-only values (mount, baseline, view) in the scenario.
 ---
 
 ## Fixed
+- **2026-10-02 — B4: launcher RTF metric under-reported** (`sim/launcher/launch.py`, Isaac 6.0 migration). Cause confirmed:
+  it counted loop iterations, and a render iteration ran more than one physics step. The 6.0 loop is
+  `simulation_app.update()` and the heartbeat now counts `SimulationManager.get_num_physics_steps()`, so
+  `perf … steps/s` equals the `/clock` rate (measured 82 vs 80, 97 vs 97 Hz). Old `docs/performance.md` numbers
+  are still the iteration-based ones and need a redo.
+- **2026-10-02 — B9: ZED images/depth ignored the rate gate** (`sim/launcher/zed_rig.py`). Only the
+  `PostProcessDispatch…Gate` (camera_info) was set; each image writer has its own `<rendervar>IsaacSimulationGate`.
+  All of them are now set from the render dt: images 12.05 Hz wall at rtf 0.387 = 31 Hz sim, camera_info 31 Hz.
 - **2026-09-25 — ZED camera footage blocked / backwards / wrong FOV** (`sim/launcher/zed_rig.py`).
   - **Symptom:** frames were nearly black, and 90% of depth was under 0.2 m.
   - **Three stacked bugs:**

@@ -12,7 +12,7 @@ distro choice was host-OS-independent by design. (The host itself has since move
 
 ## Decision
 - All `bisg/*` containers use **ROS 2 Jazzy** (`ros:jazzy-ros-base`, Ubuntu 24.04), on amd64 and arm64.
-- Isaac Sim 5.1's bundled ROS 2 bridge is run with its **Jazzy** library set.
+- Isaac Sim's bundled ROS 2 bridge is run with its **Jazzy** library set (5.1: `exts/isaacsim.ros2.bridge/jazzy`; 6.0: `exts/isaacsim.ros2.core/jazzy`).
 - MAVROS from `ros-jazzy-mavros` + `ros-jazzy-mavros-extras`.
 - The host has no ROS install at all (see CLAUDE.md); every ROS 2 process, including ad-hoc
   debugging, runs inside a `bisg/ros` container.
@@ -25,6 +25,7 @@ distro choice was host-OS-independent by design. (The host itself has since move
 ## Consequences
 - Verified 2026-09-12: Isaac Sim 5.1.0 ships an internal Jazzy bridge (`exts/isaacsim.ros2.bridge/jazzy/{lib,rclpy}`); Pegasus's own install docs select it with `ROS_DISTRO=jazzy` + `LD_LIBRARY_PATH`. Pegasus ROS 2 backend on Jazzy still to be exercised in Phase 3.
 - Verified 2026-09-12: `ros-jazzy-mavros` / `-extras` 2.15.1 exist for amd64 and arm64.
+- Verified 2026-10-02 (Isaac Sim 6.0.0 migration): the bundled bridge moved to `exts/isaacsim.ros2.core/jazzy/{lib,rclpy}` (still Cyclone-capable); OmniGraph node names are still `isaacsim.ros2.bridge.*`; Pegasus ROS 2 backend + MAVROS + `/clock` work across containers on Jazzy.
 - CycloneDDS packages: `ros-jazzy-rmw-cyclonedds-cpp` (ADR-004 unchanged).
 - If Isaac's Jazzy bridge proves unusable, fallback is Humble in the `sim` container only with a
   DDS bridge to Jazzy — a documented exception, not a distro change.

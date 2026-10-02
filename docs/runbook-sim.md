@@ -80,7 +80,7 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 | PX4 (tag `PX4_TAG`) | `/opt/PX4-Autopilot`, SITL binary `build/px4_sitl_default/bin/px4`, logs under the temp rootfs of each instance |
 | Pegasus (tag `PEGASUS_TAG`) | `/opt/PegasusSimulator/extensions/pegasus.simulator` (editable install, `config/configs.yaml`) |
 | Repo | `/workspace` (bind mount) |
-| Kit text log (`kit_*.log`) | volume `isaac-kit-logs` → `/isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1/` (`./bisg debug kitlog`); `isaac-logs` only holds structured telemetry json |
+| Kit text log (`kit_*.log`) | volume `isaac-kit-logs` → `/isaac-sim/kit/logs/Kit/Isaac-Sim Python/<version>/` (`./bisg debug kitlog`); `isaac-logs` only holds structured telemetry json |
 
 ## Verified on this workstation (2026-09-12)
 - Headless boot to `[launch] sim ready`: ~4.3 min cold and warm alike (Kit startup + warehouse USD load dominate, not the shader cache); PX4 "Ready for takeoff" ~10 s later. `docker compose stop`: 1.4 s, exit 0, no stray PX4.

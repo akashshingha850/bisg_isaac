@@ -59,4 +59,4 @@ bisg_isaac/
 ```
 `./bisg help` lists everything (status, logs, shell, debug report/px4/topics, …).
 Details: [docs/setup.md](docs/setup.md), [docs/configuration.md](docs/configuration.md), [docs/remote-access.md](docs/remote-access.md), [docs/runbook-sim.md](docs/runbook-sim.md), [docs/debugging.md](docs/debugging.md).
-Settings: `config/bisg.conf` + `docker/.env` (this machine). Pins: Isaac 5.1.0, PX4 v1.17.0, Pegasus v5.1.0, ZED SDK 5.4.1.
+Settings: `config/bisg.conf` + `docker/.env` (this machine). Pins: Isaac Sim 6.0.0, PX4 v1.17.0, Pegasus PR #144 (Isaac 6 port), ZED SDK 5.4.1. Migration from 5.1: `docs/migration-report.md`.

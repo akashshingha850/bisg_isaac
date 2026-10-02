@@ -22,6 +22,13 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
 - Stereo baseline = 0.063 m (ZED Mini); both cameras rigid on `zed_camera_link`; wrapper `camera_model: zedm`.
 - IMU on `zed_imu_link` at 200 Hz.
 
+## Isaac Sim 6.0 rig notes (`sim/launcher/zed_rig.py`)
+- `read_camera_info` is `isaacsim.ros2.core.impl.camera_info_utils` (was `isaacsim.ros2.bridge`); OmniGraph node/writer names are unchanged (`isaacsim.ros2.bridge.ROS2Publish*`).
+- IMU is `isaacsim.sensors.experimental.physics.IMU` + `IMUSensor` (the old `isaacsim.sensors.physics` ext does not load under the python kit). It has no `frequency`: it samples every physics step, and the graph publishes on `OnPhysicsStep`.
+- Still on deprecated APIs that import fine in 6.0: `isaacsim.sensors.camera.Camera`, `isaacsim.core.utils.{stage,prims}`. Port them before a 6.1 step.
+- Publish rate: every image/depth/camera_info writer has its own `…IsaacSimulationGate`; the rig sets all of them to `round(1/(render_dt*fps))` rendered frames (30 Hz sim at the default 1/60 s loop). Verify in **sim** time: `wall_hz / (clock_hz / 250)`.
+- Verified on 6.0: topic set and names identical to 5.1; K = 177.7 px @ 320 wide (84° HFOV); depth `32FC1`, colour `rgb8`; static TF has 6 frames.
+
 ## VIO source
 - Sim: `vio_mock` (ground truth + noise + latency) publishes `zed/zed_node/odom` AND relays to `mavros/odometry/out`.
 - Real: wrapper publishes `odom`; `vio_relay` re-parents child frame to `base_link` and republishes to `mavros/odometry/out`.

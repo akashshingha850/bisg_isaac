@@ -2,7 +2,8 @@
 
 Upstream reference: **NVIDIA, "Simulation Performance Optimization Handbook"** —
 <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/reference_material/sim_performance_optimization_handbook.html>
-(written for 6.0; every setting used below was checked against our pinned Isaac Sim 5.1.0 image).
+(written for 6.0; the settings below were checked against Isaac Sim 5.1.0 and the 6.0.0 migration, see
+`migration-report.md`; Isaac 6.0 changes the loop cadence, so re-measure before trusting the old tables).
 
 Why this matters here: the RTX 2080 Ti has 11 GB, which is below Isaac's recommended spec (risk R1 in
 `plan.md`), and boot time sets the floor for the regression suite (Phase 8). Tune with numbers, not guesses:
@@ -56,6 +57,23 @@ in `sim/assets/README.md` when that work starts.
 ./bisg up headless -c sim/configs/headless_fast.yaml
 ./bisg debug perf
 ```
+
+## Isaac Sim 6.0 (migration, 2026-10-02) — read this before the tables below
+
+The tables below were measured on **Isaac Sim 5.1** with an iteration-counting metric and the old render-every-Nth-step loop. On 6.0 the loop is
+one `simulation_app.update()` per `world.rendering_dt` with ~`rendering_dt/physics_dt` physics sub-steps inside it, and `perf … steps/s` now counts real
+physics steps (= the `/clock` rate). Current numbers (RTX 4500 Ada, headless, PX4 v1.17.0):
+
+| Scenario | Warm boot to `sim ready` | Physics Hz (nominal 250) | RTF |
+|---|---:|---:|---:|
+| `single_iris_nozed` | 30 s | 119 | 0.48 |
+| `single_iris_vio` (ZED HD720) | 33 s | 83 | 0.33 |
+| `headless_fast` | 30 s | 132–137 | 0.53 |
+| 2 / 4 / 8 drones, no ZED | 30–34 s | 73 / 41 / 23 | 0.29 / 0.17 / 0.09 |
+
+The bottleneck is Pegasus's per-step Python, not rendering (`migration-errors.md` M8); `app.profile_s: 45` in a scenario prints a cProfile of the loop.
+First boot (or after `./bisg debug clean-cache`) takes ~190 s while RTX shaders compile into the `isaac-cache-kit` volume (M6). `app.render: false` no longer
+skips the app update (M9). Full comparison with 5.1: `migration-report.md` §7.
 
 ## Measurements on this workstation (RTX 2080 Ti, 12 cores, driver 580.178.04)
 

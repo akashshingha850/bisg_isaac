@@ -11,7 +11,7 @@ scales badly with N drones.
 ## Decision
 - `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` in every container and on the host; a committed
   `cyclonedds.xml` (UDP only, interface pinned).
-- Isaac Sim's bundled ROS 2 bridge is configured for Cyclone as well — verified 2026-09-12: Isaac 5.1.0 ships `exts/isaacsim.ros2.bridge/jazzy/lib/librmw_cyclonedds_cpp.so`; the sim image sets `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` and `CYCLONEDDS_URI` to `docker/cyclonedds.xml`.
+- Isaac Sim's bundled ROS 2 bridge is configured for Cyclone as well — verified 2026-09-12: Isaac 5.1.0 shipped `exts/isaacsim.ros2.bridge/jazzy/lib/librmw_cyclonedds_cpp.so` (Isaac 6.0.0: `exts/isaacsim.ros2.core/jazzy/lib/`, verified 2026-10-02); the sim image sets `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` and `CYCLONEDDS_URI` to `docker/cyclonedds.xml`.
 - Between drones and ground station: `zenoh-bridge-ros2dds` on each Jetson and on the GCS;
   drone-local traffic (images, VIO) never leaves the Jetson. Only `vehicle/state`, `vehicle/cmd`,
   `/fleet/*` and low-rate telemetry are allowed across the bridge (allow-list in the bridge config).

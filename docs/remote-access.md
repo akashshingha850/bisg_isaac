@@ -70,7 +70,7 @@ ZeroTier work the same way.
   simpler. `cloudflared` *is* a reasonable way to expose the **web** view (one TCP port) to the internet;
   put authentication in front of it, because that page has no access control of its own.
 - **A browser URL for WebRTC.** NVIDIA removed the in-browser WebRTC client after Isaac Sim 4.0, and this
-  image ships only the server extensions (`omni.services.livestream.nvcf`, `omni.kit.livestream.webrtc`).
+  image ships only the server extensions (Isaac Sim 6.0: `omni.kit.livestream.app` + `omni.kit.livestream.webrtc`; 5.1 used `omni.services.livestream.nvcf`, which no longer exists).
   The browser route is the `web` mode above.
 - **Forwarding UDP 47998 over SSH or VS Code.** Both forward TCP. `socat`/`udp-over-tcp` bridges exist and
   are not worth the trouble; use a VPN.

@@ -18,6 +18,22 @@ Known defects, with causes and candidate fixes, are in [bugs.md](bugs.md).
 - [x] Views for headless runs (`docs/remote-access.md`): `SIM_STREAM=off|web|webrtc|both`, `./bisg up --web|--stream|--both`, `./bisg view`; WebRTC enables `omni.services.livestream.nvcf` (TCP 49100 + UDP 47998), `web` serves captured frames on `SIM_WEB_PORT` so a VS Code/SSH tunnel can reach it (2026-09-13). **Verified live 2026-09-13**: `web` serves 1280x720 PNGs that update (page/frame/freshness checked over HTTP, TCP 8899 listening); `webrtc` reports ready with TCP 49100 listening (UDP 47998 opens on client negotiation — an actual client connection is still unverified, needs the NVIDIA app); smoke test passes with both views on
 - [ ] Review the 7 Claude Code skill stubs in `.claude/skills/`; delete or merge any that feel redundant
 
+## Done — Isaac Sim 5.1 → 6.0 migration — 2026-10-02
+
+Report: [migration-report.md](migration-report.md) · every error: [migration-errors.md](migration-errors.md) · plan followed: [migrate.md](migrate.md).
+Branch `migrate/isaac-6.0` (nothing pushed), rollback tag `isaac-5.1-baseline`. Isaac Sim 6.0.0 + Pegasus PR #144 + PX4 v1.17.0 (kept; 1.16.0 also validated).
+Smoke, VIO flight (≤ 0.07 m) and depth box pass and match the 5.1 baseline; 2/4/8 drones boot and fly; `web` view works, WebRTC server starts.
+
+Follow-ups (open):
+- [ ] **Pegasus per-step cost (M8)**: sim runs 0.33× real time (was 1.18×). Batch the force/torque calls and the propeller visuals on the submodule `local` branch; gate with smoke + `vio_flight` + `zed_depth_box`
+- [ ] Decide what `headless_fast` means now (M9: `app.render: false` is no longer physics-only, rtf 0.53 vs 1.27); redo `docs/performance.md` on 6.0
+- [ ] Push `isaac-5.1-baseline` and `migrate/isaac-6.0` (your call), merge, then mirror Pegasus PR #144 to a fork or tag (M18)
+- [ ] Finish the sensor port off deprecated APIs (`isaacsim.sensors.camera`, `isaacsim.core.utils`, `isaacsim.ros2.bridge` shim) before looking at Isaac Sim 6.1 (M12)
+- [ ] Manual: real QGroundControl session, real WebRTC client, native `gui` window, `vehicle reset`, GPS-scenario position hold; run the ZED rig with 2 drones (unique topics / TF)
+- [ ] Re-test whether the NVIDIA 59x driver crash still exists on Isaac Sim 6.0 (keep the guard in `scripts/check_env.sh` until then)
+- [ ] Isaac ROS 4.6 integration: not in `plan.md` — needs its own plan before any work (`migrate.md` §38)
+- [ ] Box colour (M10) and the `CMODE(...)` string for a late-started MAVROS (M11): cosmetic
+
 ## Done — workstation OS migration 22.04 → 24.04 (plan.md §12) — 2026-09-21/22
 
 Done via a new PC, not an in-place upgrade, so no images/volumes carried over — rebuilt from

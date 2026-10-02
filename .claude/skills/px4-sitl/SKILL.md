@@ -15,10 +15,15 @@ description: PX4 SITL inside the sim container — instance/port/sys-id math, st
 Source of truth: `ROMFS/px4fmu_common/init.d-posix/px4-rc.mavlink` at the pinned tag, and
 Pegasus `px4_mavlink_backend.py` (connection port = base 4560 + vehicle_id, `-i` = vehicle_id).
 
+## Tag notes (Isaac Sim 6.0 migration)
+- Both v1.16.0 and v1.17.0 fly under Isaac 6.0 + Pegasus PR #144 with the same port math, `gazebo-classic_iris` airframe and params file. Pin = v1.17.0 (must equal the Pixracer firmware, ADR-003).
+- Building **v1.16.0** in the image needs `git -C platforms/nuttx/NuttX/nuttx fetch --depth 1 --tags` (shallow submodules have no `nuttx-X.Y.Z` tag → `IndexError` in `px_update_git_header.py`); the Dockerfile already does it.
+- Check the running firmware without QGC: send `MAV_CMD_REQUEST_MESSAGE` 148 (AUTOPILOT_VERSION) to udp 14550 — `flight_sw_version` 0x011100ff = 1.17.0.
+
 ## Startup
 - Pegasus autolaunches `build/px4_sitl_default/bin/px4 -i <i> -d <rootfs> -s etc/init.d-posix/rcS` with `PX4_SIM_MODEL`.
 - Order matters: PX4 waits for the simulator TCP connection; Pegasus connects once the vehicle prim is spawned. Both sides must agree on `4560+i`.
-- Lockstep: off by default in our config (render FPS on the 2080 Ti is not stable). If PX4 seems frozen, check `PX4_SIM_SPEED_FACTOR` / lockstep setting.
+- Lockstep: off by default in our config (render FPS is not stable and Isaac 6.0 runs at ~0.3-0.5x real time). If PX4 seems frozen, check `PX4_SIM_SPEED_FACTOR` / lockstep setting.
 
 ## Params
 - Files in `deploy/px4_params/*.params` are loaded in SITL via `param load` in the startup script (Phase 3).

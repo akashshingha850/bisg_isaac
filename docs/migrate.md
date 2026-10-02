@@ -1304,77 +1304,79 @@ Record:
 |      4 |     |            |          |     |            |
 |      8 |     |            |          |     |            |
 
-This establishes the simulation capacity of the RTX 5090 workstation.
+This establishes the simulation capacity of the workstation (measured on the RTX 4500 Ada, not a 5090 — see `migration-report.md` §6).
 
 ---
 
 # 41. Migration Acceptance Criteria
 
+> Ticked 2026-10-02 from the evidence in [`migration-report.md`](migration-report.md). Unticked items say why.
+
 The migration is complete when all of the following pass.
 
 ## Isaac Sim
 
-* [ ] Isaac Sim 6.0 starts
-* [ ] RTX renderer works
-* [ ] custom USD environments load
-* [ ] no Isaac 5.1 compatibility errors
+* [x] Isaac Sim 6.0 starts — **DONE**
+* [x] RTX renderer works — **DONE**
+* [x] custom USD environments load — **DONE (Isaac warehouse + Iris; our own site USDs do not exist yet, Phase 4)**
+* [x] no Isaac 5.1 compatibility errors — **DONE (remaining deprecated-API use listed in migration-errors.md M12)**
 
 ## Pegasus
 
-* [ ] Pegasus extension loads
-* [ ] Iris vehicle spawns
-* [ ] physics works
-* [ ] rotor actuation works
-* [ ] vehicle reset works
+* [x] Pegasus extension loads — **DONE**
+* [x] Iris vehicle spawns — **DONE**
+* [x] physics works — **DONE**
+* [x] rotor actuation works — **DONE (flight-verified; no explicit per-rotor geometry dump)**
+* [ ] vehicle reset works — **NOT TESTED**
 
 ## PX4
 
-* [ ] PX4 SITL starts
-* [ ] PX4 connects to Pegasus
-* [ ] QGroundControl connects
-* [ ] vehicle arms
-* [ ] takeoff works
-* [ ] position hold works
-* [ ] landing works
+* [x] PX4 SITL starts — **DONE**
+* [x] PX4 connects to Pegasus — **DONE**
+* [ ] QGroundControl connects — **PARTIAL (MAVLink heartbeat on udp 14550 verified; QGC not installed on this host)**
+* [x] vehicle arms — **DONE**
+* [x] takeoff works — **DONE**
+* [ ] position hold works — **NOT TESTED (GPS-denied scenario cannot hold; GPS scenario only smoke-tested arm/takeoff/land)**
+* [x] landing works — **DONE**
 
 ## ROS 2
 
-* [ ] ROS 2 Jazzy works
-* [ ] `/clock` works
-* [ ] TF works
-* [ ] MAVROS works
-* [ ] vehicle state publishes
-* [ ] pose publishes
-* [ ] IMU publishes
-* [ ] battery publishes
+* [x] ROS 2 Jazzy works — **DONE**
+* [x] `/clock` works — **DONE**
+* [x] TF works — **DONE (static ZED tree, 6 frames)**
+* [x] MAVROS works — **DONE**
+* [x] vehicle state publishes — **DONE**
+* [x] pose publishes — **DONE**
+* [x] IMU publishes — **DONE**
+* [x] battery publishes — **DONE**
 
 ## Sensors
 
-* [ ] RGB works
-* [ ] depth works
-* [ ] IMU works
-* [ ] LiDAR works
-* [ ] camera info works
-* [ ] PointCloud2 works
-* [ ] timestamps are correct
-* [ ] TF is correct
+* [x] RGB works — **DONE (320x180 here; HD720 blocked by host rmem_max, bugs.md B2)**
+* [x] depth works — **DONE**
+* [x] IMU works — **DONE**
+* [x] LiDAR works — **N/A (no lidar in this project)**
+* [x] camera info works — **DONE**
+* [x] PointCloud2 works — **DONE (ZED point cloud; no lidar)**
+* [x] timestamps are correct — **DONE (one sim clock, 31 Hz images)**
+* [x] TF is correct — **DONE**
 
 ## Isaac ROS
 
-* [ ] Isaac ROS launches
-* [ ] camera data reaches Isaac ROS
-* [ ] GPU acceleration works
-* [ ] TensorRT works
-* [ ] perception pipeline works
+* [ ] Isaac ROS launches — **NOT DONE (out of scope: Isaac ROS is not in plan.md/roadmap.md)**
+* [ ] camera data reaches Isaac ROS — **NOT DONE**
+* [ ] GPU acceleration works — **NOT DONE**
+* [ ] TensorRT works — **NOT DONE**
+* [ ] perception pipeline works — **NOT DONE**
 
 ## Multi-drone
 
-* [ ] 2 drones work
-* [ ] unique MAV_SYS_ID values
-* [ ] unique namespaces
-* [ ] unique sensor topics
-* [ ] independent control
-* [ ] no cross-drone TF collisions
+* [x] 2 drones work — **DONE (also 4; 8 boots)**
+* [x] unique MAV_SYS_ID values — **DONE**
+* [x] unique namespaces — **DONE**
+* [ ] unique sensor topics — **PARTIAL (checked with state topics only; ZED rig not run with 2 drones)**
+* [x] independent control — **DONE (each instance armed/flew separately)**
+* [ ] no cross-drone TF collisions — **NOT TESTED (TF only exists with the ZED rig)**
 
 ---
 
