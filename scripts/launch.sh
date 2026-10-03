@@ -13,12 +13,13 @@
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
 #   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
 #   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
+#   launch.sh zed ext-build|image|up|down|status|logs|check   the real ZED SDK in the sim (scripts/zed.sh, docs/zed-sdk-sim.md)
 #   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
-usage(){ sed -n 2,18p "$0"; }
+usage(){ sed -n 2,19p "$0"; }
 
 cmd_up(){
   local cfg="" attach=0 wait=1 win="" str=""
@@ -134,7 +135,8 @@ cmd_vehicle(){
   while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; *) die "vehicle: unknown arg $1";; esac; shift; done
   local name="bisg-vehicle-${DRONE_ID}"
   case $sub in
-    up) info "vio_mock for drone ${DRONE_ID} (ns /drone_${DRONE_ID})"; compose --profile ros up -d vehicle; ok "$name started";;
+    up) [[ "${ZED_SOURCE:-emulated}" == sdk ]] && die "ZED_SOURCE=sdk: the real ZED SDK publishes zed/zed_node/odom, vio_mock would be a second publisher on it (docs/zed-sdk-sim.md, B17). Use ZED_SOURCE=emulated for vio_mock."
+        info "vio_mock for drone ${DRONE_ID} (ns /drone_${DRONE_ID})"; compose --profile ros up -d vehicle; ok "$name started";;
     down) compose --profile ros stop vehicle; compose --profile ros rm -f vehicle >/dev/null; ok "$name stopped";;
     restart) compose --profile ros restart vehicle;;
     logs) exec docker logs -f --tail 100 "$name";;
@@ -208,11 +210,11 @@ cmd_config(){
   local k v
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
-  show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
+  show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT ZED_SOURCE
   show "ros 2"      ROS_DOMAIN_ID
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ISAAC_IMAGE ROS_BASE_IMAGE
-  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO PX4_REPO ARCHIVE_DIR
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG ISAAC_IMAGE ROS_BASE_IMAGE
+  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR
   info "resolved for the next ./bisg up"
   view_parse
   echo "  view      $(view_label)$( [[ "${SIM_VIEW}" == auto ]] && { have_x11 && echo "   (auto: X server on $DISPLAY)" || echo "   (auto: no X server)"; } )"
@@ -225,7 +227,13 @@ cmd_config(){
   echo "  edit: ./bisg config --edit   (machine-only values: ${ENV_FILE#$ROOT/})"
 }
 
-cmd_all(){ cmd_up "${1:-headless}" --no-wait; compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle + ros started"; cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state; }
+cmd_all(){
+  cmd_up "${1:-headless}" --no-wait
+  if [[ "${ZED_SOURCE:-emulated}" == sdk ]]; then   # the SDK is the odometry source: no vio_mock (one publisher on zed/zed_node/odom)
+    compose --profile ros up -d mavros ros >/dev/null; ok "mavros + ros started (ZED_SOURCE=sdk: no vio_mock; start the wrapper with ./bisg zed up)"
+  else compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle + ros started"; fi
+  cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state
+}
 cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; }
 cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; }
 cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }
@@ -234,6 +242,7 @@ case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
   shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; ros) shift; cmd_ros "$@";;
   config) shift; cmd_config "$@";;
+  zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
   view|stream) shift; cmd_view "$@";;
   all) shift; cmd_all "$@";; stop) cmd_stop;; down) cmd_down;; restart) shift; cmd_restart "$@";;
   -h|--help|help|"") usage;; *) die "unknown command: $1";;

@@ -86,6 +86,13 @@ ENV ROS_DISTRO=jazzy \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/isaac-sim/exts/isaacsim.ros2.core/jazzy/lib \
     CYCLONEDDS_URI=file:///workspace/docker/cyclonedds.xml
 
+# --- ZED streaming extension runtime libs (zed-isaac-sim, built by docker/zed/build_isaac_ext.sh) -----
+# The extension's plugin + libsl_zed.so link these; without them `sl.sensor.camera` fails to load.
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpng16-16t64 libjpeg-turbo8 libturbojpeg libusb-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Our code is bind-mounted at /workspace (see compose); nothing project-specific is baked in.
 USER root
 COPY docker/sim/entrypoint.sh /usr/local/bin/sim-entrypoint.sh

@@ -8,6 +8,7 @@
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
 #   ./bisg stop | down | restart
+#   ./bisg zed ext-build|image|up|down|status|logs|check       real ZED SDK + zed_wrapper in the sim (ZED_SOURCE=sdk)
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
 #   ./bisg check                        host preflight only (scripts/check_env.sh)
 set -euo pipefail
@@ -15,7 +16,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 case "${1:-}" in
   setup) shift; exec "$HERE/scripts/setup.sh" "$@";;
   check) exec "$HERE/scripts/check_env.sh";;
+  zed) shift; exec "$HERE/scripts/zed.sh" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
-  -h|--help|help|"") sed -n 2,12p "$0";;
+  -h|--help|help|"") sed -n 2,13p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

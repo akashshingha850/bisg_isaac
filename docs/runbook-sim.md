@@ -86,10 +86,20 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 - Headless boot to `[launch] sim ready`: ~4.3 min cold and warm alike (Kit startup + warehouse USD load dominate, not the shader cache); PX4 "Ready for takeoff" ~10 s later. `docker compose stop`: 1.4 s, exit 0, no stray PX4.
 - `tests/smoke_takeoff.py`: PASS. MAVROS: `connected: true`, 155 topics, pose ~14 Hz, IMU ~24 Hz (default PX4 onboard stream rates).
 
+## Real ZED SDK in the sim (`ZED_SOURCE=sdk`)
+
+```
+./bisg zed ext-build && ./bisg zed image          # once (docs/setup.md)
+ZED_SOURCE=sdk ./bisg up headless && ./bisg wait  # the sim streams the ZED Mini twin
+./bisg zed up && ./bisg zed check                 # real zed_wrapper + SDK checks; ./bisg zed status | logs | down
+```
+Start the wrapper after the sim and keep both alive together: the SDK connects once per sim run (B18), so after restarting either, restart both.
+Full explanation, differences from the real drone and troubleshooting: `docs/zed-sdk-sim.md`.
+
 ## Common failures
 - **`docker compose stop` takes the full grace period and exits 137**: the launcher must be PID 1. `/isaac-sim/python.sh` is a bash wrapper that runs Python as a child and ignores SIGTERM; `docker/sim/entrypoint.sh` therefore replicates its environment and `exec`s `/isaac-sim/kit/python/bin/python3` directly. Do not switch the entrypoint back to `python.sh`.
 - **`rmw_create_node: failed to create domain` / "failed to increase socket receive buffer"**: a CycloneDDS profile asked for a buffer larger than `net.core.rmem_max`. Our `docker/cyclonedds.xml` sets no minimum; optionally `sudo sysctl -w net.core.rmem_max=10485760` for large point clouds later.
-- **ZED `camera_info` publishes but `image_rect_color` / `depth_registered` never arrive**: host `net.core.rmem_max` too small for 2.7 MB images — see `docs/setup.md` (sysctl, required).
+- **ZED `camera_info` publishes but the `left/color/rect/image` / `depth_registered` images never arrive**: host `net.core.rmem_max` too small for 2.7 MB images — see `docs/setup.md` (sysctl, required).
 - **GPS-denied: estimate diverges / height runs away once airborne**: something ROS-side is on the wall clock. PX4 SITL runs on sim time; check `/clock` is published, `use_sim_time` on MAVROS plugin nodes and vio_mock (`docs/interface-contract.md` /clock row, mavros-ops skill), and that PX4's `vehicle_visual_odometry.timestamp_sample` differs from `timestamp`.
 - **GPS-denied: arming refused in Hold / "global position invalid"**: expected with EV in FRD — arm and fly in OFFBOARD (`tests/vio_flight.py`).
 - **`ros2 topic list` shows nothing although MAVROS runs**: stale ROS 2 daemon in the `ros` container; `ros2 daemon stop` then retry (or `--no-daemon`).

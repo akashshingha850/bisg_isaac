@@ -91,7 +91,8 @@ Key properties:
 | PX4 ↔ ROS 2 bridge | **MAVROS 2.15.1** (apt `ros-jazzy-mavros` + extras, amd64 + arm64 verified) | user requirement; serial-friendly on Pixracer; uxrce_dds_client availability on fmu-v4 flash is uncertain | ADR-001 |
 | DDS | **CycloneDDS** (`rmw_cyclonedds_cpp`) everywhere; zenoh-bridge-ros2dds across WiFi | reliable across containers with `network_mode: host`; multicast over WiFi is not | ADR-004 |
 | ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r38.4` for JetPack 7, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images and wrapper `v5.4.1` verified to exist; built with Stereolabs' own docker scripts | — |
-| ZED camera | **ZED Mini** | USB, no capture card; not covered by Stereolabs' Isaac streaming integration (ZED X only) → topic-contract approach | — |
+| ZED camera | **ZED Mini** | USB, no capture card. Stereolabs' `zed-isaac-sim` extension v5.2.x (Isaac Sim 6.0) ships a ZED Mini twin (`ZED_M`) that streams into the real SDK (`docs/zed-sdk-sim.md`); the 5.1 line only has ZED X. The emulated topic-contract rig stays as the no-SDK fallback (`ZED_SOURCE`) | — |
+| ZED Isaac extension (ADR-007) | **`zed-isaac-sim` v5.2.1** (`529e538`; a branch upstream, pin the SHA), Kit range widened to 110.1.1 for the 6.0.0 image | streams a simulated ZED Mini (stereo + frame-rate IMU) into the real SDK; built by `docker/zed/build_isaac_ext.sh` into `third_party/zed-isaac-sim` | — |
 | ZED ROS 2 wrapper | `zed-ros2-wrapper` matching SDK, Jazzy | its topic/frame names define our ZED contract | — |
 | Docker | Compose v2, nvidia runtime | present on host | ADR-002 |
 | GPU budget | RTX 2080 Ti 11 GB | below Isaac's recommended 3070; swarm tests run headless, 1 camera/drone, ≤1280×720 | risk R1 |
@@ -160,11 +161,12 @@ so a mission reads top to bottom and failures are diagnosable.
 `mavros/odometry/out` (frame `odom`, child `base_link`, ENU/FLU; MAVROS converts to NED/FRD) →
 PX4 EKF2 with `EKF2_EV_CTRL` enabled, `EKF2_HGT_REF = vision`. In sim the source is
 `vio_mock` (Pegasus ground truth + Gaussian noise + optional latency); on hardware it is the
-ZED Mini positional tracking. (Running the ZED SDK against Isaac-rendered stereo is not planned:
-Stereolabs' Isaac integration targets the ZED X family.)
+ZED Mini positional tracking. With `ZED_SOURCE=sdk` the real SDK also runs in the sim: Stereolabs' extension streams a ZED Mini
+twin into the unmodified `zed_wrapper`, which then publishes the contract's depth, cloud, odometry and TF exactly as on the Jetson
+(`docs/zed-sdk-sim.md`). Feeding that odometry into PX4 (closed loop) is the next step; `vio_mock` stays the default source.
 
 **Perception:** Isaac cameras publish under the ZED contract names
-(`/drone_i/zed/zed_node/left/image_rect_color`, `.../depth/depth_registered`, `.../imu/data`,
+(`/drone_i/zed/zed_node/left/color/rect/image`, `.../depth/depth_registered`, `.../imu/data`,
 camera_info, TF `zed_camera_link` → optical frames). Downstream nodes (detection, mapping)
 cannot tell sim from real.
 
@@ -194,7 +196,7 @@ timesync handles PX4 ↔ ROS clock. Hardware uses wall clock; chrony on Jetsons 
 | R2 | PX4 version drift between SITL and Pixracer | single pin, one `.params` set, CI check that `PX4_VERSION` matches |
 | R3 | MAVROS + PX4 1.15/1.16 quirks (mode strings, `odometry/out` frame conventions) | Phase 2 exit test flies a square via MAVROS; VIO frame test in Phase 3 with known transforms |
 | R4 | Isaac ROS 2 bridge across containers (FastDDS shared memory, bundled rmw) | CycloneDDS + host networking; smoke test topic echo from the `ros` container in Phase 1 |
-| R5 | ZED Mini is not supported by Stereolabs' Isaac integration, so the sim cannot run the real SDK | ZED contract is defined by topic names; mock VIO in sim, real VIO on hardware; validate the gap in Phase 5 with a sim-vs-real trajectory overlay |
+| R5 | ~~ZED Mini is not supported by Stereolabs' Isaac integration~~ — **retired 2026-10-03**: extension v5.2.x (Isaac Sim 6.0) has `ZED_M` and the real SDK runs in the sim. Remaining gap: the stream carries a frame-rate IMU, so sim tracking runs visual-only (`imu_fusion: false`); the SDK's depth/tracking noise on a *rendered* scene is not the noise on the real camera | `docs/zed-sdk-sim.md` lists every sim-vs-hardware difference; validate the rest in Phase 5 with a sim-vs-real trajectory overlay |
 | R9 | Isaac Sim 5.1 Jazzy bridge or Pegasus ROS 2 backend misbehaves with Jazzy | check in Phase 1; fallback in ADR-005 |
 | R10 | ZED SDK minor that supports JetPack 7.2 lags or changes topic names | pin in Phase 5; contract checker catches renames |
 | R6 | WiFi DDS discovery storms with N Jetsons | zenoh-bridge-ros2dds per drone; drone-local traffic stays on the Jetson |

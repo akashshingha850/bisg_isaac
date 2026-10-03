@@ -18,6 +18,26 @@ Known defects, with causes and candidate fixes, are in [bugs.md](bugs.md).
 - [x] Views for headless runs (`docs/remote-access.md`): `SIM_STREAM=off|web|webrtc|both`, `./bisg up --web|--stream|--both`, `./bisg view`; WebRTC enables `omni.services.livestream.nvcf` (TCP 49100 + UDP 47998), `web` serves captured frames on `SIM_WEB_PORT` so a VS Code/SSH tunnel can reach it (2026-09-13). **Verified live 2026-09-13**: `web` serves 1280x720 PNGs that update (page/frame/freshness checked over HTTP, TCP 8899 listening); `webrtc` reports ready with TCP 49100 listening (UDP 47998 opens on client negotiation — an actual client connection is still unverified, needs the NVIDIA app); smoke test passes with both views on
 - [ ] Review the 7 Claude Code skill stubs in `.claude/skills/`; delete or merge any that feel redundant
 
+## Done — the real ZED SDK in the sim — 2026-10-03 (branch `migrate/isaac-6.0`)
+
+Docs: [zed-sdk-sim.md](zed-sdk-sim.md) (how it works, every sim-vs-hardware difference, troubleshooting), [decisions/ADR-007-zed-sdk-in-sim.md](decisions/ADR-007-zed-sdk-in-sim.md), skill `zed-sdk`.
+`ZED_SOURCE=sdk ./bisg up headless && ./bisg zed up && ./bisg zed check`: Stereolabs' `zed-isaac-sim` v5.2.1 streams a ZED Mini twin (`ZED_M`) into the unmodified `zed_wrapper`.
+- [x] Extension built in the sim image (`./bisg zed ext-build`, pinned `529e538`, Kit range widened for the 6.0.0 image); `bisg/zed:desktop` = Stereolabs image + CycloneDDS overlay; `deploy/launch/zed_drone.launch.py` shared by sim and Jetson
+- [x] `./bisg zed ext-build|image|up|down|status|logs|check`, compose service `zed`, `deploy/sim/zed_sim_overlay.yaml`, `tests/zed_sdk_check.py` (same script on the Jetson with `--no-gt`)
+- [x] **Verified**: 0 corrupted frames, depth 79 % valid (0.24-11 m), baseline 63.0 mm, clean health flags; over a takeoff + 4 m square + landing the SDK odometry path is 21.63 m vs 21.59 m truth, trajectory RMSE **0.088 m**, end error 0.024 m
+- [x] The spike's "tracking dead, corrupted frames" was a harness bug (nested reference instead of a `FixedJoint`; camera also sat inside its carrier cube), not an SDK limit
+- [x] Hardware-facing bugs found on the way, fixed: `GEN_2` is not a valid `pos_tracking_mode` (now `AUTO`); Jetson `zed` service used an RMW the image lacks; Jetson topic root lacked `zed_node`; contract image topic names (B14); `fetch_third_party.sh` re-cloning submodules (`.git` is a file)
+- [x] Emulated rig regression after the IMU refactor and topic rename (`single_iris_vio_lowres`): `tests/vio_flight.py` PASS (max error 0.048 m), `tests/zed_depth_box.py` PASS (front face +2.7 mm); images, depth, camera_info, IMU flow under the 5.4.1 names. HD720 images still need `net.core.rmem_max` (B2)
+Open:
+- [ ] **B17 — close the loop**: SDK odometry into PX4 (`vio_relay` port from `isaac-5.1`, wrapper stamps on PX4's sim clock). SDK mode is an observer today; `vio_mock` is refused in `sdk` mode
+- [ ] B16 — contract TF frame prefix vs the wrapper's unprefixed frames; decide with the swarm phase
+- [ ] B18 — reconnect a wrapper without restarting the sim; retry on Isaac Sim 6.0.1 (Kit 110.1.2, the extension's declared target; ~21 GB, fine now that Docker lives on `/opt`)
+- [ ] `net.core.rmem_max` (needs sudo, docs/setup.md): until then ZED images/depth/clouds do not cross containers over CycloneDDS; `ZED_RMW=rmw_fastrtps_cpp` is the no-sudo fallback and the check runs inside the wrapper container
+- [ ] **On the bench** (ZED Mini + Jetson): `python3 tests/zed_sdk_check.py --drone 1 --no-gt`; record the unit's real `K` in `hardware.md`; `imu_fusion: true`; trajectory vs tape measure; build `bisg/zed:l4t-r38` (`docker/zed/build.sh jetson`)
+- [ ] Switch on and exercise the depth-derived features in SDK mode (disparity, confidence, ROI, mapping, plane detection, object/body detection): `docs/zed-features.md` marks them "not yet exercised"
+- [ ] Multi-drone SDK mode: ports `30000+2·id` per drone and one wrapper per drone are in place; untested (needs Phase 6, VRAM budget)
+- [ ] Experimental `ZED Sim2Real` post-process (`applyZedSim2Real`) to narrow the render-vs-camera gap
+
 ## Done — Isaac Sim 5.1 → 6.0 migration — 2026-10-02
 
 Report: [migration-report.md](migration-report.md) · every error: [migration-errors.md](migration-errors.md) · plan followed: [migrate.md](migrate.md).

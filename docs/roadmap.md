@@ -67,7 +67,7 @@ Deliverables
 - `bisg_vehicle/vio_mock`: Pegasus ground truth + noise + latency → `mavros/odometry/out`.
 - PX4 params file for EV fusion (`EKF2_EV_CTRL`, `EKF2_HGT_REF`, `EKF2_EV_DELAY`, GPS disabled) loaded into SITL.
 - Contract checker: `tests/check_contract.py` compares live topic list/types/rates against `interface-contract.md`.
-- (Not planned: running the ZED SDK against Isaac's simulated stream — Stereolabs' Isaac integration targets ZED X, not ZED Mini.)
+- Optional (done 2026-10-03, `docs/zed-sdk-sim.md`): the real ZED SDK + wrapper against Isaac's streamed ZED Mini twin (`ZED_SOURCE=sdk`, `./bisg zed up|check`), so downstream code is identical in sim and on the Jetson. Needs Isaac Sim 6.0.
 
 Exit test
 - With GPS disabled in SITL, the square mission from Phase 2 completes on mock VIO; `mavros/local_position/pose` vs ground truth error < 0.3 m.

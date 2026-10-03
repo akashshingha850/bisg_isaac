@@ -30,6 +30,19 @@ the kernel allows:
 echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system
 ```
 
+## The real ZED SDK in the sim (optional)
+
+`ZED_SOURCE=sdk` (docs/zed-sdk-sim.md) streams Stereolabs' ZED Mini twin into the real SDK. One-time steps after `./bisg setup`:
+
+```
+scripts/fetch_third_party.sh      # clones third_party/zed-isaac-sim (and the other pins if missing)
+./bisg zed ext-build              # builds the extension in the sim image; packman needs ~12 GB (cache: ~/.cache/packman, PACKMAN_CACHE=...)
+./bisg zed image                  # bisg/zed:desktop (~15 GB, ~15 min): Stereolabs' image + CycloneDDS overlay
+```
+The sim image also needs `libpng16-16t64 libjpeg-turbo8 libturbojpeg libusb-1.0-0` (added to `docker/sim/Dockerfile`; `./bisg setup --rebuild`
+or `docker compose -f docker/compose.yaml build sim` after pulling this change). Disk: Docker's root needs room for the ~15 GB ZED image on top of
+the Isaac images. On this workstation Docker's data-root is `/opt/docker-data` (set in `/etc/docker/daemon.json`: `"data-root": "/opt/docker-data"`); on a machine with a small `/`, do the same before pulling images.
+
 ## `./bisg setup`
 
 What it does, in order (idempotent, safe to re-run):

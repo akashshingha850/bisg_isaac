@@ -16,7 +16,9 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
 5. Run `python3 tests/check_contract.py --ns /drone_1` against sim (and real when available).
 
 ## Matching the ZED wrapper
-- Topic root `zed/zed_node/…`; image encodings per wrapper; depth `32FC1` metres.
+- Topic root `zed/zed_node/…` under `/drone_<n>/`; images are `left|right/color/rect/image` + `…/camera_info` (wrapper 5.4.1; the old `image_rect_color` names are gone, B14 fixed 2026-10-03); depth `32FC1` metres.
+- Two sim sources, same names: `ZED_SOURCE=emulated` (`zed_rig.py`) and `sdk` (the real wrapper, skill `zed-sdk`). A contract change must hold for both and for `deploy/launch/zed_drone.launch.py` on the Jetson; `tests/zed_sdk_check.py` is the checker for the SDK half until `check_contract.py` exists.
+- `K` is the camera's own: never assert the hard-coded model-table `K` in sim `sdk` (extension lens, HD720 `fx` 529.8) or on a real unit; baseline `-P[0,3]/P[0,0]` = 0.063.
 - TF: `zed_camera_link → zed_left_camera_frame → zed_left_camera_optical_frame` (+ right, + `zed_imu_link`). Optical frames are REP-103 optical (z forward).
 - `camera_info` K from the ZED model table; Isaac camera focal/aperture set so that K matches at the chosen resolution.
 - Stereo baseline = 0.063 m (ZED Mini); both cameras rigid on `zed_camera_link`; wrapper `camera_model: zedm`.
@@ -30,6 +32,7 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
 - Verified on 6.0: topic set and names identical to 5.1; K = 177.7 px @ 320 wide (84° HFOV); depth `32FC1`, colour `rgb8`; static TF has 6 frames.
 
 ## VIO source
-- Sim: `vio_mock` (ground truth + noise + latency) publishes `zed/zed_node/odom` AND relays to `mavros/odometry/out`.
+- Sim `sdk`: the real SDK's positional tracking (visual-only, `imu_fusion: false`); `vio_mock` must NOT run (one source per topic, `./bisg vehicle up` refuses). Closed loop into PX4 is open (B17).
+- Sim `emulated`: `vio_mock` (ground truth + noise + latency) publishes `zed/zed_node/odom` AND relays to `mavros/odometry/out`.
 - Real: wrapper publishes `odom`; `vio_relay` re-parents child frame to `base_link` and republishes to `mavros/odometry/out`.
 - Any node other than these two that subscribes to Pegasus ground truth violates parity rule 2 (plan.md §8).

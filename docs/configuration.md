@@ -117,6 +117,18 @@ SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in sim/configs/ (no 
 path is passed to the container as `SIM_CONFIG=/workspace/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
+## ZED source: `ZED_SOURCE`
+
+```
+ZED_SOURCE=emulated   # config/bisg.conf: emulated | sdk
+```
+
+`emulated` = Isaac cameras publish the ZED topics, `vio_mock` is the odometry source (no ZED SDK). `sdk` = the sim streams a ZED Mini twin
+into the real SDK and the unmodified `zed_wrapper` (`./bisg zed up`) publishes them. A scenario's `sensors.zed.source` wins over the key.
+`ZED_SOURCE=sdk ./bisg up headless` sets it for one run. In `sdk` mode `./bisg vehicle up` refuses to start `vio_mock`, and `./bisg all`
+leaves it out: two publishers on `zed/zed_node/odom` would be a second vision source. `ZED_RMW` (default `rmw_cyclonedds_cpp`) picks the
+wrapper container's RMW; `rmw_fastrtps_cpp` is the no-sudo fallback while `net.core.rmem_max` is small. See `docs/zed-sdk-sim.md`.
+
 ## Endpoints
 
 | Key | Default | Used by |
@@ -131,8 +143,8 @@ Port math lives in `docs/interface-contract.md`; changing it is a contract chang
 
 ## Pins and links
 
-`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
-`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `PX4_REPO` feed `scripts/fetch_third_party.sh`.
+`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ZED_ISAAC_EXT_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
+`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `ZED_ISAAC_EXT_REPO`, `PX4_REPO` feed `scripts/fetch_third_party.sh`.
 Pins are an ADR decision (`docs/plan.md` §4, ADR-003/005) — change the file *and* the ADR, then
 `./bisg setup --rebuild`.
 

@@ -1,0 +1,12 @@
+# Thin layer on top of Stereolabs' own ZED wrapper image (built by docker/zed/build.sh from third_party/zed-ros2-wrapper).
+# The upstream image ships Fast DDS only; the whole bisg stack uses CycloneDDS (ADR-004), and
+# RMW_IMPLEMENTATION=rmw_cyclonedds_cpp makes every ROS tool in a Fast-DDS-only image abort with
+# "RMW implementation not installed". Same file for x86_64 (desktop) and arm64 (Jetson, L4T r38).
+ARG BASE=bisg/zed:desktop-base
+FROM ${BASE}
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends ros-jazzy-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+# Same profile as every other bisg container; /workspace is the bind-mounted repo (compose / deploy compose).
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+    CYCLONEDDS_URI=file:///workspace/docker/cyclonedds.xml

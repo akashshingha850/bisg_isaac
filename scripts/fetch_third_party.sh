@@ -7,10 +7,10 @@ set -euo pipefail
 . "$(dirname "$0")/_common.sh"      # tags and repo URLs come from config/bisg.conf / docker/.env
 cd "$ROOT/third_party"
 clone(){ local url=$1 tag=$2 dir=$3; shift 3
-  if [[ -d "$dir/.git" ]]; then echo "exists: $dir"; else git clone --depth 1 --branch "$tag" "$@" "$url" "$dir"; fi; }
+  if [[ -e "$dir/.git" ]]; then echo "exists: $dir"; else git clone --depth 1 --branch "$tag" "$@" "$url" "$dir"; fi; }
 if [[ "$PEGASUS_TAG" =~ ^pr([0-9]+)-([0-9a-f]+)$ ]]; then
   # Isaac Sim 6.0 support lives in Pegasus PR #144 (not yet a release tag): fetch the PR head, check out the pinned SHA.
-  if [[ -d PegasusSimulator/.git ]]; then echo "exists: PegasusSimulator"; else
+  if [[ -e PegasusSimulator/.git ]]; then echo "exists: PegasusSimulator"; else
     git clone --no-checkout "$PEGASUS_REPO" PegasusSimulator
     git -C PegasusSimulator fetch origin "refs/pull/${BASH_REMATCH[1]}/head:pr${BASH_REMATCH[1]}"
     git -C PegasusSimulator checkout -B local "${BASH_REMATCH[2]}"
@@ -19,6 +19,7 @@ else
   clone "$PEGASUS_REPO" "$PEGASUS_TAG" PegasusSimulator
 fi
 clone "$ZED_WRAPPER_REPO" "v${ZED_SDK}" zed-ros2-wrapper
+clone "$ZED_ISAAC_EXT_REPO" "$ZED_ISAAC_EXT_TAG" zed-isaac-sim   # built by docker/zed/build_isaac_ext.sh (./bisg zed ext-build)
 if [[ "${WITH_PX4:-0}" == "1" ]]; then   # ~1 GB even shallow; only for reading/patching firmware
   clone "$PX4_REPO" "$PX4_TAG" PX4-Autopilot --recursive --shallow-submodules
 fi

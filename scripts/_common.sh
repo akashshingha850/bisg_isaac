@@ -51,14 +51,16 @@ load_conf "$ENV_FILE" "docker/.env"
 while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_files)
 # Fallbacks so the scripts still work with no config file at all; keep in sync with config/bisg.conf.
 conf_default SIM_VIEW auto;        conf_default SIM_SCENARIO single_iris;  conf_default SIM_WAIT_TIMEOUT 600
-conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
+conf_default ZED_SOURCE emulated;  conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
 conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
+conf_default ZED_ISAAC_EXT_TAG v5.2.1
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
 conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
+conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
 conf_default PX4_REPO https://github.com/PX4/PX4-Autopilot.git
 export FCU_URL="${FCU_URL:-}" GCS_URL="${GCS_URL:-}"      # empty = derived / disabled
 export SIM_VIEW_ADDR="${SIM_VIEW_ADDR:-}"                 # empty = local viewers only

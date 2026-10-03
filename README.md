@@ -18,6 +18,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 | [docs/todo.md](docs/todo.md) | The live checklist. Start here when you sit down to work |
 | [docs/skills.md](docs/skills.md) | Competencies you need per phase + the Claude Code skills in `.claude/skills/` |
 | [docs/interface-contract.md](docs/interface-contract.md) | The ROS 2 topic / frame / namespace contract sim and hardware must both obey |
+| [docs/zed-sdk-sim.md](docs/zed-sdk-sim.md) | the real ZED SDK + `zed_wrapper` running against the sim's ZED Mini twin (`ZED_SOURCE=sdk`) |
 | [docs/hardware.md](docs/hardware.md) | Jetson + Pixracer + ZED wiring, PX4 params, bench checklist |
 | [docs/setup.md](docs/setup.md) | Host prerequisites and `./bisg setup` |
 | [docs/runbook-sim.md](docs/runbook-sim.md) | Run, test and operate the sim stack (`./bisg` cheat sheet) |
@@ -56,7 +57,9 @@ bisg_isaac/
 ./bisg smoke                 # arm, 2 m takeoff, land → exit 0
 ./bisg mavros up && ./bisg mavros state    # connected: true
 ./bisg down
+
+ZED_SOURCE=sdk ./bisg up headless && ./bisg zed up && ./bisg zed check   # the real ZED SDK + wrapper on the sim's ZED Mini twin
 ```
 `./bisg help` lists everything (status, logs, shell, debug report/px4/topics, …).
 Details: [docs/setup.md](docs/setup.md), [docs/configuration.md](docs/configuration.md), [docs/remote-access.md](docs/remote-access.md), [docs/runbook-sim.md](docs/runbook-sim.md), [docs/debugging.md](docs/debugging.md).
-Settings: `config/bisg.conf` + `docker/.env` (this machine). Pins: Isaac Sim 6.0.0, PX4 v1.17.0, Pegasus PR #144 (Isaac 6 port), ZED SDK 5.4.1. Migration from 5.1: `docs/migration-report.md`.
+Settings: `config/bisg.conf` + `docker/.env` (this machine). Pins: Isaac Sim 6.0.0, PX4 v1.17.0, Pegasus PR #144 (Isaac 6 port), ZED SDK 5.4.1 (+ `zed-isaac-sim` v5.2.1 for the SDK-in-sim path). Migration from 5.1: `docs/migration-report.md`.

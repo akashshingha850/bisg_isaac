@@ -14,4 +14,11 @@ Runtime (Phase 5, `deploy/jetson/compose.yaml`): `--privileged` or `/dev/bus/usb
 `ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zedm` with our params overlay
 (`deploy/jetson/zed_params.yaml`, Phase 3/5) that sets frame ids and rates per `docs/interface-contract.md`.
 
+**CycloneDDS overlay.** Stereolabs' image is Fast DDS only, while every bisg container (and `deploy/jetson/compose.yaml`) sets
+`RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, which aborts every ROS tool in a Fast-DDS-only image. `build.sh` therefore tags the upstream
+result `bisg/zed:<variant>-base` and builds `Dockerfile.overlay` (one `apt install ros-jazzy-rmw-cyclonedds-cpp`) on top as `bisg/zed:<variant>`.
+
+**Same image in the sim.** `docker/compose.yaml` service `zed` (`./bisg zed up`, profile `zed`) runs this image against the sim's streamed
+ZED Mini twin; see `docs/zed-sdk-sim.md`. `build_isaac_ext.sh` builds Stereolabs' Isaac Sim extension for it (`./bisg zed ext-build`).
+
 ZED Mini is a USB camera, so no GMSL capture card and no `zed_x` kernel drivers are needed.

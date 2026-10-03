@@ -15,6 +15,7 @@ Real commands live in `docs/runbook-sim.md`; this is the checklist Claude follow
    - scenario override: `./bisg up headless -c headless_fast` (name in `sim/configs/` or a path)
    - watch a headless run: `./bisg up web` (browser view on TCP `SIM_WEB_PORT`, survives a VS Code/SSH tunnel) or `./bisg up webrtc` (interactive WebRTC, needs UDP 47998 → LAN/VPN only); `gui+webrtc` gives you both halves, `./bisg view` prints the URLs. Never use a stream for a timing/regression run — both force rendering on. docs/remote-access.md.
    - shell: `./bisg shell` (running sim) / `./bisg shell ros`
+   - real ZED SDK in the sim: `ZED_SOURCE=sdk ./bisg up headless`, then `./bisg zed up` / `./bisg zed check` (skill `zed-sdk`; needs `./bisg zed ext-build` once). Restart the sim whenever the wrapper restarts.
 3. Wait: Isaac Sim 6.0 boots in ~30 s warm and ~190 s when the shader cache is empty (first boot, or after `./bisg debug clean-cache`); the launcher prints `[launch] INFO boot +Ns: <phase>` lines so you can see where the time goes. "Ready" = launcher prints `[launch] sim ready` and PX4 prints `INFO  [commander] Ready for takeoff!`. Use `timeout 600` when scripting.
 4. Stop: `docker compose ... down`. Confirm no stray `px4` process: `pgrep -a px4`.
 5. Logs: `./bisg logs -f`; Isaac kit log: `./bisg debug kitlog`; evidence bundle: `./bisg debug report`.

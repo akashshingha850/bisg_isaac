@@ -1,1 +1,7 @@
 third_party/*/.git
+# The sim/ros images only COPY third_party/PegasusSimulator; the ZED extension (built tree ~450 MB) and wrapper are
+# bind-mounted or built by their own scripts, so keep them out of every build context.
+third_party/zed-isaac-sim
+third_party/zed-ros2-wrapper
+logs
+graphify-out

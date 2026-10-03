@@ -30,6 +30,7 @@ the checks Claude runs; they are filled with real commands as phases land.
 | `px4-sitl` | PX4 SITL won't connect, port/instance math, params, flight-mode/failsafe errors | instance ↔ port table, `px4-rc.mavlink` reading, param file loading, `commander`/`ekf2 status` checks | Phase 1 |
 | `mavros-ops` | launch MAVROS for drone N, OFFBOARD refused, frame/QoS questions, timesync | MAVROS launch wrapper, state-machine rules, topic cheat sheet, common rejections | Phase 2 |
 | `zed-contract` | add/rename a sensor topic, verify sim vs real ZED, TF tree, intrinsics | edit `interface-contract.md` first, run `check_contract.py`, compare with zed wrapper | Phase 3 |
+| `zed-sdk` | the real ZED SDK + wrapper in the sim, Stereolabs' Isaac extension, SDK vs emulated, port to the Jetson | build the extension, run `./bisg zed up|check`, the mount/IMU/namespace rules that bit us, troubleshooting | Phase 3 (done 2026-10-03) |
 | `swarm-spawn` | add drone N, generate compose, fleet manager tasks | update scenario YAML, regenerate compose, port/namespace checks, VRAM budget update | Phase 6 |
 | `jetson-deploy` | deploy to the Orin NX, flash Pixracer, bench checklist, serial issues | arm64 image pull, compose profile, params push, preflight and post-flight log pull | Phase 5 |
 | `sim-regression` | run tests, add a scenario, CI failures | headless scenario runner, JUnit interpretation, flake triage | Phase 8 (basic version from Phase 1) |

@@ -80,6 +80,7 @@ services:
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "0"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
@@ -97,6 +98,7 @@ services:
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "1"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
@@ -130,6 +132,38 @@ services:
     command: ["vio_mock"]
     restart: unless-stopped
 
+  # ZED SDK wrapper for the sim (ZED_SOURCE=sdk, docs/zed-sdk-sim.md): the SAME image and params as the Jetson
+  # (deploy/jetson), reading the ZED Mini twin the sim streams. Start AFTER the sim is up (`./bisg zed up`): the
+  # wrapper connects once and the stream must already be live. `restart: on-failure` re-tries a connect timeout.
+  # ipc: host = the extension and the SDK exchange frames through shared memory (/dev/shm/sl_local_*).
+  zed:
+    image: bisg/zed:desktop
+    container_name: bisg-zed-${DRONE_ID:-1}
+    profiles: ["zed"]
+    <<: *nvidia
+    network_mode: host
+    ipc: host
+    environment:
+      <<: *nvidia-env
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}   # rmw_fastrtps_cpp = shared-memory fallback while net.core.rmem_max is small (docs/setup.md)
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_SIM_PORT: ${ZED_SIM_PORT:-30000}          # 30000 + 2*(DRONE_ID-1), set by ./bisg zed up
+    volumes:
+      - ..:/workspace:ro
+      - zed-resources:/usr/local/zed/resources      # compiled AI-model cache: the first depth start optimises (minutes)
+      - zed-settings:/usr/local/zed/settings
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        source /sbin/ros_entrypoint.sh >/dev/null &&
+        python3 /workspace/deploy/sim/merge_params.py /tmp/zed_params_sim.yaml
+        /workspace/deploy/jetson/zed_params.yaml /workspace/deploy/sim/zed_sim_overlay.yaml &&
+        exec ros2 launch /workspace/deploy/launch/zed_drone.launch.py drone_id:=$${DRONE_ID}
+        sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params_sim.yaml
+    restart: on-failure
+
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
   ros:
     <<: *ros-base
@@ -146,6 +180,8 @@ services:
     command: ["sleep", "infinity"]
 
 volumes:
+  zed-resources:
+  zed-settings:
   isaac-kit-logs:
   isaac-cache-main:
   isaac-cache-compute:

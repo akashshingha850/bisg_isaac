@@ -20,6 +20,11 @@ Safety first: any step with props ON requires the RC kill switch verified that d
 ## Bench checklist
 Follow `docs/hardware.md` → "Bench checklist" in order; do not skip step 7 (failsafes).
 
+## ZED in the compose file
+- `deploy/jetson/compose.yaml` `zed` runs `deploy/launch/zed_drone.launch.py` (the same file the sim uses) with `deploy/jetson/zed_params.yaml`: topics `/drone_<n>/zed/zed_node/*`.
+- Image `bisg/zed:l4t-r38` = Stereolabs' L4T image + `docker/zed/Dockerfile.overlay` (CycloneDDS; the upstream image is Fast DDS only and `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` aborts without it). Build on the Jetson: `docker/zed/build.sh jetson`.
+- Parity check on the bench: `python3 tests/zed_sdk_check.py --drone 1 --no-gt`; the same script passes in the sim (`./bisg zed check`). Hardware-only to-dos: `imu_fusion: true`, record the unit's real `K` in `docs/hardware.md`, frame prefix (B16), clock (B17). See `docs/zed-sdk-sim.md`.
+
 ## ZED Mini specifics
 - USB 3 only; use a short, good cable; `lsusb` shows `Stereolabs`. Wrapper config `zedm.yaml`; `camera_model: zedm`.
 - Positional tracking needs texture: warehouse-like scenes are fine, blank walls are not.

@@ -20,8 +20,10 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B11](#b11) | S3 | params | `push_px4_params.py` can't finish the job on SITL (reboot refused) |
 | [B12](#b12) | S3 | GUI | `/clock` + OnPhysicsStep IMU changes not re-verified in the GUI profile (Isaac 6.0: full-UI path checked via `both`, native `gui` window not) |
 | [B13](#b13) | S2 | ZED | No automated check that the camera view is unobstructed / pointing forward |
-| [B14](#b14) | S2 | contract | Image topic names are pre-5.0 ZED wrapper names; the pinned 5.4.1 wrapper uses new ones |
 | [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
+| [B16](#b16) | S2 | ZED | Contract TF frames are `drone_<n>/`-prefixed; the real wrapper cannot publish a prefix |
+| [B17](#b17) | S2 | ZED | SDK-mode odometry is not yet stamped on PX4's (sim) clock, so it cannot feed EKF2 closed loop |
+| [B18](#b18) | S3 | ZED | The SDK connects to the sim's stream once per sim run (restart the sim to reconnect) |
 
 ---
 
@@ -263,21 +265,6 @@ fuselage (see Fixed, 2026-09-25). Nothing in the pipeline *looks* at the pixels.
 
 ---
 
-<a id="b14"></a>
-## B14 — Contract image topic names don't match the pinned ZED wrapper
-**Sev S2 · anything written against the contract won't find the real drone's images.**
-
-`docs/interface-contract.md` and the sim use `left/image_rect_color`, `right/image_rect_color` (wrapper
-≤ 4.x names). zed-ros2-wrapper 5.4.1 (our pin) builds them as `<sensor>/<color|gray>/<rect|raw>/image`
-(`zed_camera_component_video_depth.cpp` `make_topic`): `left/color/rect/image`, `right/color/rect/image`,
-`rgb/color/rect/image`, … with camera_info next to each image. Depth, point cloud, IMU, odom, disparity,
-confidence and mapping names are unchanged.
-
-**Possible fixes.** (1) Rename in the contract first, then `zed_rig.py` writer topic names, the
-checkers in `tests/`, and any consumer, which is the correct fix per the contract rule. (2) Or remap on
-the Jetson (`ros2 launch … --ros-args -r`) to the old names; this is cheaper but diverges from Stereolabs'
-docs/tools. Decide before any perception node is written.
-
 <a id="b15"></a>
 ## B15 — Sim rig parameters are a second copy of the wrapper's
 **Sev S3 · parity drift.**
@@ -289,6 +276,40 @@ sim near limit 0.1 m, wrapper `depth.min_depth` 0.2 m.
 **Possible fix.** Let `zed_rig.py` take `general.grab_resolution`, `general.grab_frame_rate` and
 `depth.min_depth/max_depth` from the same file (map HD720 → 1280×720 etc.), and keep only the
 sim-only values (mount, baseline, view) in the scenario.
+
+<a id="b16"></a>
+## B16 — Contract TF frames are `drone_<n>/`-prefixed; the real wrapper cannot publish a prefix
+**Sev S2 · TF consumers written against the contract will not resolve the real drone's frames. Open.**
+
+`docs/interface-contract.md` prefixes every frame with `drone_<n>/` (`drone_1/zed_camera_link`, ...). The emulated rig does
+that. `zed_wrapper` 5.4.1 builds frame ids from its camera name only (`zed_camera_link`, `zed_left_camera_frame`, ...) plus the
+`pos_tracking.odometry_frame` / `base_frame` parameters, and has no TF-prefix option; `camera_name` also forms the node
+namespace, so putting `drone_1/` in it breaks node naming. In SDK mode (`ZED_SOURCE=sdk`) the sim therefore shows the real
+wrapper's unprefixed frames — correct parity with the Jetson, wrong versus the contract text.
+**Possible fixes.** (1) Contract: state that frames are unprefixed per vehicle and rely on the `/drone_<n>/tf` namespacing (each
+drone has its own TF tree; the fleet manager re-parents). (2) A TF relay that republishes with prefixes. Decide with the swarm phase.
+
+<a id="b17"></a>
+## B17 — SDK-mode odometry is not yet stamped on PX4's (sim) clock
+**Sev S2 · blocks feeding the real SDK's odometry into EKF2 in the sim. Open.**
+
+`vio_mock` stamps with sim time (`use_sim_time`) because PX4 SITL runs on sim time and EKF2 fuses a vision sample at its
+(timesynced) stamp (`vio_mock.py` docstring). The wrapper stamps with the wall clock (`use_sim_time: false`), and the sim runs at
+rtf ~0.35, so a wall-clock stamp drifts from PX4's clock by (1 - rtf) s/s. `zed up` also has no `vio_relay` in the 6.0 branch yet
+(it exists on `isaac-5.1`), so `mavros/odometry/out` is not fed from the SDK. Today SDK mode is an *observer*: the drone flies on
+GPS / `vio_mock` while the SDK's odometry is checked against ground truth.
+**Possible fixes.** `use_sim_time: true` on the wrapper and check the stamps it produces (the SDK timestamps come from the stream;
+the wrapper may re-stamp), or have `vio_relay` re-stamp from `/clock` on arrival as `vio_mock` does. Port `vio_relay` from `isaac-5.1`.
+
+<a id="b18"></a>
+## B18 — The SDK connects to the sim's stream once per sim run
+**Sev S3 · a trap: restarting only the wrapper leaves it with no frames. Open (upstream).**
+
+After a wrapper has connected to the extension's stream and goes away, a new wrapper never receives frames (spike on 2026-10-03:
+`CAMERA NOT INITIALIZED`; in the integrated stack a recreated wrapper published nothing at all, not even odometry or health, which are small
+topics unaffected by [B2](#b2)). Same when the wrapper
+starts before the stream exists. `./bisg zed up` retries once, which covers a missed first connect, not a reconnect.
+**Workaround:** restart the sim, then `./bisg zed up`. Worth re-testing on extension > 5.2.1 / Isaac Sim 6.0.1.
 
 ---
 
@@ -332,3 +353,16 @@ sim-only values (mount, baseline, view) in the scenario.
   (new − baro-initialised altitude), because `Ekf::setAltOrigin` keeps global altitude constant. We saw 36 m.
   If an origin is ever needed ([B1](#b1) option 2), send lat/lon only: an out-of-range altitude (> 100 km)
   makes PX4 skip it.
+
+- **2026-10-03 — B14 image topic names (fixed).** Contract and emulated rig renamed to the wrapper 5.4.1 names:
+  `left|right/color/rect/image`, `left|right/color/rect/camera_info` (`zed_rig.py`, `interface-contract.md`, `plan.md`).
+- **2026-10-03 — `deploy/jetson/zed_params.yaml` had `pos_tracking_mode: GEN_2`.** Not a valid value in wrapper 5.4.1
+  (`AUTO`, `GEN_1`, `GEN_3`). Now `AUTO` (= GEN_3 on SDK 5.4). Found while bringing the real SDK up in the sim.
+- **2026-10-03 — Jetson `zed` service would not start.** It set `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, but Stereolabs' image
+  ships Fast DDS only. `docker/zed/Dockerfile.overlay` adds `ros-jazzy-rmw-cyclonedds-cpp`; `docker/zed/build.sh` applies it.
+- **2026-10-03 — Jetson `zed` topic root.** `namespace:=drone_1` on the stock launch publishes `/drone_1/zed/...` (no `zed_node`);
+  `deploy/launch/zed_drone.launch.py` gives the contract's `/drone_<n>/zed/zed_node/...` and is used by sim and Jetson.
+- **2026-10-03 — `scripts/fetch_third_party.sh` re-cloned submodules.** It tested `-d dir/.git`; a submodule's `.git` is a file. Now `-e`.
+- **2026-10-03 — "SDK tracking dead, frames corrupted" in the first ZED spike.** Harness bug, not the SDK: the ZED asset was
+  nested under a kinematic body instead of fixed-jointed, so the camera never moved (identical frames -> `Duplicate frame
+  detected` -> `CORRUPTED FRAME`, odometry exactly 0). With the `FixedJoint` mount: 0 corrupted frames, odometry tracks.

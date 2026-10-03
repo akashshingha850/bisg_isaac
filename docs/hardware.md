@@ -70,7 +70,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 | Mount pose `xyz_rpy` on `base_link` | TBD (measure on the frame in Phase 4). Sim uses `[0.18, 0.0, -0.02, 0, 0, 0]`: the lens must sit **ahead of the frame** and the props **outside the ~90° HFOV**; the old example `0.10` put the sim lens inside the Iris nose. Re-run the view check (bugs.md B13) for the real mount |
 | Positional tracking | SDK VIO → `zed/zed_node/odom`; `vio_relay` republishes to `mavros/odometry/out` |
 
-Limits worth knowing: ZED Mini is USB, so no GMSL capture card; it is not supported by Stereolabs' Isaac Sim streaming integration (ZED X family), hence the topic-contract approach.
+Limits worth knowing: ZED Mini is USB, so no GMSL capture card. Stereolabs' Isaac Sim streaming extension supports it from v5.2 on (Isaac Sim 6.0, asset `ZED_M`); the sim's intrinsics come from that twin (HD720 `fx` = 529.8 px, baseline 63.0 mm), **not** from your unit's factory calibration — code must read `camera_info`, never hard-code `K`. Copy the real unit's `K` here once it is on the bench (`docs/zed-sdk-sim.md`).
 
 ## Vehicle model measurements (Phase 4, for `sim/assets/vehicles/bisg_quad`)
 

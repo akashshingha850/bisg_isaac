@@ -59,9 +59,12 @@
                                       #       view is clear (docs/bugs.md fixed 2026-09-25); try on the real frame
       publish_roi_mask: false         # [hw]
 
-    pos_tracking:                     # visual-inertial odometry -> PX4 EV (vio_relay; sim: vio_mock)
-      pos_tracking_enabled: true      # [sim] zed/zed_node/odom (sim: vio_mock, always on)
-      pos_tracking_mode: GEN_2        # [hw]
+    pos_tracking:                     # visual-inertial odometry -> PX4 EV (vio_relay). Sim: the real SDK tracks the streamed
+                                      # ZED Mini (ZED_SOURCE=sdk) or vio_mock stands in (emulated), docs/zed-sdk-sim.md
+      pos_tracking_enabled: true      # [sim] zed/zed_node/odom
+      pos_tracking_mode: AUTO         # [sim+hw] AUTO | GEN_1 | GEN_3 (wrapper 5.4.1 has no GEN_2: it is not a valid value). AUTO = the SDK's
+                                      #       own default, GEN_3 on SDK 5.4 — the best visual-inertial mode for a drone. Sim runs the same
+                                      #       mode through the real SDK (deploy/sim/zed_sim_overlay.yaml turns IMU fusion off there)
       imu_fusion: true                # [hw]
       publish_tf: true
       publish_map_tf: false           # PX4/MAVROS owns map; wrapper publishes odom -> base only

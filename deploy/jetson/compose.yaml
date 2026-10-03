@@ -47,9 +47,8 @@ services:
       - /usr/local/zed/resources:/usr/local/zed/resources   # AI model cache persists across restarts
       - /usr/local/zed/settings:/usr/local/zed/settings     # factory calibration downloads
     command: >
-      bash -lc "source /root/ros2_ws/install/setup.bash &&
-                ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zedm
-                namespace:=drone_${DRONE_ID:-1}
-                ros_params_override_path:=/workspace/deploy/jetson/zed_params.yaml"
+      bash -lc "source /sbin/ros_entrypoint.sh >/dev/null &&
+                ros2 launch /workspace/deploy/launch/zed_drone.launch.py drone_id:=${DRONE_ID:-1}
+                params:=/workspace/deploy/jetson/zed_params.yaml"
 
   # vehicle (bisg_vehicle: offboard controller, vio_relay, health) is added in Phase 2/5.

@@ -61,6 +61,10 @@ free_gb=$(df -BG --output=avail "$(cd "$(dirname "$0")/.." && pwd)" | tail -1 | 
 [[ ${free_gb} -ge 60 ]] && pass "disk free ${free_gb} GB" || die "need >= 60 GB free for the Isaac image + caches (have ${free_gb} GB)"
 docker_root=$(docker info 2>/dev/null | awk -F': ' '/Docker Root Dir/{print $2}')
 [[ -n "$docker_root" ]] && echo "  [info] docker root: $docker_root ($(df -h "$docker_root" 2>/dev/null | tail -1 | awk '{print $4}') free)"
+# UDP receive buffer: a 1280x720 ZED image is 42 UDP fragments; below ~10 MB no image/depth/cloud ever arrives over
+# CycloneDDS (small topics still flow, so nothing errors). docs/setup.md, docs/bugs.md B2.
+rmem=$(sysctl -n net.core.rmem_max 2>/dev/null || echo 0)
+[[ ${rmem} -ge 10485760 ]] && pass "net.core.rmem_max=${rmem}" || wrn "net.core.rmem_max=${rmem} (< 10 MB): ZED images/depth/clouds will not arrive over CycloneDDS. Fix: echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system  (or run the wrapper with ZED_RMW=rmw_fastrtps_cpp)"
 # Ports
 for p in 4560 14540 14550 14580; do
   ss -lun 2>/dev/null | grep -q ":$p " && wrn "UDP port $p already in use (old PX4/QGC?)"; done

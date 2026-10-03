@@ -7,6 +7,7 @@ then added as submodules at the same tags).
 |---|---|---|
 | PegasusSimulator | **PR #144 head `fcb99c0`** (Isaac Sim 6.0 migration, branch `dev_6.0.1` lineage; **not a release tag** — `v5.1.0` was the Isaac 5.1 pin). Fetch: `git fetch origin refs/pull/144/head:pr144`; the `local` branch sits on it | `bisg/sim` builds **from** this submodule (`docker/sim/Dockerfile`), not a fresh clone — local edits here reach the image |
 | zed-ros2-wrapper | `v5.4.1` (ZED SDK 5.4.1) | its `docker/` build scripts (run directly against this submodule) produce our `bisg/zed` images |
+| zed-isaac-sim | `v5.2.1` = `529e538` (a **branch** upstream, so the SHA is the pin; Isaac Sim 6.0 line, has the ZED Mini twin `ZED_M`) | Stereolabs' Isaac Sim extension that streams a simulated ZED into the real SDK (`docs/zed-sdk-sim.md`). A plain clone, not a submodule (it holds a ~450 MB build tree); `docker/zed/build_isaac_ext.sh` builds it in place and widens its Kit range to 110.1.1 for the 6.0.0 image |
 | PX4-Autopilot (optional, `WITH_PX4=1`) | see `PX4_TAG` in `config/bisg.conf` | reading `px4-rc.*`, param names, `px4_fmu-v4` build for the Pixracer — not a submodule, cloned fresh inside the sim image build |
 
 ## Local edits, kept updatable

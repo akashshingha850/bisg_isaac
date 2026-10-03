@@ -40,7 +40,27 @@ something subscribes, so a switch left on costs nothing until it's used. Topics 
 "yes" under ZED Mini: the SDK supports the feature on this camera; confirm heavy AI models
 (object detection, body tracking) on the Orin NX before relying on them.
 
-## Sim GUI overlay (sim only)
+## SDK mode (`ZED_SOURCE=sdk`): the features run in the real SDK
+
+The **Sim** column above describes the `emulated` rig. With `ZED_SOURCE=sdk` (`docs/zed-sdk-sim.md`) the unmodified wrapper runs
+against Isaac's streamed ZED Mini twin, so a switch in `deploy/jetson/zed_params.yaml` does what it does on the drone. Status of
+what has actually been exercised (2026-10-03, `./bisg zed check` + a 4 m square flight):
+
+| Feature | SDK mode | Notes |
+|---|---|---|
+| Rectified stereo images + camera_info | **verified** | 20-22 Hz per simulated second, 63.0 mm baseline |
+| Depth map (`NEURAL_LIGHT`) | **verified** | the SDK's own stereo matching on the rendered pair: 78-79 % valid pixels, 0.24-11.2 m in the warehouse |
+| Point cloud | **verified** | 19-22 Hz sim time |
+| Positional tracking (GEN_3, visual-only) | **verified** | odometry path 21.87 m vs truth 21.64 m (1.01) over takeoff, 4 m square, landing; trajectory RMSE 0.088 m, end error 0.024 m |
+| Health / tracking status topics | **verified** | all `low_*` flags false, `odometry_status` OK |
+| IMU `imu/data` | sim-published | the stream has no usable sensor channel; the sim publishes the same topic (`zed_rig.publish_imu`). `imu_raw`, mag, baro, temperature: not available |
+| Disparity, confidence, depth info, ROI mask | should work, **not yet exercised** | depth-derived, no extra sim input; switch on and run `./bisg zed check` + `ros2 topic hz` |
+| Spatial mapping, plane detection, pose covariance, paths, area memory | should work, **not yet exercised** | need tracking + depth only |
+| Object / body detection | should work, **not yet exercised** | model download + GPU load; heavy even on the workstation |
+| Streaming server, SVO recording | not meaningful | the camera *is* a stream; record rosbags instead |
+| IMU-fused tracking (`imu_fusion: true`) | **not possible in sim** | the stream carries a frame-rate IMU; only the real camera tests it |
+
+## Sim GUI overlay (emulated rig only)
 
 Scenario `sensors.zed.view`: live point cloud and fused map drawn over the main viewport
 (`point_cloud`, `fused_cloud`, `draw_color: depth|rgb`, point sizes, caps), plus the

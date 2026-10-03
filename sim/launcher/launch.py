@@ -134,6 +134,13 @@ if STREAMING:
     if STREAM_ADDR:
         # Clients outside this machine need the address they should send media to (LAN/public IP).
         _extra.append(f"--/exts/omni.kit.livestream.app/primaryStream.publicIp={STREAM_ADDR}")
+# ZED SDK mode (docs/zed-sdk-sim.md): the zed-isaac-sim extension must be on Kit's path before Kit starts.
+from zed_sdk_cfg import EXT_ID as ZED_EXT_ID, ext_folder as zed_ext_folder, zed_source  # noqa: E402 (stdlib only)
+ZED_SDK_RIG = any(((v.get("sensors") or {}).get("zed") or {}).get("enabled", False)
+                  and zed_source((v.get("sensors") or {}).get("zed") or {}) == "sdk" for v in CFG.get("vehicles", []))
+if ZED_SDK_RIG:
+    _extra += ["--ext-folder", zed_ext_folder(), "--enable", ZED_EXT_ID]
+    LOG.info("ZED SDK mode: extension %s from %s", ZED_EXT_ID, zed_ext_folder())
 if _extra:
     _app_cfg["extra_args"] = _extra
 LOG.info("SimulationApp config: %s", _app_cfg)
@@ -474,7 +481,18 @@ class App:
         LOG.info("vehicle %d spawned at %s as %s", vid, pos, prim)
 
         zed = v.get("sensors", {}).get("zed", {})
-        if zed.get("enabled", False):
+        if zed.get("enabled", False) and zed_source(zed) == "sdk":
+            from zed_sdk_rig import attach_zed_sdk  # noqa: WPS433
+            from zed_rig import publish_imu  # noqa: WPS433
+            from zed_features import load_features  # noqa: WPS433
+            attach_zed_sdk(veh, vid, f"/drone_{vid + 1}", zed, pos, Rotation.from_quat(quat))
+            # The streamed ZED has no usable sensor channel (docs/zed-sdk-sim.md): the sim publishes the contract's
+            # imu/data itself, from a physics IMU on the vehicle body, unless the params file switches it off.
+            if load_features(zed).on("sensors.publish_imu", True):
+                mount = [float(x) for x in zed.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])][:3]
+                publish_imu(f"{veh.prim_path}/body", f"/drone_{vid + 1}", mount, float(zed.get("imu_rate", 200.0)))
+            LOG.info("vehicle %d: ZED SDK twin attached; start the wrapper with ./bisg zed up", vid)
+        elif zed.get("enabled", False):
             from zed_rig import attach_zed_mini  # noqa: WPS433
             from zed_features import load_features  # noqa: WPS433
             features = load_features(zed)  # zed_wrapper switches: deploy/jetson/zed_params.yaml + overrides
