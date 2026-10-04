@@ -7,7 +7,7 @@
 #   <anything else>   exec as-is
 set -euo pipefail
 
-export SIM_CONFIG="${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}"
+export SIM_CONFIG="${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}"
 if [[ "${SIM_HEADLESS:-0}" == "1" ]]; then
   export SIM_HEADLESS=1
 fi

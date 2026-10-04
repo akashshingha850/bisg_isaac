@@ -25,7 +25,7 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 ## Topics — provided by the vehicle
 
 The `zed/zed_node/*` names are the ZED wrapper 5.4.1 names (`ZED_SOURCE=sdk` is that wrapper, unmodified; `ZED_SOURCE=emulated` copies them). Pull them
-in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on the drone it is `deploy/launch/zed_drone.launch.py`.
+in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on the drone it is `docker/zed/zed_drone.launch.py`.
 
 | Topic (under `/drone_<n>/`) | Type | Rate | Source sim / real | Notes |
 |---|---|---|---|---|

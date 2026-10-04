@@ -1,0 +1,22 @@
+# MAVROS with only the plugins this project needs on the drone (variant "mavros_lean" of the PX4-link benchmark).
+# Default px4.launch loads ~50 plugins (each its own node + subscriptions); everything not listed here is not loaded.
+/**:
+  ros__parameters:
+    plugin_allowlist:
+      - sys_status
+      - sys_time
+      - command
+      - param
+      - imu
+      - local_position
+      - global_position
+      - home_position
+      - setpoint_position
+      - setpoint_velocity
+      - setpoint_raw
+      - odometry
+      - vision_pose
+      - obstacle_distance
+      - landing_target
+      - onboard_computer_status
+      - debug_value

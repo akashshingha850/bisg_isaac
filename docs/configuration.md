@@ -1,14 +1,15 @@
 # Configuration
 
-Three files, each answering a different question.
+Four files, each answering a different question.
 
 ```
 config/bisg.conf    the settings: what you see, which scenario, endpoints, pins, links
+docker/zed/zed.yaml everything the ZED Mini does: SDK modules, PX4 bridge, QGC video (docs/zed-stack.md)
 docker/.env         this machine only (DISPLAY, local overrides) — git-ignored
-sim/configs/*.yaml  the scenario: world, vehicles, PX4 airframe, perf knobs
+docker/sim/configs/*.yaml  the scenario: world, vehicles, PX4 airframe, perf knobs
 ```
 
-Rule of thumb: **which drone / which world / what I see** → `config/bisg.conf`; **what the world
+Rule of thumb: **which drone / which world / what I see** → `config/bisg.conf`; **what the ZED does** → `docker/zed/zed.yaml` (`./bisg zed plan|set`); **what the world
 contains** → the scenario YAML; **my machine is different** → `docker/.env`.
 
 `config/bisg.conf` is plain `KEY=VALUE` because its two readers — bash and `docker compose`
@@ -110,11 +111,11 @@ instead of being silently ignored. `SIM_MODE=gui` + `SIM_STREAM=webrtc` becomes 
 ## Scenario
 
 ```
-SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in sim/configs/ (no .yaml), or an absolute path
+SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in docker/sim/configs/ (no .yaml), or an absolute path
 ```
 
 `./bisg up -c headless_fast` overrides it for one run; `-c /abs/path/to/x.yaml` works too. The resolved
-path is passed to the container as `SIM_CONFIG=/workspace/sim/configs/<file>.yaml`. Unknown names are
+path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
 `single_iris` defaults to Isaac Sim's built-in Simple Room (including its table) and opens a trailing
@@ -122,7 +123,7 @@ third-eye camera image in the same preview panel as the ZED left image and depth
 environment loads from Isaac Sim's asset library, so no USD download or project-local asset copy is
 needed. The camera follows the drone from farther behind and above; adjust `app.third_eye.position`,
 `pitch_deg`, or `preview_hz` in the scenario if needed. To switch worlds, edit `world.preset` in
-`sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`, `"Hospital"`, or
+`docker/sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`, `"Hospital"`, or
 `"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.
 
 ## ZED source: `ZED_SOURCE`
@@ -152,7 +153,7 @@ Port math lives in `docs/interface-contract.md`; changing it is a contract chang
 ## Pins and links
 
 `ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ZED_ISAAC_EXT_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
-`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `ZED_ISAAC_EXT_REPO`, `PX4_REPO` feed `scripts/fetch_third_party.sh`.
+`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `ZED_ISAAC_EXT_REPO`, `PX4_REPO` feed `scripts/fetch_sources.sh`.
 Pins are an ADR decision (`docs/plan.md` §4, ADR-003/005) — change the file *and* the ADR, then
 `./bisg setup --rebuild`.
 

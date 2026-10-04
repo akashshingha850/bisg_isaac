@@ -1,26 +1,24 @@
 """
-ZED SDK feature switches for the sim rig: the same file the real zed_wrapper uses
-(deploy/jetson/zed_params.yaml), plus optional per-scenario overrides.
+ZED SDK feature switches for the emulated sim rig: the same docker/zed/zed.yaml the real zed_wrapper is configured from
+(compiled by zed_stack.config into the wrapper's own parameter names), plus optional per-scenario overrides.
 
     features = load_features(zed_cfg)          # zed_cfg = scenario `sensors.zed`
     on("depth.publish_point_cloud")
 
 Scenario keys (sensors.zed):
-    features_file: deploy/jetson/zed_params.yaml     # default
-    features:                                        # optional overrides, same nesting as the file
+    features:                                        # optional overrides, wrapper parameter names
       mapping: {mapping_enabled: true}
 
 A switch that is on but not emulated here is logged once ("not simulated") so a sim run never
-silently pretends to have a feature. docs/zed-features.md lists what each switch does in sim/hw.
+silently pretends to have a feature. archive/docs/zed-features.md lists what each switch does in sim/hw.
 """
 import logging
 import os
-
-import yaml
+import sys
 
 LOG = logging.getLogger("launch")
 
-DEFAULT_FILE = "deploy/jetson/zed_params.yaml"
+DEFAULT_FILE = "docker/zed/zed.yaml"
 
 # Switches the sim implements (zed_rig.py / zed_depth.py / vio_mock). Everything else that is a
 # feature switch (publish_* or *_enabled) is hardware-only.
@@ -42,11 +40,13 @@ def _merge(a, b):
 
 
 def load_features(zed_cfg: dict, workspace: str = "/workspace") -> "Features":
+    zed_dir = os.path.join(workspace, "docker", "zed")      # zed_stack lives with the ZED image
+    if zed_dir not in sys.path:
+        sys.path.insert(0, zed_dir)
+    from zed_stack import config  # noqa: E402  (the repo is bind-mounted at /workspace)
     path = zed_cfg.get("features_file", DEFAULT_FILE)
     path = path if os.path.isabs(path) else os.path.join(workspace, path)
-    with open(path) as f:
-        raw = yaml.safe_load(f) or {}
-    params = (raw.get("/**") or {}).get("ros__parameters") or {}
+    params = config.load(path, sim=True).wrapper_params()
     feats = Features(_merge(params, zed_cfg.get("features")), path)
     feats.report()
     return feats

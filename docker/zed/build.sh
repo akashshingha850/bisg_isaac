@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # Build the ZED SDK + zed-ros2-wrapper image with Stereolabs' official build scripts
-# (third_party/zed-ros2-wrapper/docker). We do not maintain our own ZED Dockerfile.
+# (docker/zed/zed-ros2-wrapper/docker). We do not maintain our own ZED Dockerfile.
 #
+#   docker/zed/build.sh              # no argument = the variant for this machine (desktop on x86_64, jetson on aarch64)
 #   docker/zed/build.sh desktop      # x86_64 workstation: Jazzy, Ubuntu 24.04, SDK $ZED_SDK
 #   docker/zed/build.sh jetson       # Orin NX, JetPack 7.x (L4T r38.4): run ON the Jetson (or arm64 buildx host)
 #
 # Result: the upstream image is tagged bisg/zed:<variant>-base, then docker/zed/Dockerfile.overlay adds CycloneDDS
-# on top -> bisg/zed:<variant> (what compose and deploy/jetson use).
+# on top -> bisg/zed:<variant> (what docker/compose.yaml uses: ZED_VARIANT = desktop | l4t-r38, chosen by ./bisg from the CPU architecture).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ZED_SDK="${ZED_SDK:-$(grep -E '^ZED_SDK=' "$ROOT/docker/.env" 2>/dev/null | cut -d= -f2 || true)}"
 ZED_SDK="${ZED_SDK:-5.4.1}"
-WRAPPER="$ROOT/third_party/zed-ros2-wrapper"
-[[ -d "$WRAPPER/docker" ]] || { echo "missing $WRAPPER — run scripts/fetch_third_party.sh first"; exit 1; }
+WRAPPER="$ROOT/docker/zed/zed-ros2-wrapper"
+[[ -d "$WRAPPER/docker" ]] || { echo "missing $WRAPPER — run scripts/fetch_sources.sh first"; exit 1; }
 
-case "${1:-desktop}" in
+default=desktop; [[ "$(uname -m)" == aarch64 ]] && default=jetson     # pick by CPU architecture
+case "${1:-$default}" in
   desktop)
     ( cd "$WRAPPER/docker" && ./build_desktop.sh --ros-distro jazzy --os ubuntu-24.04 --sdk "$ZED_SDK" --cuda 12.8 )
     src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_jazzy.*ubuntu.*24" || true)

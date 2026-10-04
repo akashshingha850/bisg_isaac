@@ -15,8 +15,8 @@ The repo is already on 6.0.
   twin into the unmodified `zed_wrapper` in `bisg/zed:desktop`; `emulated` stays the default and the fallback (no SDK, no GPU image).
 - The ZED asset is mounted with a `FixedJoint` (Stereolabs' own robot pattern), weightless; stream transport is IPC (shared memory), port
   `30000 + 2·id`.
-- Sim and Jetson launch the wrapper with **one** file (`deploy/launch/zed_drone.launch.py`) and **one** params file (`deploy/jetson/zed_params.yaml`);
-  the only sim deltas are `deploy/sim/zed_sim_overlay.yaml` (`imu_fusion: false`, `sensors_image_sync: true`). Each is a documented limitation of the
+- Sim and Jetson launch the wrapper with **one** file (`docker/zed/zed_drone.launch.py`) and **one** params file (`docker/zed/zed.yaml`);
+  the only sim deltas are the `sim:` block of `docker/zed/zed.yaml` (`imu_fusion: false`, `sensors_image_sync: true`). Each is a documented limitation of the
   streamed camera, not a tuning choice.
 - Odometry has exactly one source per run: SDK tracking in `sdk` mode (never `vio_mock`).
 - The extension is built in the `bisg/sim` image (`docker/zed/build_isaac_ext.sh`), pinned by commit; its Kit range is widened to match the 6.0.0 image.

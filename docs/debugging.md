@@ -20,7 +20,7 @@ Start with `./bisg status`, then `./bisg debug report` when you need to keep evi
 | `rmw_create_node: failed to create domain` | `./bisg debug dds` | CycloneDDS profile asks for more than `net.core.rmem_max`; our profile sets no minimum |
 | Stop takes 60 s and exits 137 | `docker inspect -f '{{.Config.Entrypoint}}' bisg-sim` | entrypoint must exec Isaac's python (not `python.sh`), see runbook |
 | GPU out of memory | `./bisg debug gpu` | close the GUI sim before headless tests; lower camera resolution (`perf.width/height`, see [performance.md](performance.md)) |
-| Sim runs but slower than real time | `./bisg debug perf` | `rtf < 1.0` means PX4 gets stretched sim time. Try `sim/configs/headless_fast.yaml`, lower `perf.width/height`, or `perf.min_frame_rate`. Knobs and the NVIDIA handbook: [performance.md](performance.md) |
+| Sim runs but slower than real time | `./bisg debug perf` | `rtf < 1.0` means PX4 gets stretched sim time. Try `docker/sim/configs/headless_fast.yaml`, lower `perf.width/height`, or `perf.min_frame_rate`. Knobs and the NVIDIA handbook: [performance.md](performance.md) |
 | Boot or frame rate needs real tuning | [performance.md](performance.md) | NVIDIA "Simulation Performance Optimization Handbook" plus the knobs we expose in `perf:` |
 | `volume "bisg_isaac-…" already exists but was not created by Docker Compose` | — | a `docker run -v` created it first; `docker volume rm <name>` and let `./bisg up` recreate it (these volumes hold caches and logs only) |
 

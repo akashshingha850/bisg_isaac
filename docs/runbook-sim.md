@@ -36,7 +36,7 @@ Raw compose (no `config/bisg.conf`, only `docker/.env` + compose defaults):
 ```
 docker compose -f docker/compose.yaml --profile sim up            # window on $DISPLAY
 docker compose -f docker/compose.yaml --profile sim-headless up   # no window
-SIM_CONFIG=/workspace/sim/configs/<other>.yaml docker compose -f docker/compose.yaml --profile sim up
+SIM_CONFIG=/workspace/docker/sim/configs/<other>.yaml docker compose -f docker/compose.yaml --profile sim up
 ```
 ### Watching a headless run
 ```

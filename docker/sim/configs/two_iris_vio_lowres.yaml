@@ -1,0 +1,77 @@
+# Scenario: two Iris + two ZED rigs (320x180), drone 2 six metres to the side of drone 1. Checks that the per-drone
+# ZED topics / TF / IMU stay separate (/drone_1/zed/..., /drone_2/zed/...). Isaac Sim 6.0 migration; sim level only.
+extends: single_iris_vio_lowres.yaml
+
+vehicles:
+  - id: 0                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}
+    model: Iris              # key in pegasus.simulator.params.ROBOTS (custom USD via usd_path)
+    usd_path: null
+    position: [0.0, 0.0, 0.07]         # world ENU metres
+    yaw_deg: 0.0
+    ros2:                              # Pegasus ROS2Backend: ground-truth state on /drone_{id+1}/state/*
+      enabled: true                    # consumed only by vio_mock (ros2_ws) — parity rule, plan.md §8
+      pub_state: true
+      pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
+      pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
+    sensors:
+      zed:                             # ZED Mini rig (sim/launcher/zed_rig.py); matches interface-contract.md
+        enabled: true
+        mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
+                                       # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
+                                       # nose and saw only fuselage. 0.18 clears it; props stay outside the
+                                       # 84-90 deg HFOV. Re-check the view if this or the airframe changes.
+        baseline: 0.063                # metres, ZED Mini
+        resolution: [320, 180]         # low-res: fits the default host rmem_max (bugs.md B2)
+        fps: 30.0
+        imu_rate: 200.0
+        depth_range: [0.1, 15.0]
+        preview: true                  # GUI/WebRTC: extra window with the ZED left image + depth (red near,
+        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/drone_views.py
+        # ZED SDK features (depth products, mapping, OD, ...): switched in the real zed_wrapper overlay,
+        # read by the sim too so both run the same set. archive/docs/zed-features.md lists them.
+        features: {}                   # per-scenario overrides, same nesting, e.g. {mapping: {mapping_enabled: true}}
+        view:                          # GUI/WebRTC overlay over the main viewport (sim/launcher/zed_depth.py)
+          point_cloud: true            # live ZED points, world coordinates
+          fused_cloud: true            # spatial-mapping result (when mapping.mapping_enabled)
+          draw_hz: 5.0
+          draw_stride: 8               # 160x90 = 14k live points
+          draw_color: depth            # depth (red near -> blue far) | rgb (camera colours)
+          point_size: 4.0
+          map_point_size: 3.0
+          map_draw_max_points: 80000
+  - id: 1                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}
+    model: Iris              # key in pegasus.simulator.params.ROBOTS (custom USD via usd_path)
+    usd_path: null
+    position: [0.0, 6.0, 0.07]         # world ENU metres
+    yaw_deg: 0.0
+    ros2:                              # Pegasus ROS2Backend: ground-truth state on /drone_{id+1}/state/*
+      enabled: true                    # consumed only by vio_mock (ros2_ws) — parity rule, plan.md §8
+      pub_state: true
+      pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
+      pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
+    sensors:
+      zed:                             # ZED Mini rig (sim/launcher/zed_rig.py); matches interface-contract.md
+        enabled: true
+        mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
+                                       # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
+                                       # nose and saw only fuselage. 0.18 clears it; props stay outside the
+                                       # 84-90 deg HFOV. Re-check the view if this or the airframe changes.
+        baseline: 0.063                # metres, ZED Mini
+        resolution: [320, 180]         # low-res: fits the default host rmem_max (bugs.md B2)
+        fps: 30.0
+        imu_rate: 200.0
+        depth_range: [0.1, 15.0]
+        preview: true                  # GUI/WebRTC: extra window with the ZED left image + depth (red near,
+        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/drone_views.py
+        # ZED SDK features (depth products, mapping, OD, ...): switched in the real zed_wrapper overlay,
+        # read by the sim too so both run the same set. archive/docs/zed-features.md lists them.
+        features: {}                   # per-scenario overrides, same nesting, e.g. {mapping: {mapping_enabled: true}}
+        view:                          # GUI/WebRTC overlay over the main viewport (sim/launcher/zed_depth.py)
+          point_cloud: true            # live ZED points, world coordinates
+          fused_cloud: true            # spatial-mapping result (when mapping.mapping_enabled)
+          draw_hz: 5.0
+          draw_stride: 8               # 160x90 = 14k live points
+          draw_color: depth            # depth (red near -> blue far) | rgb (camera colours)
+          point_size: 4.0
+          map_point_size: 3.0
+          map_draw_max_points: 80000

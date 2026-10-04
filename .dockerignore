@@ -1,7 +1,10 @@
-third_party/*/.git
-# The sim/ros images only COPY third_party/PegasusSimulator; the ZED extension (built tree ~450 MB) and wrapper are
+docker/sim/PegasusSimulator/.git
+# The sim/ros images only COPY docker/sim/PegasusSimulator; the ZED extension (built tree ~450 MB) and wrapper are
 # bind-mounted or built by their own scripts, so keep them out of every build context.
-third_party/zed-isaac-sim
-third_party/zed-ros2-wrapper
+docker/zed/zed-isaac-sim
+docker/zed/zed-ros2-wrapper
+docker/ros/ros2_ws/build
+docker/ros/ros2_ws/install
+docker/ros/ros2_ws/log
 logs
 graphify-out

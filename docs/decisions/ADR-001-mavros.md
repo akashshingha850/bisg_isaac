@@ -25,3 +25,9 @@ Use **MAVROS 2.x** on both sim and hardware. uXRCE-DDS is not used.
 - Mode strings / plugin behaviour must be re-checked when the PX4 pin changes (see ADR-003).
 - If a future FC (e.g. Pixhawk 6X) makes uXRCE-DDS attractive, it is an additive change behind
   `bisg_vehicle`, not a rewrite.
+
+## Addendum 2026-10-04 — measured (archive/px4-link-study/study-px4-link.md)
+- Still accepted. Measured on PX4 v1.17.0 SITL: MAVROS delivers the ENU/FLU external-vision pose to PX4 exactly (0 m / 0.0006° error); frame conversion is the reason to keep it.
+- Corrects "uxrce_dds_client presence on fmu-v4 is uncertain": it **is** in `px4_fmu-v4_default` (v1.17.0) and the build still fits (95.3 % flash). RAM on the constrained-memory board is untested.
+- **Use the lean plugin list** (`docker/ros/mavros_lean.yaml`, applied by `docker/ros/entrypoint.sh`; `distance_sensor`/`px4flow` get added when those bridge modules land): idle CPU 28 % -> 9 %, RSS 255 -> 144 MB; default MAVROS degrades badly under CPU contention (command RTT 4 -> 65 ms).
+- **Decision 2026-10-05: keep MAVROS** (lean list in use). MAVSDK 4.x native is lighter and faster still; it stays behind the decision gate in the study's §7, measured on the Orin NX with the ZED wrapper running.

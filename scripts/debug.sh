@@ -119,7 +119,7 @@ cmd_report(){
     ( for c in "commander status" "ekf2 status" "sensors status" "mavlink status" "uorb top -1" "param show MAV_* EKF2_EV* COM_RCL_EXCEPT"; do echo "### px4-$c"; cmd_px4 $c; echo; done ) > "$d/px4_status.txt" 2>&1 || true
   fi
   if container_running "$ROS_NAME"; then ( cmd_topics; echo; ros_exec "ros2 node list --no-daemon 2>/dev/null" ) > "$d/ros_graph.txt" 2>&1 || true; fi
-  cp "$ROOT/sim/configs/"*.yaml "$d/" 2>/dev/null || true
+  cp "$ROOT/docker/sim/configs/"*.yaml "$d/" 2>/dev/null || true
   tar -czf "$d.tar.gz" -C "$ROOT/logs" "debug_${ts}"
   ok "report: $d.tar.gz  ($(du -h "$d.tar.gz" | cut -f1))"
   echo "  quick look: $d/versions.txt, $d/${SIM_NAME}.log, $d/px4_status.txt, $d/kitlog_summary.txt"

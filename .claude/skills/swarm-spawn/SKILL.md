@@ -6,8 +6,8 @@ description: Add or remove drone N in a sim scenario — vehicles list, PX4 inst
 # swarm-spawn
 
 ## Procedure (Phase 6+; swarm is a migration of the proven single-drone twin)
-1. Scenario YAML `sim/configs/<scenario>.yaml` → `vehicles:` list: `{id, model, spawn_xyz, spawn_yaw_deg, sensors: {zed: true, lidar: false}}`. ids are 0-based and contiguous.
-2. Regenerate compose: `python3 scripts/gen_compose.py --scenario sim/configs/<scenario>.yaml -o docker/compose.generated.yaml`
+1. Scenario YAML `docker/sim/configs/<scenario>.yaml` → `vehicles:` list: `{id, model, spawn_xyz, spawn_yaw_deg, sensors: {zed: true, lidar: false}}`. ids are 0-based and contiguous.
+2. Regenerate compose: `python3 scripts/gen_compose.py --scenario docker/sim/configs/<scenario>.yaml -o docker/compose.generated.yaml`
    → one `mavros_<n>` and `vehicle_<n>` service per drone with `fcu_url` from the instance math (`px4-sitl` skill).
 3. Fleet: `bisg_fleet` reads the same YAML for the roster (`fleet.yaml` section) — no separate list.
 4. Start: `docker compose -f docker/compose.yaml -f docker/compose.generated.yaml --profile sim-headless --profile ros up`.

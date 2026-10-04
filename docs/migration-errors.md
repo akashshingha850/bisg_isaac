@@ -1,7 +1,7 @@
 # Isaac Sim 6.0 migration — errors and gotchas
 
 Everything that went wrong (or surprised us) during the 5.1 → 6.0 migration of 2026-10-02, kept for the next debugging
-session or the 6.1 step. Context and results: [`migration-report.md`](migration-report.md). Long-lived product bugs stay in
+session or the 6.1 step. Context and results: [`archive/docs/migration-report.md`](../archive/docs/migration-report.md). Long-lived product bugs stay in
 [`bugs.md`](bugs.md); an item here moves there if it is still open and still matters after the migration is merged.
 
 Status: **Fixed** (change is in the branch) · **Open** (still true) · **Note** (no action needed, but it will cost you time if you don't know).
@@ -21,7 +21,7 @@ Evidence logs are in `logs/migration/` (git-ignored, local to the workstation).
 | [M10](#m10) | Open | cosmetic | Test box renders yellow, scenario asks for orange |
 | [M11](#m11) | Note | MAVROS | Second drone's `mavros/state` shows `CMODE(50593792)` |
 | [M12](#m12) | **Open** | API debt | ZED rig still on deprecated `isaacsim.sensors.camera` / `isaacsim.core.utils`; `isaacsim.ros2.bridge` is a shim |
-| [M13](#m13) | Note | docs | `docs/migrate.md` has wrong details (callback order, GPU, PX4 pin, "current" versions) |
+| [M13](#m13) | Note | docs | `archive/docs/migrate.md` has wrong details (callback order, GPU, PX4 pin, "current" versions) |
 | [M14](#m14) | Fixed | test | `smoke_takeoff.py` fails at low RTF with a misleading `There was an error running python` |
 | [M15](#m15) | Note | host | `./bisg debug mavlink` needs `pymavlink` on the host (pre-existing) |
 | [M16](#m16) | Note | logs | Benign warnings that look like errors |
@@ -149,7 +149,7 @@ Total drone-steps per second is roughly constant (119 → 184 from 1 to 8 drones
 `Multirotor.update` makes 6 `RigidPrim.apply_forces_and_torques_at_pos` calls per step (4 rotors, body torque, drag) and 4
 `Articulation.set_dof_velocities` calls (propeller animation) each preceded by `get_all_matching_child_prims`; every call builds warp
 arrays (`wp.array.__init__` ≈ 18 % of the profile). 5.1 used `dynamic_control` handles, which are cheap.
-**Candidates (untried; need the gate tests after each):** one batched force/torque call per step; propeller visuals only on rendered
+**Partly fixed 2026-10-04:** `sim/launcher/pegasus_fast.py` (runtime patch, `perf.pegasus_fast`) caches the RigidPrim wrappers, batches the 6 force/torque calls into 1 and writes propeller joints only on change: Python time per step -22 %, RTF 0.44 -> 0.54 in the GUI, hover test PASS; headless 0.85. See `performance.md` "Why it is not real time". **Candidates (still open):** one batched force/torque call per step; propeller visuals only on rendered
 frames or off when headless; avoid per-call prim resolution; `physics_dt` is **not** a safe knob (it sets the PX4 sensor rate).
 **Detect:** `./bisg debug perf` (now steps/s = real physics steps) or `ros2 topic hz /clock`.
 
@@ -158,7 +158,7 @@ frames or off when headless; avoid per-call prim resolution; `physics_dt` is **n
 <a id="m9"></a>
 ## M9 — `app.render: false` is not physics-only any more
 **Open.** `World.step(render=False)` — physics without the Kit update — has no 6.0 equivalent we use; the loop always calls
-`simulation_app.update()`. The launcher logs a warning. `sim/configs/headless_fast.yaml` (the test profile) boots in 30 s and passes
+`simulation_app.update()`. The launcher logs a warning. `docker/sim/configs/headless_fast.yaml` (the test profile) boots in 30 s and passes
 the smoke test but runs at 132–137 steps/s (rtf 0.53) vs 317 steps/s (rtf 1.27) documented for 5.1.
 **Possible fix:** a manual loop with `SimulationManager.step(steps=N)` + `RenderingManager.render()` — needs checking that the Pegasus
 `PHYSICS_POST_STEP` callbacks fire for it (they register through `SimulationManager`, so probably yes, but untested).
@@ -187,12 +187,12 @@ autopilot. Not looked into; connection, topics (155) and `connected: true` are f
 * `enable_extension("isaacsim.ros2.bridge")` in `launch.py`, `zed_rig.py`, `zed_depth.py`: `isaacsim.ros2.bridge` is now a thin extension (version
   5.1.1) that just depends on `isaacsim.ros2.{core,nodes,ui,examples}`. OmniGraph node names are still `isaacsim.ros2.bridge.ROS2Publish*`, so
   those strings are correct. Enable `isaacsim.ros2.core` + `isaacsim.ros2.nodes` instead to skip loading the UI/examples.
-* Search results for the `migrate.md` §43 patterns on our code: no `omni.isaac`, `dynamic_control`, `SimulationContext`, `World(`, `isaacsim.core.api`, `Python 3.11` left.
+* Search results for the `archive/docs/migrate.md` §43 patterns on our code: no `omni.isaac`, `dynamic_control`, `SimulationContext`, `World(`, `isaacsim.core.api`, `Python 3.11` left.
 
 ---
 
 <a id="m13"></a>
-## M13 — Corrections to `docs/migrate.md`
+## M13 — Corrections to `archive/docs/migrate.md`
 **Note.** Things in the migration guide that did not match what we found:
 * §15: `SimulationManager.register_callback(SimulationEvent.PHYSICS_POST_STEP, callback)` — the real signature is
   `register_callback(callback, event, *, order=0)`; `RenderingManager.register_callback(event, *, callback, order=0)` takes `callback` as a keyword.
@@ -250,10 +250,10 @@ Not a problem observed, but record the digest if you need to reproduce the exact
 
 <a id="m18"></a>
 ## M18 — The Pegasus pin lives only on a GitHub pull-request ref
-**Open.** `third_party/PegasusSimulator` points at `fcb99c0`, reachable upstream only as `refs/pull/144/head` (not a branch or tag).
+**Open.** `docker/sim/PegasusSimulator` points at `fcb99c0`, reachable upstream only as `refs/pull/144/head` (not a branch or tag).
 A fresh `git submodule update --init` fetches by SHA, which GitHub allows today; if the PR is force-pushed, closed with a rewritten
 history, or the author deletes the fork, the SHA can become unfetchable. Our own clone and every built image keep it.
-`scripts/fetch_third_party.sh` handles the `pr144-fcb99c0` pin. **Mitigation:** push the submodule's `local` branch to a fork, or
+`scripts/fetch_sources.sh` handles the `pr144-fcb99c0` pin. **Mitigation:** push the submodule's `local` branch to a fork, or
 re-pin when Pegasus tags a 6.0 release. The PR is also based on `dev_6.0.1` two commits behind its tip (new drone model, simplified world); we did not take those.
 
 ---
@@ -276,4 +276,4 @@ re-pin when Pegasus tags a 6.0 release. The PR is also based on `dev_6.0.1` two 
 <a id="m20"></a>
 ## M20 — `docs/performance.md` is 5.1-era
 **Note / Open.** Its tables (boot 186 s, 317 steps/s, rtf 1.27, warehouse numbers) were measured on 5.1 with the iteration-based
-metric (bugs.md B4, now fixed) and a different loop. Redo them on 6.0; the new baselines are in `migration-report.md` §4–§7.
+metric (bugs.md B4, now fixed) and a different loop. Redo them on 6.0; the new baselines are in `archive/docs/migration-report.md` §4–§7.

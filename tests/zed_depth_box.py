@@ -60,7 +60,7 @@ def main():
                     help="only use clouds taken with the drone at least this high (m), e.g. 1.8 for the hover")
     a = ap.parse_args()
 
-    path = a.scenario if a.scenario.endswith(".yaml") else f"/workspace/sim/configs/{a.scenario}.yaml"
+    path = a.scenario if a.scenario.endswith(".yaml") else f"/workspace/docker/sim/configs/{a.scenario}.yaml"
     cfg = load_scenario(path)
     box = next((o for o in (cfg.get("world", {}).get("objects") or []) if o.get("name") == a.object), None)
     if box is None:

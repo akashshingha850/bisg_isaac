@@ -5,7 +5,7 @@ COMPOSE_FILE="$ROOT/docker/compose.yaml"
 ENV_FILE="$ROOT/docker/.env"
 SIM_NAME=bisg-sim
 ROS_NAME=bisg-ros
-ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools)
+ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools --profile zed --profile drone)
 
 # --- output -------------------------------------------------------------------
 if [[ -t 1 ]]; then C_G=$'\e[32m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_0=$'\e[0m'; else C_G=; C_Y=; C_R=; C_B=; C_0=; fi
@@ -56,8 +56,12 @@ conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1
-conf_default VIDEO_HOST 127.0.0.1; conf_default VIDEO_PORT 5600;       conf_default VIDEO_BITRATE 2000;      conf_default VIDEO_FPS 0
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
+# One compose file serves the x86_64 workstation and the arm64 Jetson; the only per-arch thing is the ZED image tag.
+case "$(uname -m)" in
+  aarch64|arm64) conf_default BISG_ARCH arm64;  conf_default ZED_VARIANT l4t-r38;;   # Jetson, JetPack 7 (docker/zed/build.sh jetson)
+  *)             conf_default BISG_ARCH x86_64; conf_default ZED_VARIANT desktop;;    # workstation (docker/zed/build.sh desktop)
+esac
 conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
 conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
@@ -129,10 +133,10 @@ have_x11(){
 }
 # gui|headless from an explicit SIM_VIEW value, else the configured one.
 sim_mode(){ view_parse "${1:-}"; echo "$VIEW_MODE"; }
-# Scenario name (sim/configs/<name>.yaml) or a path -> the /workspace path the container sees.
+# Scenario name (docker/sim/configs/<name>.yaml) or a path -> the /workspace path the container sees.
 scenario_path(){
   local s="$1"
-  [[ "$s" == */* || "$s" == *.yaml || "$s" == *.yml ]] || s="$ROOT/sim/configs/$s.yaml"
+  [[ "$s" == */* || "$s" == *.yaml || "$s" == *.yml ]] || s="$ROOT/docker/sim/configs/$s.yaml"
   [[ -f "$s" || -f "$ROOT/${s#/workspace/}" ]] || warn "scenario file not found on the host: $s"
   to_ws "$s"
 }
@@ -169,6 +173,12 @@ sim_ready(){ _sim_log_has "\[launch\] sim ready"; }
 px4_ready(){ _sim_log_has "Ready for takeoff"; }
 sim_failed(){ _sim_log_has "Traceback|\[launch\] .*(unknown|FATAL)|Failed to create any GPU devices"; }
 # Run a command in the ros container with ROS 2 (and the ros2_ws overlay) sourced.
-ros_exec(){ docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; [ -f /workspace/ros2_ws/install/setup.bash ] && source /workspace/ros2_ws/install/setup.bash; $*"; }
+ros_exec(){ docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; [ -f /workspace/docker/ros/ros2_ws/install/setup.bash ] && source /workspace/docker/ros/ros2_ws/install/setup.bash; $*"; }
 # host path (inside repo) -> /workspace path
 to_ws(){ local p="$1"; [[ "$p" = /workspace/* ]] && { echo "$p"; return; }; p="$(realpath -m "$p")"; echo "/workspace${p#"$ROOT"}"; }
+
+# zed_stack (docker/zed/zed.yaml compiler/validator) is plain python + PyYAML: host python when it has yaml, else the ros image.
+zs(){
+  if python3 -c 'import yaml' 2>/dev/null; then PYTHONPATH="$ROOT/docker/zed" python3 -m zed_stack "$@"
+  else docker run --rm -v "$ROOT":/workspace:ro -e PYTHONPATH=/workspace/docker/zed --entrypoint python3 bisg/ros:jazzy -m zed_stack "$@"; fi
+}

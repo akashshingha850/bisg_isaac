@@ -6,7 +6,7 @@ Run once PX4 SITL is ready (same offboard link tests/smoke_takeoff.py uses, so i
 coexists with MAVROS on the same port):
     python3 scripts/push_px4_params.py --instance 0
 
-File format (deploy/px4_params/*.params): "NAME VALUE MAV_PARAM_TYPE" per line,
+File format (config/px4/*.params): "NAME VALUE MAV_PARAM_TYPE" per line,
 `#` comments allowed — NOT the 5-column QGC save format. See the file header for why.
 EKF2_HGT_REF/EKF2_EV_CTRL/etc reboot_required:true params need a PX4 reboot (or
 "param save" + power cycle on hardware) to take effect after being changed.
@@ -45,7 +45,7 @@ def load_params(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--instance", type=int, default=0)
-    ap.add_argument("--file", default="deploy/px4_params/sim_default.params")
+    ap.add_argument("--file", default="config/px4/sim_default.params")
     ap.add_argument("--timeout", type=float, default=60.0)
     a = ap.parse_args()
 

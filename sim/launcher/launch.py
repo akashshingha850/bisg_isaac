@@ -2,7 +2,7 @@
 """
 bisg_isaac Pegasus launcher — YAML-driven Isaac Sim standalone app.
 
-    /isaac-sim/python.sh sim/launcher/launch.py --config sim/configs/single_iris.yaml
+    /isaac-sim/python.sh sim/launcher/launch.py --config docker/sim/configs/single_iris.yaml
 
 Reads the scenario file, creates the SimulationApp (headless or not), loads the
 world, spawns each vehicle with a PX4 MAVLink backend (PX4 SITL autolaunched by
@@ -25,7 +25,7 @@ import yaml
 
 def parse_args():
     p = argparse.ArgumentParser(description="bisg_isaac Pegasus launcher")
-    p.add_argument("--config", default=os.environ.get("SIM_CONFIG", "/workspace/sim/configs/single_iris.yaml"))
+    p.add_argument("--config", default=os.environ.get("SIM_CONFIG", "/workspace/docker/sim/configs/single_iris.yaml"))
     p.add_argument("--headless", action="store_true", help="force headless (also SIM_HEADLESS=1)")
     args, _ = p.parse_known_args()  # kit appends its own args
     return args
@@ -167,7 +167,7 @@ if STREAMING:
 import carb  # noqa: E402
 import omni.timeline  # noqa: E402
 import omni.usd  # noqa: E402
-# Isaac Sim 6.0 removed omni.isaac.core.World (docs/migrate.md §14): physics/render settings, the physics
+# Isaac Sim 6.0 removed omni.isaac.core.World (archive/docs/migrate.md §14): physics/render settings, the physics
 # clock and per-step callbacks now come from SimulationManager / RenderingManager.
 from isaacsim.core.rendering_manager import RenderingManager  # noqa: E402
 from isaacsim.core.simulation_manager import SimulationEvent, SimulationManager  # noqa: E402
@@ -176,6 +176,9 @@ from scipy.spatial.transform import Rotation  # noqa: E402
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS  # noqa: E402
 from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig  # noqa: E402
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig  # noqa: E402
+if PERF.get("pegasus_fast", True):   # per-step speed-ups for Pegasus on 6.0 (sim/launcher/pegasus_fast.py)
+    import pegasus_fast  # noqa: E402
+    pegasus_fast.apply()
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface  # noqa: E402
 phase("pegasus imported")
 
@@ -346,7 +349,7 @@ def spawn_objects(objects):
 
 
 def apply_px4_params(params_file):
-    """Hand a deploy/px4_params/*.params file to PX4 SITL at boot.
+    """Hand a config/px4/*.params file to PX4 SITL at boot.
 
     PX4's posix rcS runs `param set <name> <value>` for every PX4_PARAM_<name> env var before
     any module starts, and Pegasus launches PX4 with this process's environment. So the
@@ -444,7 +447,16 @@ class App:
         self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
         app_cfg = cfg.get("app", {})
         eye, target = app_cfg.get("viewport_eye"), app_cfg.get("viewport_target")
-        if not (eye and target):
+        follow_cfg = app_cfg.get("follow_cam") or {}
+        self.follow = None
+        if follow_cfg.get("enabled", False) and (not HEADLESS or STREAMING) and self.vehicles:
+            try:   # Gazebo-style follow camera (sim/launcher/follow_cam.py); replaces the fixed start view
+                from follow_cam import FollowCam  # noqa: WPS433
+                self.follow = FollowCam(self.vehicles, follow_cfg)
+                eye = target = None
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning("could not start the follow camera: %s", exc)
+        if self.follow is None and not (eye and target):
             # Kit's default perspective camera sits ~hundreds of metres away (blank view until you zoom in):
             # frame the spawned vehicles instead. Set viewport_eye + viewport_target to pin a view.
             import numpy as np  # noqa: WPS433
@@ -454,7 +466,13 @@ class App:
             spread = float(np.linalg.norm(pts - centre, axis=1).max())
             eye = centre + np.array([-2.5 - spread, -2.0 - spread, 1.8 + 0.5 * spread])
             target = centre + np.array([0.0, 0.0, 0.5])
-        if not HEADLESS or STREAMING:
+        if (not HEADLESS or STREAMING) and app_cfg.get("viewport_hud", True):
+            try:   # real-time factor next to Kit's FPS line (sim/launcher/rtf_hud.py)
+                import rtf_hud  # noqa: WPS433
+                rtf_hud.install(SimulationManager.get_simulation_time)
+            except Exception as exc:  # noqa: BLE001 — the HUD must never stop the sim
+                LOG.warning("could not add the RTF line to the viewport HUD: %s", exc)
+        if self.follow is None and (not HEADLESS or STREAMING):
             from isaacsim.core.rendering_manager import ViewportManager  # noqa: WPS433
             ViewportManager.set_camera_view("/OmniverseKit_Persp", eye=[float(x) for x in eye], target=[float(x) for x in target])
             LOG.info("viewport camera: eye %s -> target %s", [round(float(x), 2) for x in eye], [round(float(x), 2) for x in target])
@@ -516,7 +534,7 @@ class App:
         elif zed.get("enabled", False):
             from zed_rig import attach_zed_mini  # noqa: WPS433
             from zed_features import load_features  # noqa: WPS433
-            features = load_features(zed)  # zed_wrapper switches: deploy/jetson/zed_params.yaml + overrides
+            features = load_features(zed)  # zed_wrapper switches: docker/zed/zed.yaml + overrides
             cams = attach_zed_mini(veh, f"/drone_{vid + 1}", zed, features)
             LOG.info("vehicle %d: ZED Mini rig attached on /drone_%d/zed/zed_node/...", vid, vid + 1)
             # A UI exists with a window (not headless) or a WebRTC stream (which shows the full UI).
@@ -527,7 +545,8 @@ class App:
                                                 third_eye_cfg.get("preview_hz", 8.0)))
             view = zed.get("view", {}) or {}
             if (features.on("depth.publish_point_cloud") or features.on("depth.publish_disparity")
-                    or features.on("mapping.mapping_enabled") or (has_ui and view.get("point_cloud", True))):
+                    or features.on("mapping.mapping_enabled") or (has_ui and (view.get("point_cloud", False) or view.get("accumulate", view.get("fused_cloud", True))
+                                    or view.get("fov_grid", True)))):
                 from zed_depth import ZedDepthProducts  # noqa: WPS433
                 self.previews.append(ZedDepthProducts(cams, f"/drone_{vid + 1}", zed, features,
                                                       sim_time=SimulationManager.get_simulation_time, has_ui=has_ui))
@@ -584,6 +603,8 @@ class App:
                 prof = None
             if self.web:
                 self.web.maybe_capture()
+            if self.follow:
+                self.follow.update()
             for p in self.previews:
                 p.maybe_update()
             if hb and step - step_hb >= hb:

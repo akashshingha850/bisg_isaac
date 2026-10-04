@@ -22,7 +22,7 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B13](#b13) | S2 | ZED | No automated check that the camera view is unobstructed / pointing forward |
 | [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
 | [B16](#b16) | S2 | ZED | Contract TF frames are `drone_<n>/`-prefixed; the real wrapper cannot publish a prefix |
-| [B17](#b17) | S2 | ZED | SDK-mode odometry is not yet stamped on PX4's (sim) clock, so it cannot feed EKF2 closed loop |
+| [B17](#b17) | S2 | ZED | SDK odometry now feeds EKF2 closed loop in the sim (bridge `odometry`, restamped); accuracy under flight is 0.37/0.53/0.34 m vs the 0.3 m bound |
 | [B18](#b18) | S3 | ZED | The SDK connects to the sim's stream once per sim run (restart the sim to reconnect) |
 
 ---
@@ -148,7 +148,7 @@ in the sim now runs on sim time.
 which is at most one physics step late. `tests/vio_flight.py` compares values, not stamps.
 
 **Possible fixes.**
-1. Local patch on the `third_party/PegasusSimulator` `local` branch (`third_party/README.md`): set
+1. Local patch on the `docker/sim/PegasusSimulator` `local` branch (`docs/sources.md`): set
    `use_sim_time=True` on the backend node, or stamp from the physics time Pegasus already has
    (`_current_utime` / `world.current_time`). The patch reaches the image on the next `bisg/sim` build.
 2. Or have the launcher pass sim time into the backend. Both need a small Pegasus change.
@@ -269,7 +269,7 @@ fuselage (see Fixed, 2026-09-25). Nothing in the pipeline *looks* at the pixels.
 ## B15 — Sim rig parameters are a second copy of the wrapper's
 **Sev S3 · parity drift.**
 
-Feature switches come from `deploy/jetson/zed_params.yaml`, but the sim rig still takes resolution,
+Feature switches come from `docker/zed/zed.yaml`, but the sim rig still takes resolution,
 fps and depth range from the scenario (`sensors.zed.resolution/fps/depth_range`). They already differ:
 sim near limit 0.1 m, wrapper `depth.min_depth` 0.2 m.
 
@@ -290,16 +290,20 @@ wrapper's unprefixed frames — correct parity with the Jetson, wrong versus the
 drone has its own TF tree; the fleet manager re-parents). (2) A TF relay that republishes with prefixes. Decide with the swarm phase.
 
 <a id="b17"></a>
-## B17 — SDK-mode odometry is not yet stamped on PX4's (sim) clock
-**Sev S2 · blocks feeding the real SDK's odometry into EKF2 in the sim. Open.**
+## B17 — SDK odometry into PX4: works, accuracy not yet inside the bound
+**Sev S2 · partly resolved 2026-10-05.**
 
-`vio_mock` stamps with sim time (`use_sim_time`) because PX4 SITL runs on sim time and EKF2 fuses a vision sample at its
-(timesynced) stamp (`vio_mock.py` docstring). The wrapper stamps with the wall clock (`use_sim_time: false`), and the sim runs at
-rtf ~0.35, so a wall-clock stamp drifts from PX4's clock by (1 - rtf) s/s. `zed up` also has no `vio_relay` in the 6.0 branch yet
-(it exists on `isaac-5.1`), so `mavros/odometry/out` is not fed from the SDK. Today SDK mode is an *observer*: the drone flies on
-GPS / `vio_mock` while the SDK's odometry is checked against ground truth.
-**Possible fixes.** `use_sim_time: true` on the wrapper and check the stamps it produces (the SDK timestamps come from the stream;
-the wrapper may re-stamp), or have `vio_relay` re-stamp from `/clock` on arrival as `vio_mock` does. Port `vio_relay` from `isaac-5.1`.
+`vio_mock` stamps with sim time because PX4 SITL runs on sim time and EKF2 fuses a vision sample at its (timesynced) stamp; the wrapper
+stamps with the wall clock and the sim runs at rtf ~0.4, so a source stamp would drift from PX4's clock by (1 - rtf) s/s.
+**Fixed:** the bridge's `odometry` module (`docker/zed/zed_stack/bridge/odometry.py`, `services.px4_bridge.odometry`, `restamp: true` in the `sim:` block of
+`docker/zed/zed.yaml`) stamps with the node's `/clock` time on arrival, fixes the frame ids MAVROS matches and goes silent while tracking is not OK
+(unit-tested on fake topics, `./bisg zed test`).
+**Verified live (single_iris_vio, ZED_SOURCE=sdk, vio_mock off):** PX4 only becomes "Ready for takeoff" once the SDK odometry reaches EKF2 (136 s vs 37 s with GPS),
+and `tests/vio_flight.py` flew OFFBOARD takeoff -> hover -> 3 m square -> land and disarmed on the SDK's VIO alone.
+**Open:** the test **fails its 0.3 m bound** — max |EKF estimate - ground truth| x 0.373 / y 0.529 / z 0.338 m over 1170 airborne samples; the estimate reads
+~7 % (x, y) and ~12 % (z, hover 1.98 m est vs 2.26-2.35 m truth) short, and the y error grows along the square (0.22 -> 0.50 m). The observer-mode check
+(2026-10-03, GPS flight) had path ratio 1.01 and RMSE 0.088 m, so look first at: camera lever arm (`EKF2_EV_POS_X/Y/Z` is 0 but the twin sits 0.18 m ahead of the body),
+`restamp` latency vs `EKF2_EV_DELAY`, visual-only GEN_3 under offboard accelerations, and the twin's intrinsics vs the rendered field of view.
 
 <a id="b18"></a>
 ## B18 — The SDK connects to the sim's stream once per sim run
@@ -356,13 +360,13 @@ starts before the stream exists. `./bisg zed up` retries once, which covers a mi
 
 - **2026-10-03 — B14 image topic names (fixed).** Contract and emulated rig renamed to the wrapper 5.4.1 names:
   `left|right/color/rect/image`, `left|right/color/rect/camera_info` (`zed_rig.py`, `interface-contract.md`, `plan.md`).
-- **2026-10-03 — `deploy/jetson/zed_params.yaml` had `pos_tracking_mode: GEN_2`.** Not a valid value in wrapper 5.4.1
+- **2026-10-03 — `docker/zed/zed.yaml` had `pos_tracking_mode: GEN_2`.** Not a valid value in wrapper 5.4.1
   (`AUTO`, `GEN_1`, `GEN_3`). Now `AUTO` (= GEN_3 on SDK 5.4). Found while bringing the real SDK up in the sim.
 - **2026-10-03 — Jetson `zed` service would not start.** It set `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, but Stereolabs' image
   ships Fast DDS only. `docker/zed/Dockerfile.overlay` adds `ros-jazzy-rmw-cyclonedds-cpp`; `docker/zed/build.sh` applies it.
 - **2026-10-03 — Jetson `zed` topic root.** `namespace:=drone_1` on the stock launch publishes `/drone_1/zed/...` (no `zed_node`);
-  `deploy/launch/zed_drone.launch.py` gives the contract's `/drone_<n>/zed/zed_node/...` and is used by sim and Jetson.
-- **2026-10-03 — `scripts/fetch_third_party.sh` re-cloned submodules.** It tested `-d dir/.git`; a submodule's `.git` is a file. Now `-e`.
+  `docker/zed/zed_drone.launch.py` gives the contract's `/drone_<n>/zed/zed_node/...` and is used by sim and Jetson.
+- **2026-10-03 — `scripts/fetch_sources.sh` re-cloned submodules.** It tested `-d dir/.git`; a submodule's `.git` is a file. Now `-e`.
 - **2026-10-03 — "SDK tracking dead, frames corrupted" in the first ZED spike.** Harness bug, not the SDK: the ZED asset was
   nested under a kinematic body instead of fixed-jointed, so the camera never moved (identical frames -> `Duplicate frame
   detected` -> `CORRUPTED FRAME`, odometry exactly 0). With the `FixedJoint` mount: 0 corrupted frames, odometry tracks.

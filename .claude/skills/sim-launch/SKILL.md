@@ -12,7 +12,7 @@ Real commands live in `docs/runbook-sim.md`; this is the checklist Claude follow
 2. Start:
    - GUI: `./bisg up gui`   headless: `./bisg up headless`   (both wait for PX4 ready; `--no-wait` to skip)
    - no argument: view and scenario come from `config/bisg.conf` (`SIM_VIEW`, `SIM_SCENARIO`); `./bisg config` shows the resolved values (docs/configuration.md)
-   - scenario override: `./bisg up headless -c headless_fast` (name in `sim/configs/` or a path)
+   - scenario override: `./bisg up headless -c headless_fast` (name in `docker/sim/configs/` or a path)
    - watch a headless run: `./bisg up web` (browser view on TCP `SIM_WEB_PORT`, survives a VS Code/SSH tunnel) or `./bisg up webrtc` (interactive WebRTC, needs UDP 47998 → LAN/VPN only); `gui+webrtc` gives you both halves, `./bisg view` prints the URLs. Never use a stream for a timing/regression run — both force rendering on. docs/remote-access.md.
    - shell: `./bisg shell` (running sim) / `./bisg shell ros`
    - real ZED SDK in the sim: `ZED_SOURCE=sdk ./bisg up headless`, then `./bisg zed up` / `./bisg zed check` (skill `zed-sdk`; needs `./bisg zed ext-build` once). Restart the sim whenever the wrapper restarts.

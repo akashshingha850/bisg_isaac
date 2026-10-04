@@ -14,9 +14,9 @@ sim/worlds/**/*.ply
 !sim/worlds/**/README.md
 
 # ROS 2 workspace build products
-ros2_ws/build/
-ros2_ws/install/
-ros2_ws/log/
+docker/ros/ros2_ws/build/
+docker/ros/ros2_ws/install/
+docker/ros/ros2_ws/log/
 
 # PX4 flight logs
 *.ulg
@@ -33,7 +33,9 @@ __pycache__/
 docker/.env
 
 # third-party clones (become submodules after git init)
-third_party/*/
+docker/zed/zed-isaac-sim/
 
 # test output
 out/
+docker/ros/ros2_ws/*.stale/
+docker/zed/.*.yaml

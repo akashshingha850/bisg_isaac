@@ -25,7 +25,7 @@ Rules:
 - Machine-specific values (your `DISPLAY`, a local IP) belong in `docker/.env`, which is git-ignored
   and overrides this file.
 - What the world *contains* — worlds, vehicles, perf knobs — is not here; that is the scenario YAML
-  in `sim/configs/`.
+  in `docker/sim/configs/`.
 - Adding a key: put it in the matching block, add a `conf_default` line in `scripts/_common.sh`,
   pass it to the container in `docker/compose.yaml` if a service needs it, and add it to a `show`
   group in `cmd_config` so `./bisg config` lists it.

@@ -6,7 +6,14 @@
 #
 # Settings live in config/bisg.conf (see ./bisg config); ./bisg exports them before calling
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
-# Profiles: sim | sim-headless | ros | tools. Jetson profile lives in deploy/jetson/compose.yaml.
+# Profiles (one file for the workstation AND the Jetson; ./bisg picks images by CPU architecture, scripts/_common.sh):
+#   sim | sim-headless   Isaac Sim + PX4 SITL                    x86_64 only
+#   ros | tools          MAVROS + vio_mock / dev shell           x86_64 and arm64
+#   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
+#   drone                the real drone: MAVROS on the Pixracer serial link + the ZED stack on the real camera
+#                        (./bisg drone ...; runs on the Jetson, or on the workstation for a bench test with a USB ZED Mini)
+# Image tags: bisg/ros:jazzy and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
+# is `desktop` on x86_64 and `l4t-r38` on the Jetson (docker/zed/build.sh builds the right one).
 #
 # One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
 # docker/ros/ (docker/ros/Dockerfile backs the mavros/vehicle/ros services below, since
@@ -79,7 +86,7 @@ services:
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
       ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "0"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
@@ -97,7 +104,7 @@ services:
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
       ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "1"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
@@ -120,7 +127,7 @@ services:
     command: ["mavros"]
     restart: unless-stopped
 
-  # vio_mock: sim-only mock VIO source (ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
+  # vio_mock: sim-only mock VIO source (docker/ros/ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
   vehicle:
     <<: *ros-base
     container_name: bisg-vehicle-${DRONE_ID:-1}
@@ -132,12 +139,14 @@ services:
     command: ["vio_mock"]
     restart: unless-stopped
 
-  # ZED SDK wrapper for the sim (ZED_SOURCE=sdk, docs/zed-sdk-sim.md): the SAME image and params as the Jetson
-  # (deploy/jetson), reading the ZED Mini twin the sim streams. Start AFTER the sim is up (`./bisg zed up`): the
-  # wrapper connects once and the stream must already be live. `restart: on-failure` re-tries a connect timeout.
-  # ipc: host = the extension and the SDK exchange frames through shared memory (/dev/shm/sl_local_*).
+  # The ZED stack: three services on ONE image (bisg/zed:${ZED_VARIANT:-desktop}), all configured by docker/zed/zed.yaml (docs/zed-stack.md).
+  # `./bisg zed up` starts the wrapper plus exactly the services the YAML enables. ZED_STACK_SIM=1 = apply the YAML's `sim:` deltas.
+  #
+  # zed: the ZED SDK wrapper, the SAME launch file as the real drone (docker/zed/zed_drone.launch.py), reading the ZED Mini twin the sim streams.
+  # Start it AFTER the sim is up: the wrapper connects once and the stream must already be live. `restart: on-failure`
+  # re-tries a connect timeout. ipc: host = the extension and the SDK exchange frames through shared memory (/dev/shm/sl_local_*).
   zed:
-    image: bisg/zed:desktop
+    image: bisg/zed:${ZED_VARIANT:-desktop}
     container_name: bisg-zed-${DRONE_ID:-1}
     profiles: ["zed"]
     <<: *nvidia
@@ -149,6 +158,8 @@ services:
       RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}   # rmw_fastrtps_cpp = shared-memory fallback while net.core.rmem_max is small (docs/setup.md)
       CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
       DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: "1"
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}       # empty = docker/zed/zed.yaml (./bisg zed bench points it at a derived copy)
       ZED_SIM_PORT: ${ZED_SIM_PORT:-30000}          # 30000 + 2*(DRONE_ID-1), set by ./bisg zed up
     volumes:
       - ..:/workspace:ro
@@ -157,29 +168,105 @@ services:
     entrypoint: ["/bin/bash", "-lc"]
     command:
       - >
-        source /sbin/ros_entrypoint.sh >/dev/null &&
-        python3 /workspace/deploy/sim/merge_params.py /tmp/zed_params_sim.yaml
-        /workspace/deploy/jetson/zed_params.yaml /workspace/deploy/sim/zed_sim_overlay.yaml &&
-        exec ros2 launch /workspace/deploy/launch/zed_drone.launch.py drone_id:=$${DRONE_ID}
-        sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params_sim.yaml
+        source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed &&
+        python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
+        exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
+        sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params.yaml
     restart: on-failure
 
-  # ZED (or any raw Image topic) -> RTP/H.264 UDP, shown by QGroundControl's "UDP h.264 Video Stream" source.
-  # docs/video-qgc.md. Same image as mavros; start with `./bisg video up`.
-  video:
+  # zed-bridge: ZED SDK output -> PX4 through MAVROS: health/STATUSTEXT, odometry -> EKF2, depth -> obstacle map (QGC radar).
+  # Which modules run: services.px4_bridge in docker/zed/zed.yaml. Needs MAVROS (`./bisg mavros up`).
+  zed-bridge:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-bridge-${DRONE_ID:-1}
+    profiles: ["zed", "drone"]
+    network_mode: host
+    ipc: host
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: ${ZED_STACK_SIM:-1}   # ./bisg drone sets 0 (hardware: no sim: deltas)
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}
+    volumes:
+      - ..:/workspace:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.bridge"]
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+  # zed-video: ZED left image -> RTP/H.264 UDP -> QGroundControl's "UDP h.264 Video Stream" (services.qgc_video, archive/docs/video-qgc.md).
+  zed-video:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-video-${DRONE_ID:-1}
+    profiles: ["zed", "drone"]
+    network_mode: host
+    ipc: host
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: ${ZED_STACK_SIM:-1}   # ./bisg drone sets 0 (hardware: no sim: deltas)
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}
+      VIDEO_HOST: ${VIDEO_HOST:-}      # one-run overrides of services.qgc_video (./bisg zed up --video-host IP)
+      VIDEO_PORT: ${VIDEO_PORT:-}
+      VIDEO_TOPIC: ${VIDEO_TOPIC:-}
+    volumes:
+      - ..:/workspace:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.video"]
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+  # ---- the real drone (profile `drone`, ./bisg drone up) ---------------------------------------------------------
+  # MAVROS on the Pixracer: TELEM2 <-> Orin NX UART (udev rule -> /dev/px4), 921600 baud (docs/hardware.md). PX4 and the
+  # Jetson both run on real time, so no sim clock.
+  drone-mavros:
     <<: *ros-base
-    container_name: bisg-video-${DRONE_ID:-1}
-    profiles: ["video"]
+    container_name: bisg-mavros-${DRONE_ID:-1}
+    profiles: ["drone"]
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DRONE_ID: ${DRONE_ID:-1}
-      VIDEO_TOPIC: ${VIDEO_TOPIC:-}          # empty = /drone_<DRONE_ID>/zed/zed_node/left/color/rect/image
-      VIDEO_HOST: ${VIDEO_HOST:-127.0.0.1}   # where QGC runs
-      VIDEO_PORT: ${VIDEO_PORT:-5600}
-      VIDEO_BITRATE: ${VIDEO_BITRATE:-2000}
-      VIDEO_FPS: ${VIDEO_FPS:-0}
-      VIDEO_ENCODER: ${VIDEO_ENCODER:-auto}
-    command: ["video_stream"]
+      FCU_URL: ${DRONE_FCU_URL:-serial:///dev/px4:921600}
+      GCS_URL: ${GCS_URL:-}
+      USE_SIM_TIME: "false"
+    devices:
+      - /dev/px4:/dev/px4
+    group_add: ["dialout"]
+    command: ["mavros"]
+    restart: unless-stopped
+
+  # The ZED wrapper on the real camera: same image, same launch file, same docker/zed/zed.yaml as the sim, without the `sim:` block.
+  drone-zed:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-${DRONE_ID:-1}
+    profiles: ["drone"]
+    <<: *nvidia
+    network_mode: host
+    ipc: host
+    privileged: true            # USB 3 camera + CUDA; tighten to /dev/bus/usb + /dev/video* later
+    environment:
+      <<: *nvidia-env
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: "0"
+    volumes:
+      - ..:/workspace:rw
+      - /dev/bus/usb:/dev/bus/usb
+      - zed-resources:/usr/local/zed/resources      # AI model cache persists across restarts
+      - zed-settings:/usr/local/zed/settings        # factory calibration downloads
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed &&
+        python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
+        exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
+        params:=/tmp/zed_params.yaml
     restart: unless-stopped
 
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.

@@ -1,6 +1,6 @@
-[submodule "third_party/PegasusSimulator"]
-	path = third_party/PegasusSimulator
+[submodule "docker/sim/PegasusSimulator"]
+	path = docker/sim/PegasusSimulator
 	url = https://github.com/PegasusSimulator/PegasusSimulator.git
-[submodule "third_party/zed-ros2-wrapper"]
-	path = third_party/zed-ros2-wrapper
+[submodule "docker/zed/zed-ros2-wrapper"]
+	path = docker/zed/zed-ros2-wrapper
 	url = https://github.com/stereolabs/zed-ros2-wrapper.git

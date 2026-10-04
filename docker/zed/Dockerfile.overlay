@@ -1,12 +1,19 @@
-# Thin layer on top of Stereolabs' own ZED wrapper image (built by docker/zed/build.sh from third_party/zed-ros2-wrapper).
-# The upstream image ships Fast DDS only; the whole bisg stack uses CycloneDDS (ADR-004), and
-# RMW_IMPLEMENTATION=rmw_cyclonedds_cpp makes every ROS tool in a Fast-DDS-only image abort with
-# "RMW implementation not installed". Same file for x86_64 (desktop) and arm64 (Jetson, L4T r38).
+# Thin layer on top of Stereolabs' own ZED wrapper image (built by docker/zed/build.sh from docker/zed/zed-ros2-wrapper).
+# The ZED stack (zed_stack/: wrapper + PX4 bridge + QGC video) runs entirely from this one image, so it adds what
+# the stack needs and the upstream image lacks. Same file for x86_64 (desktop) and arm64 (Jetson, L4T r38).
+#   - CycloneDDS: the upstream image is Fast DDS only; the whole bisg stack uses CycloneDDS (ADR-004), and
+#     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp makes every ROS tool in a Fast-DDS-only image abort.
+#   - mavros_msgs: the bridge talks to MAVROS (ADR-001) over DDS; it does not need MAVROS itself.
+#   - GStreamer: zed_stack.video (ZED image -> RTP/H.264 for QGroundControl).
 ARG BASE=bisg/zed:desktop-base
 FROM ${BASE}
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends ros-jazzy-rmw-cyclonedds-cpp \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-mavros-msgs \
+        python3-gi gir1.2-gstreamer-1.0 gstreamer1.0-tools \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
     && rm -rf /var/lib/apt/lists/*
-# Same profile as every other bisg container; /workspace is the bind-mounted repo (compose / deploy compose).
+# Same profile as every other bisg container; /workspace is the bind-mounted repo (compose).
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-    CYCLONEDDS_URI=file:///workspace/docker/cyclonedds.xml
+    CYCLONEDDS_URI=file:///workspace/docker/cyclonedds.xml \
+    PYTHONPATH=/workspace/docker/zed

@@ -1,0 +1,6 @@
+# Vendored upstream sources (pinned submodules / clones) and finished experiments are not part of this project's own graph.
+docker/sim/PegasusSimulator/
+docker/zed/zed-ros2-wrapper/
+docker/zed/zed-isaac-sim/
+docker/ros/ros2_ws/*.stale/
+archive/

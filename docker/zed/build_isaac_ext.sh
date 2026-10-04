@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Stereolabs' `zed-isaac-sim` Isaac Sim extension (third_party/zed-isaac-sim, tag ZED_ISAAC_EXT_TAG).
+# Build Stereolabs' `zed-isaac-sim` Isaac Sim extension (docker/zed/zed-isaac-sim, tag ZED_ISAAC_EXT_TAG).
 # The extension streams a simulated ZED camera (stereo + IMU) into the real ZED SDK / zed_wrapper, so the
 # sim and the Jetson run the same perception stack (docs/zed-sdk-sim.md).
 #
@@ -7,14 +7,14 @@
 #
 # Built inside the bisg/sim image (has the toolchain, nothing is installed on the host; LD_LIBRARY_PATH is cleared because
 # the image points it at Isaac's bundled ROS libs, whose libcrypto breaks wget/openssl); output stays in
-# third_party/zed-isaac-sim/exts/sl.sensor.camera/bin and is picked up by the sim launcher via --ext-folder.
-# Needs `./bisg setup` (bisg/sim image) and `scripts/fetch_third_party.sh` first.
+# docker/zed/zed-isaac-sim/exts/sl.sensor.camera/bin and is picked up by the sim launcher via --ext-folder.
+# Needs `./bisg setup` (bisg/sim image) and `scripts/fetch_sources.sh` first.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$ROOT/scripts/_common.sh"
-EXT="$ROOT/third_party/zed-isaac-sim"
+EXT="$ROOT/docker/zed/zed-isaac-sim"
 IMG="bisg/sim:${ISAAC_TAG}"
-[[ -f "$EXT/build.sh" ]] || die "missing $EXT — run scripts/fetch_third_party.sh first"
+[[ -f "$EXT/build.sh" ]] || die "missing $EXT — run scripts/fetch_sources.sh first"
 docker image inspect "$IMG" >/dev/null 2>&1 || die "image $IMG not built — run ./bisg setup"
 
 # The v5.2.x extension declares Kit 110.1.2 (Isaac Sim 6.0.1); the 6.0.0 image is Kit 110.1.1. The code is the same,

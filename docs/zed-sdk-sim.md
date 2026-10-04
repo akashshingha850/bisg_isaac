@@ -17,7 +17,7 @@ Isaac Sim 5.1 cannot do `sdk`: Stereolabs' 5.1 line (`isaac-sim/5.1`, Kit 107.3)
 ## Run it
 
 ```bash
-./bisg zed ext-build                  # once: builds the Stereolabs extension into third_party/zed-isaac-sim (~1-4 min)
+./bisg zed ext-build                  # once: builds the Stereolabs extension into docker/zed/zed-isaac-sim (~1-4 min)
 ./bisg zed image                      # once: bisg/zed:desktop = Stereolabs' ZED SDK + wrapper image + CycloneDDS overlay (~15 GB)
 ZED_SOURCE=sdk ./bisg up headless     # sim with the ZED Mini twin streaming (or set ZED_SOURCE=sdk in config/bisg.conf)
 ./bisg zed up                         # zed_wrapper for drone 1 against the stream; waits for frames
@@ -34,7 +34,7 @@ restarted, restart the sim too (`docs/zed-sdk-sim.md#troubleshooting`). `./bisg 
  Isaac Sim 6.0 (bisg-sim)                                   zed container (bisg-zed-1)
  ┌──────────────────────────────────────────┐              ┌───────────────────────────────────────────┐
  │ Pegasus Iris  ──FixedJoint──► ZED_M asset │  shared mem  │ zed_wrapper  (same image, launch file and  │
- │   body            (mount_xyz_rpy)         │ /dev/shm/    │ params as the Jetson, + deploy/sim overlay)│
+ │   body            (mount_xyz_rpy)         │ /dev/shm/    │ params as the Jetson, + the `sim:` block of docker/zed/zed.yaml)│
  │ OmniGraph ZED_Camera node (sl.sensor.camera)├────────────►│  SDK: stereo-matches depth, tracks pose,   │
  │   stereo RGB + frame-rate IMU, port 30000+2·id│ sl_local_*  │  publishes /drone_1/zed/zed_node/*         │
  │ physics IMU ──► /drone_1/zed/zed_node/imu/data│             │                                            │
@@ -48,9 +48,9 @@ restarted, restart the sim too (`docs/zed-sdk-sim.md#troubleshooting`). `./bisg 
   hover thrust. The mount must not sit inside any visible mesh (a camera inside the carrier cube streams black frames).
 - **Stream**: OmniGraph node `sl.sensor.camera.ZED_Camera`, model `ZED_M`, HD720 @ 30 fps, transport `IPC` (shared memory:
   both containers need `ipc: host`). Port `30000 + 2·(vehicle id)` — even and unique per drone.
-- **Wrapper**: `deploy/launch/zed_drone.launch.py` wraps Stereolabs' launch in the `drone_<n>` namespace (so topics are
-  `/drone_<n>/zed/zed_node/...` as the contract says). The same file is used by `deploy/jetson/compose.yaml`. Params are
-  `deploy/jetson/zed_params.yaml` (hardware) merged with `deploy/sim/zed_sim_overlay.yaml` (the only sim deltas).
+- **Wrapper**: `docker/zed/zed_drone.launch.py` wraps Stereolabs' launch in the `drone_<n>` namespace (so topics are
+  `/drone_<n>/zed/zed_node/...` as the contract says). The same file is used by the `drone` profile of `docker/compose.yaml`. Params are
+  `docker/zed/zed.yaml` (hardware) merged with the `sim:` block of `docker/zed/zed.yaml` (the only sim deltas).
 - **Depth is the SDK's own**: it stereo-matches the rendered left/right images (`NEURAL_LIGHT`), with the real SDK's holes,
   range limits and noise characteristics. Stereolabs' extension offers a ground-truth `streamDepth` mode as well; we do not
   use it, because then the SDK's depth would not be exercised.
@@ -61,7 +61,7 @@ Every row is a deliberate deviation. Rows marked **hardware to-do** must be re-c
 
 | Area | Sim (`sdk`) | Real drone | Where it is set / what to do |
 |---|---|---|---|
-| IMU in the stream | one sample per rendered frame (30 Hz sim time), orientation + acceleration only | 400 Hz gyro + accel | the SDK cannot fuse it: `pos_tracking.imu_fusion: false` and `sensors.sensors_image_sync: true` in `deploy/sim/zed_sim_overlay.yaml`. **Hardware to-do:** tracking quality with `imu_fusion: true` is only measurable on the camera |
+| IMU in the stream | one sample per rendered frame (30 Hz sim time), orientation + acceleration only | 400 Hz gyro + accel | the SDK cannot fuse it: `pos_tracking.imu_fusion: false` and `sensors.sensors_image_sync: true` in the `sim:` block of `docker/zed/zed.yaml`. **Hardware to-do:** tracking quality with `imu_fusion: true` is only measurable on the camera |
 | `zed/zed_node/imu/data` | published by the **sim** from a physics IMU on the vehicle body (250 Hz sim time) | published by the wrapper | the streamed ZED has no usable sensor channel (`getSensorsData: INVALID FUNCTION PARAMETERS`); same topic, frame and type |
 | Tracking mode | `AUTO` (= GEN_3), visual-only | `AUTO` (= GEN_3), visual-inertial | `pos_tracking_mode: AUTO` in both. GEN_3 with the default IMU fusion aborts in sim: `HIGH FREQUENCY SENSORS DATA REQUIRED` then FATAL |
 | Intrinsics | the extension's `ZED_M` lens: HD720 `fx` = 529.8 px, baseline 63.0 mm | your unit's factory calibration (the SDK downloads it by serial) | read `camera_info`; never hard-code `K`. **Hardware to-do:** record the real `K` in `docs/hardware.md` |
@@ -102,8 +102,8 @@ with sensor noise and an IMU, achieves. The real-camera number comes from the be
 
 1. Same image recipe: `docker/zed/build.sh jetson` (on the Jetson) builds Stereolabs' L4T image and the same CycloneDDS
    overlay (`docker/zed/Dockerfile.overlay`), tagged `bisg/zed:l4t-r38`.
-2. `deploy/jetson/compose.yaml` runs the same launch file (`deploy/launch/zed_drone.launch.py`) with
-   `deploy/jetson/zed_params.yaml` and **without** the overlay and `sim_mode`. Nothing else differs.
+2. the `drone-zed` service of `docker/compose.yaml` runs the same launch file (`docker/zed/zed_drone.launch.py`) with
+   `docker/zed/zed.yaml` and **without** the overlay and `sim_mode`. Nothing else differs.
 3. On the bench run the same check: `python3 tests/zed_sdk_check.py --drone 1 --no-gt` (no ground truth on a real drone; it
    then checks streams, geometry, depth, health and that odometry is finite and moving).
 4. Re-check the hardware to-dos in the table above (IMU fusion, intrinsics, frame prefix, clock).
@@ -122,13 +122,13 @@ with sensor noise and an IMU, achieves. The real-camera number comes from the be
 | `[publishSensorsData] sl::getSensorsData error: INVALID FUNCTION PARAMETERS` thousands of times | `sensors_image_sync: true` (the overlay does this) |
 | `camera_info` and odom flow but images / depth / clouds do not | UDP receive buffer too small for CycloneDDS: `net.core.rmem_max` (docs/setup.md; `./bisg check` warns). Workaround without sudo: `ZED_RMW=rmw_fastrtps_cpp ./bisg zed up` (shared memory), then check from inside that container |
 | `Invalid calibration file format ... LC_ALL=C` | harmless in sim (`Self Calibration Disabled`: a simulated camera has no per-unit calibration). `LC_ALL=C` changes nothing |
-| Wrapper hangs at `Loading ZED node ... in container /zed/zed_container` | the namespace was pushed without the load-service remap; use `deploy/launch/zed_drone.launch.py`, not `zed_camera.launch.py namespace:=drone_1` |
+| Wrapper hangs at `Loading ZED node ... in container /zed/zed_container` | the namespace was pushed without the load-service remap; use `docker/zed/zed_drone.launch.py`, not `zed_camera.launch.py namespace:=drone_1` |
 | Wrapper dies with `RMW implementation not installed (rmw_cyclonedds_cpp)` | the image is Stereolabs' upstream (Fast DDS only): rebuild with `./bisg zed image` (adds the CycloneDDS overlay) |
 
 ## Pins and sources
 
-- Extension: `third_party/zed-isaac-sim` @ `v5.2.1` (`529e538`; a branch upstream, so the SHA is the pin), fetched by
-  `scripts/fetch_third_party.sh`, built by `docker/zed/build_isaac_ext.sh`. v5.2.x declares Kit 110.1.2 (Isaac Sim 6.0.1); our
+- Extension: `docker/zed/zed-isaac-sim` @ `v5.2.1` (`529e538`; a branch upstream, so the SHA is the pin), fetched by
+  `scripts/fetch_sources.sh`, built by `docker/zed/build_isaac_ext.sh`. v5.2.x declares Kit 110.1.2 (Isaac Sim 6.0.1); our
   base image is 6.0.0 (Kit 110.1.1), so the build script widens the load gate to both. Moving `ISAAC_TAG` to 6.0.1 removes that patch.
 - ZED SDK `5.4.1` (the extension needs >= 5.4.1 on the receiving side), `zed-ros2-wrapper` `v5.4.1`.
 - Stereolabs docs: [Isaac Sim integration](https://docs.stereolabs.com/docs/integrations/isaac-sim/),

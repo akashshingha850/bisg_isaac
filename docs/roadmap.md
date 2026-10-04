@@ -39,8 +39,8 @@ Exit test
 Deliverables
 - `docker/sim/Dockerfile` (Isaac 6.0 base since the 2026-10 migration — was 5.1; Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
 - `docker/compose.yaml` profiles `sim` and `sim-headless`.
-- `sim/launcher/launch.py` + `sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
-- `third_party/` submodules pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
+- `sim/launcher/launch.py` + `docker/sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
+- submodules (`docker/sim/PegasusSimulator`, `docker/zed/zed-ros2-wrapper`) pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
 - `scripts/check_env.sh`: driver, nvidia runtime, X11, disk, VRAM.
 
 Exit test
@@ -52,7 +52,7 @@ Exit test
 
 Deliverables
 - `docker/ros/Dockerfile` (ROS 2 **Jazzy** on Ubuntu 24.04, MAVROS + extras, geographiclib, CycloneDDS, colcon build of `ros2_ws`), amd64 + arm64 buildx.
-- `ros2_ws/src/bisg_msgs` (`VehicleState`, `VehicleCmd`, `Task`), `bisg_vehicle` (`offboard_controller` node + Python API), `bisg_bringup/launch/sim_drone.launch.py`.
+- `docker/ros/ros2_ws/src/bisg_msgs` (`VehicleState`, `VehicleCmd`, `Task`), `bisg_vehicle` (`offboard_controller` node + Python API), `bisg_bringup/launch/sim_drone.launch.py`.
 - MAVROS per-drone launch wrapper with namespace + `fcu_url` derivation; `use_sim_time` wiring; Isaac `/clock` (Isaac bridge set to Jazzy libs).
 - Smoke test that the `ros` container sees Isaac bridge topics (ADR-004 validated).
 
@@ -90,8 +90,8 @@ Exit test
 **Goal:** one real drone (Jetson Orin NX, JetPack 7.2, Pixracer, ZED Mini) runs the Phase 2/3 stack.
 
 Deliverables
-- `deploy/jetson/compose.yaml` profile `jetson`: `mavros`, `zed`, `vehicle` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
-- Pixracer: PX4 pinned tag flashed, `deploy/px4_params/drone_1.params` (TELEM2 921600 onboard mode, EV fusion, safety).
+- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `drone-mavros`, `drone-zed`, `zed-bridge`, `zed-video` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
+- Pixracer: PX4 pinned tag flashed, `config/px4/drone_1.params` (TELEM2 921600 onboard mode, EV fusion, safety).
 - `bisg_bringup/launch/real_drone.launch.py`: ZED wrapper + `vio_relay` (zed odom → `mavros/odometry/out`).
 - Bench procedure (`hardware.md`): props off, MAVROS heartbeat, EKF2 EV fusion healthy (`ekf2 status`), offboard on bench.
 - udev rules, boot-time service, log collection. Bench numbers fed back into the Phase 4 vehicle model.

@@ -12,7 +12,7 @@ One command after the host prerequisites: `./bisg setup`. Everything else lives 
 | X11 session (or XWayland) and `xhost` | GUI profile only | `echo $DISPLAY`, `xhost` |
 | ≥ 60 GB free on the Docker root disk | Isaac image 21 GB + sim image ~25 GB + caches | `docker info \| grep "Docker Root Dir"` |
 | Python 3 + `pymavlink` on the host (optional) | smoke test and `debug mavlink` from the host; otherwise they run inside the sim container | `python3 -c "import pymavlink"` |
-| `third_party/PegasusSimulator` submodule initialized | `bisg/sim` builds **from** this submodule, not a fresh clone (`docker/sim/Dockerfile`) | `git submodule update --init third_party/PegasusSimulator` |
+| `docker/sim/PegasusSimulator` submodule initialized | `bisg/sim` builds **from** this submodule, not a fresh clone (`docker/sim/Dockerfile`) | `git submodule update --init docker/sim/PegasusSimulator` |
 
 Install the toolkit if missing (Ubuntu):
 ```
@@ -35,7 +35,7 @@ echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && s
 `ZED_SOURCE=sdk` (docs/zed-sdk-sim.md) streams Stereolabs' ZED Mini twin into the real SDK. One-time steps after `./bisg setup`:
 
 ```
-scripts/fetch_third_party.sh      # clones third_party/zed-isaac-sim (and the other pins if missing)
+scripts/fetch_sources.sh      # clones docker/zed/zed-isaac-sim (and the other pins if missing)
 ./bisg zed ext-build              # builds the extension in the sim image; packman needs ~12 GB (cache: ~/.cache/packman, PACKMAN_CACHE=...)
 ./bisg zed image                  # bisg/zed:desktop (~15 GB, ~15 min): Stereolabs' image + CycloneDDS overlay
 ```
@@ -51,7 +51,7 @@ What it does, in order (idempotent, safe to re-run):
 2. Writes `docker/.env` from `docker/.env.example` (this machine's `DISPLAY` and any local overrides). Project-wide settings live in `config/bisg.conf`; see [configuration.md](configuration.md), `./bisg config` and `./bisg config --edit`.
 3. `xhost +local:` so the container user `isaac-sim` (uid 1234) may open a window.
 4. Pulls `nvcr.io/nvidia/isaac-sim:6.0.0` (public, ~21 GB) and `ros:jazzy-ros-base`.
-5. `--third-party`: clones Pegasus (PR #144 head, Isaac 6.0 support) and zed-ros2-wrapper v5.4.1 into `third_party/` if not already there (normally these are git submodules — `git submodule update --init --recursive` — this flag is a fallback for a fresh checkout). `bisg/sim` builds **from** the PegasusSimulator submodule; zed-ros2-wrapper is used directly by `docker/zed/build.sh`. See `third_party/README.md` for making local edits that survive an upstream update.
+5. `--third-party`: clones Pegasus (PR #144 head, Isaac 6.0 support) and zed-ros2-wrapper v5.4.1 into `docker/sim/` and `docker/zed/` if not already there (normally these are git submodules — `git submodule update --init --recursive` — this flag is a fallback for a fresh checkout). `bisg/sim` builds **from** the PegasusSimulator submodule; zed-ros2-wrapper is used directly by `docker/zed/build.sh`. See `docs/sources.md` for making local edits that survive an upstream update.
 6. Builds `bisg/sim:6.0.0` (PX4 SITL compiled in-image at the `PX4_TAG` pin, Pegasus built from the submodule and installed into Isaac's Python) and `bisg/ros:jazzy` (MAVROS 2.15.1). `--arm64` also cross-builds `bisg/ros:arm64` for the Jetson (qemu, ~15 min). `--rebuild` forces `--no-cache`.
 7. Sanity: PX4 binary + Pegasus present in the sim image, MAVROS + geoid data in the ros image.
 
@@ -82,7 +82,7 @@ Details: `docker/zed/README.md`, `docs/hardware.md`.
 1. JetPack 7.2 flashed; `docker` + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
 2. Get `bisg/ros:arm64` onto the device: `docker save bisg/ros:arm64 | ssh jetson docker load`, or push to a registry.
 3. Build `bisg/zed:l4t-r38` on the device (`docker/zed/build.sh jetson`).
-4. udev rule for the Pixracer → `/dev/px4`; `deploy/jetson/compose.yaml --profile jetson up -d`.
+4. udev rule for the Pixracer → `/dev/px4`; `./bisg drone build && ./bisg drone up`.
 
 ## Uninstall / reset
 

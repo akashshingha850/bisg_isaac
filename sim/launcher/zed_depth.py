@@ -1,6 +1,6 @@
 """
 Depth-derived ZED SDK products for the sim ZED Mini, each behind the zed_wrapper switch of the same
-name (deploy/jetson/zed_params.yaml, see zed_features.py and docs/zed-features.md):
+name (docker/zed/zed.yaml, see zed_features.py and archive/docs/zed-features.md):
 
   depth.publish_point_cloud  -> zed/zed_node/point_cloud/cloud_registered  (PointCloud2 x y z rgb,
                                 organized, NaN = no depth, frame <ns>/zed_left_camera_frame, x forward)
@@ -66,11 +66,18 @@ class ZedDepthProducts:
         self.map_range = float(f.get("mapping.max_mapping_range", 5.0))
         self.map_range = self.far if self.map_range <= 0 else self.map_range
         self.map_pub_interval = 1.0 / max(float(f.get("mapping.fused_pointcloud_freq", 1.0) or 1.0), 0.1)
-        self.map_integrate_interval = 0.5  # fuse a depth frame every 0.5 s (wall)
+        self.map_integrate_interval = 0.25  # fuse a depth frame every 0.25 s (wall)
 
         view = zed_cfg.get("view", {}) or {}
-        self.draw_cloud = bool(has_ui and view.get("point_cloud", True))
-        self.draw_map = bool(has_ui and self.map_on and view.get("fused_cloud", True))
+        # GUI overlay: a map that ACCUMULATES the depth frames (placed with the camera pose, voxel-deduplicated), plus a
+        # translucent grid showing the camera's field of view. The old single-frame live cloud is opt-in (point_cloud).
+        self.draw_cloud = bool(has_ui and view.get("point_cloud", False))
+        self.draw_map = bool(has_ui and view.get("accumulate", view.get("fused_cloud", True)))
+        self.draw_fov = bool(has_ui and view.get("fov_grid", True))
+        self.fov_range = min(float(view.get("fov_range", 3.0)), self.far)
+        self.fov_color = [float(x) for x in view.get("fov_color", [0.2, 0.8, 1.0, 0.55])]
+        self.map_draw_interval = 1.0 / max(float(view.get("map_draw_hz", 1.0)), 0.1)
+        self.map_integrate = self.map_on or self.draw_map     # integrate frames for the ROS map and/or the GUI map
         self.draw_stride = max(1, int(view.get("draw_stride", 8)))
         self.draw_interval = 1.0 / max(float(view.get("draw_hz", 5.0)), 0.5)
         self.draw_color = str(view.get("draw_color", "depth"))
@@ -79,7 +86,7 @@ class ZedDepthProducts:
         self.map_draw_max = int(view.get("map_draw_max_points", 80000))
 
         self.lut = _turbo_lut()[::-1]
-        self.t = {"cloud": 0.0, "disp": 0.0, "draw": 0.0, "map_in": 0.0, "map_pub": 0.0}
+        self.t = {"cloud": 0.0, "disp": 0.0, "draw": 0.0, "map_in": 0.0, "map_pub": 0.0, "map_draw": 0.0}
         self.enabled = True
         self._rays = {}
         self._poses = collections.deque(maxlen=400)  # (sim time, R, pos) of the left camera, ~1.6 s at 250 Hz
@@ -111,7 +118,7 @@ class ZedDepthProducts:
         self.pub_map = self.node.create_publisher(PointCloud2, "zed/zed_node/mapping/fused_cloud", q) \
             if self.map_on else None
 
-        if self.draw_cloud or self.draw_map:
+        if self.draw_cloud or self.draw_map or self.draw_fov:
             # Draw through the viewport's own scene layer (RegisterScene), which Kit stacks *under* the HUD
             # and menu bar; a frame of our own would sit on top and cover the HUD text.
             import omni.ui.scene as sc  # noqa: WPS433
@@ -127,17 +134,23 @@ class ZedDepthProducts:
                 def __init__(self, desc):
                     owner.sc_map = sc.Points([[0.0, 0.0, 0.0]], **empty)
                     owner.sc_cloud = sc.Points([[0.0, 0.0, 0.0]], **empty)
+                    owner.sc_fov = None
+                    if owner.draw_fov:
+                        owner.sc_fov = sc.Transform()       # moved with the camera pose in maybe_update
+                        with owner.sc_fov:
+                            owner._build_fov(sc)
 
             self._scene_reg = RegisterScene(_CloudScene, f"bisg.zed_depth.{ns}")
             if not hasattr(self, "sc_cloud"):
                 LOG.warning("zed depth: no viewport scene layer, not drawing")
-                self.draw_cloud = self.draw_map = False
-        LOG.info("zed depth: point_cloud %s (%.0f Hz, %s), disparity %s, mapping %s%s; GUI cloud %s, map %s",
+                self.draw_cloud = self.draw_map = self.draw_fov = False
+        LOG.info("zed depth: point_cloud %s (%.0f Hz, %s), disparity %s, mapping %s%s; GUI live cloud %s, accumulated map %s, fov grid %s",
                  "on" if self.cloud_on else "off", 1.0 / self.cloud_interval,
                  f"every {self.stride}th px", "on" if self.disp_on else "off",
                  "on" if self.map_on else "off",
                  f" ({self.map_res * 100:.0f} cm voxels, <= {self.map_range:.1f} m, {1.0 / self.map_pub_interval:.1f} Hz)"
-                 if self.map_on else "", "on" if self.draw_cloud else "off", "on" if self.draw_map else "off")
+                 if self.map_on else "", "on" if self.draw_cloud else "off", "on" if self.draw_map else "off",
+                 f"on ({self.fov_range:g} m)" if self.draw_fov else "off")
 
     # ---------------------------------------------------------------------------------------------
     def _due(self, key, interval, now):
@@ -151,17 +164,24 @@ class ZedDepthProducts:
         if not self.enabled:
             return
         now = time.time()
-        if self.map_on or self.draw_cloud:
+        if self.map_integrate or self.draw_cloud or self.draw_fov:
             try:  # every call (= every physics step): pose history for render-time lookup
                 pos, q = self.cam.get_world_pose(camera_axes="world")  # world axes = FLU
-                self._poses.append((self.sim_time(), _quat_wxyz_to_matrix(q), np.asarray(pos, np.float64)))
+                R, t = _quat_wxyz_to_matrix(q), np.asarray(pos, np.float64)
+                self._poses.append((self.sim_time(), R, t))
+                if self.draw_fov and getattr(self, "sc_fov", None) is not None:
+                    # omni.ui.scene is row-vector: p' = p @ M with M = [[R^T, 0], [t, 1]]
+                    m = np.eye(4)
+                    m[:3, :3], m[3, :3] = R.T, t
+                    self.sc_fov.transform = m.flatten().tolist()
             except Exception:  # noqa: BLE001
                 pass
         jobs = {
             "cloud": self.cloud_on and self.pub_cloud.get_subscription_count() > 0 and self._due("cloud", self.cloud_interval, now),
             "disp": self.disp_on and self.pub_disp.get_subscription_count() > 0 and self._due("disp", self.cloud_interval, now),
-            "map_in": self.map_on and self._due("map_in", self.map_integrate_interval, now),
-            "draw": (self.draw_cloud or self.draw_map) and self._due("draw", self.draw_interval, now),
+            "map_in": self.map_integrate and self._due("map_in", self.map_integrate_interval, now),
+            "draw": (self.draw_cloud and self._due("draw", self.draw_interval, now))
+                    or (self.draw_map and self._map_draw_dirty and self._due("map_draw", self.map_draw_interval, now)),
         }
         map_pub = self.map_on and self.pub_map.get_subscription_count() > 0 and self._due("map_pub", self.map_pub_interval, now)
         if not (any(jobs.values()) or map_pub):
@@ -278,6 +298,32 @@ class ZedDepthProducts:
         self.map_xyz = np.concatenate([self.map_xyz, centres.astype(np.float32)])
         self.map_rgb = np.concatenate([self.map_rgb, rgb[first[new]]])
         self._map_draw_dirty = True
+
+    def _build_fov(self, sc):
+        """Camera-frame (FLU, x forward) frustum: edges, the far rectangle and cross lines, plus nearer rectangles."""
+        d = self.fov_range
+        hy, hz = self.cx / self.fx, self.cy / self.fy       # tan(half FOV) across / down the image
+        col = self.fov_color
+        faint = [col[0], col[1], col[2], col[3] * 0.45]
+
+        def rect(x, color, th):
+            c = [(x, x * hy, x * hz), (x, -x * hy, x * hz), (x, -x * hy, -x * hz), (x, x * hy, -x * hz)]
+            for a, b in zip(c, c[1:] + c[:1]):
+                sc.Line(list(a), list(b), color=color, thickness=th)
+
+        for sy in (1, -1):
+            for sz in (1, -1):
+                sc.Line([0.0, 0.0, 0.0], [d, sy * d * hy, sz * d * hz], color=col, thickness=3)
+        for k in (1, 2, 3):
+            rect(d * k / 3.0, col if k == 3 else faint, 3 if k == 3 else 2)
+        n = 6                                              # grid on the far plane
+        for i in range(1, n):
+            f = -1.0 + 2.0 * i / n
+            sc.Line([d, f * d * hy, d * hz], [d, f * d * hy, -d * hz], color=faint, thickness=2)
+            sc.Line([d, d * hy, f * d * hz], [d, -d * hy, f * d * hz], color=faint, thickness=2)
+        # translucent far plane, so the FOV reads as a surface rather than loose lines (axis 1 = plane normal along x)
+        with sc.Transform(transform=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, d, 0, 0, 1]):
+            sc.Rectangle(2 * d * hy, 2 * d * hz, color=[col[0], col[1], col[2], 0.12], axis=1)
 
     def _publish_map(self, stamp):
         n = len(self.map_keys)

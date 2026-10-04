@@ -3,7 +3,7 @@
 Upstream reference: **NVIDIA, "Simulation Performance Optimization Handbook"** —
 <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/reference_material/sim_performance_optimization_handbook.html>
 (written for 6.0; the settings below were checked against Isaac Sim 5.1.0 and the 6.0.0 migration, see
-`migration-report.md`; Isaac 6.0 changes the loop cadence, so re-measure before trusting the old tables).
+`archive/docs/migration-report.md`; Isaac 6.0 changes the loop cadence, so re-measure before trusting the old tables).
 
 Why this matters here: the RTX 2080 Ti has 11 GB, which is below Isaac's recommended spec (risk R1 in
 `plan.md`), and boot time sets the floor for the regression suite (Phase 8). Tune with numbers, not guesses:
@@ -21,7 +21,7 @@ measure, change one knob, measure again, and write the result into the table at 
 
 ## Knobs we expose
 
-All live in the `perf:` block of a scenario file (`sim/configs/*.yaml`) and are passed to `SimulationApp`
+All live in the `perf:` block of a scenario file (`docker/sim/configs/*.yaml`) and are passed to `SimulationApp`
 or straight to Kit. Only non-null keys are sent, so an empty block keeps Isaac's defaults.
 
 | Key | Effect | When to use |
@@ -50,11 +50,11 @@ in `sim/assets/README.md` when that work starts.
 
 | Config | Purpose |
 |---|---|
-| `sim/configs/single_iris.yaml` | Default GUI/perception scenario. Simple Room, ZED + third-eye views; 60 Hz physics / 20 Hz rendering to target real-time operation. |
-| `sim/configs/headless_fast.yaml` | Regression/flight-stack profile: headless, no render, no materials, tiny grid world, 640×360. Not valid for perception work. |
+| `docker/sim/configs/single_iris.yaml` | Default GUI/perception scenario. Simple Room, ZED + third-eye views; 60 Hz physics / 20 Hz rendering to target real-time operation. |
+| `docker/sim/configs/headless_fast.yaml` | Regression/flight-stack profile: headless, no render, no materials, tiny grid world, 640×360. Not valid for perception work. |
 
 ```
-./bisg up headless -c sim/configs/headless_fast.yaml
+./bisg up headless -c docker/sim/configs/headless_fast.yaml
 ./bisg debug perf
 ```
 
@@ -73,7 +73,7 @@ physics steps (= the `/clock` rate). Current numbers (RTX 4500 Ada, headless, PX
 
 The bottleneck is Pegasus's per-step Python, not rendering (`migration-errors.md` M8); `app.profile_s: 45` in a scenario prints a cProfile of the loop.
 First boot (or after `./bisg debug clean-cache`) takes ~190 s while RTX shaders compile into the `isaac-cache-kit` volume (M6). `app.render: false` no longer
-skips the app update (M9). Full comparison with 5.1: `migration-report.md` §7.
+skips the app update (M9). Full comparison with 5.1: `archive/docs/migration-report.md` §7.
 
 ## Measurements on this workstation (RTX 2080 Ti, 12 cores, driver 580.178.04)
 
@@ -87,10 +87,44 @@ caches; the very first warehouse run was ~249 s because it downloaded the assets
 | `headless_fast.yaml` headless, no view | ~186 s | ~192 s | 317 | **1.27** | grid world, `render: false` — the profile for tests |
 | `single_iris.yaml` GUI | ~250 s | ~260 s | not measured | | window on `:0` |
 
-`rtf >= 1.0` means the sim keeps up with wall clock. The 250 Hz full-rate ZED setup did not reach this
-on the measured Isaac Sim 6 host, so `single_iris.yaml` now targets real time with 60 Hz physics and
-20 Hz rendering. This lowers the PX4 sensor/MAVLink update rate; confirm flight stability for the task
-before relying on this profile for control-fidelity work. `./bisg debug perf` reports the actual RTF.
+`rtf >= 1.0` means the sim keeps up with wall clock. The 250 Hz full-rate ZED setup did not reach this on the
+measured Isaac Sim 6 host. `single_iris.yaml` runs 120 Hz physics / 20 Hz rendering (rtf ~0.4 with the ZED rig).
+**Do not drop physics below ~120 Hz**: physics_dt is also PX4's IMU rate, and at 60 Hz the rate controller limit-cycles
+(measured 2026-10-04 with `tests/hover_stability.py`, hover at 2 m, single_iris + ZED + QGC video):
+
+| physics_dt | roll std | roll-rate std | yaw-rate std | verdict |
+|---|---|---|---|---|
+| 1/60 s | 6.3 deg | 71 deg/s | 118 deg/s | wobbles, +-10 deg roll |
+| 1/120 s | 0.08 deg | 0.8 deg/s | 1.7 deg/s | stable |
+
+`./bisg debug perf` reports the actual RTF; in the GUI the HUD shows it as "Sim speed: 0.56x real time" under the FPS line
+(`sim/launcher/rtf_hud.py`, on with `app.viewport_hud`).
+
+### Why it is not real time on a big GPU (measured 2026-10-04, `single_iris.yaml`, 120 Hz physics)
+The GPU is mostly idle (~40-60 %); the sim loop is one Python thread (Pegasus per-step callbacks + Kit update). Known
+upstream: [IsaacSim #504](https://github.com/isaac-sim/IsaacSim/issues/504) (open, same symptom), and Pegasus's own
+AirStack integration runs 100 Hz physics for this reason. The 6.0 port of Pegasus (PR #144) builds a new `RigidPrim` for
+every rotor on every step and makes six tensor calls per step (`migration-errors.md` M8).
+
+| Change | RTF |
+|---|---|
+| baseline, GUI + ZED + third-eye + point cloud | 0.44 |
+| `sim/launcher/pegasus_fast.py` (cached prims, one batched force call, change-only propeller writes) | 0.54 |
+| same, **headless** | 0.85 |
+| GUI with preview window + third-eye + point-cloud overlay all off | 0.77 |
+| GUI, preview window off only | 0.60 |
+| preview subsampled 2x (`zed.preview_stride`) | ~0.55 (GUI noise +-0.05) |
+
+Handbook flags tried on the same GUI scenario (2026-10-04): `--/physics/fabricUpdateTransformations=false
+--/physics/fabricUpdateVelocities=false` 0.54 (no change); `--/persistent/physics/numThreads=0` 0.58 (within noise);
+`--/app/asyncRendering=true --/app/asyncRenderingLowLatency=true --/omni/replicator/asyncRendering=true` **hangs the
+boot** at world load (do not use). CPU governor is `powersave` but intel_pstate EPP is `performance` (clocks reach 5.4 GHz),
+so `cpupower frequency-set -g performance` is not needed here.
+
+So: Pegasus Python was ~1/4 of the gap (fixed, hover stays PASS: `tests/hover_stability.py`); the rest is GUI-only cost
+(extra camera renders + overlays). Render rate is not a lever (20 -> 10 Hz: no change), and 100 Hz physics is stable
+(roll std 0.06 deg) but gives the same RTF as 120. For tests use `./bisg up headless` (0.85); for a GUI run closer to
+real time turn off `zed.view.accumulate`, `zed.view.fov_grid`, `zed.preview` and `app.third_eye.enabled` (already off by default now that `app.follow_cam` replaces it: RTF ~0.7).
 
 ### Render cadence (fixed 2026-09-13)
 

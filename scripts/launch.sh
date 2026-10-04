@@ -13,13 +13,14 @@
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
 #   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
 #   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
-#   launch.sh zed ext-build|image|up|down|status|logs|check   the real ZED SDK in the sim (scripts/zed.sh, docs/zed-sdk-sim.md)
+#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
+#   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
 #   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
-usage(){ sed -n 2,19p "$0"; }
+usage(){ sed -n 2,20p "$0"; }
 
 cmd_up(){
   local cfg="" attach=0 wait=1 win="" str=""
@@ -30,6 +31,7 @@ cmd_up(){
     -c|--config) cfg=$2; shift;; --attach) attach=1;; --no-wait) wait=0;;
     --stream) str=webrtc;; --web) str=web;; --both) str=both;; --no-stream) str=off;;
     *) die "up: unknown arg $1";; esac; shift; done
+  [[ "$BISG_ARCH" == x86_64 ]] || die "the sim (Isaac Sim) is x86_64 only; this is ${BISG_ARCH}. On the Jetson use ./bisg drone"
   view_parse                                       # validates SIM_VIEW -> VIEW_MODE / VIEW_STREAM
   [[ -n "$win" ]] && VIEW_MODE="$win"
   [[ -n "$str" ]] && VIEW_STREAM="$str"
@@ -143,24 +145,6 @@ cmd_vehicle(){
     *) die "vehicle: up|down|restart|logs [--drone N]";; esac
 }
 
-# ROS image topic (default: the drone's ZED left image) -> RTP/H.264 UDP for QGroundControl. docs/video-qgc.md
-cmd_video(){
-  local sub="${1:-up}"; shift || true
-  while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; --topic) export VIDEO_TOPIC=$2; shift;;
-    --host) export VIDEO_HOST=$2; shift;; --port) export VIDEO_PORT=$2; shift;; *) die "video: unknown arg $1";; esac; shift; done
-  local name="bisg-video-${DRONE_ID}"
-  case $sub in
-    up) compose --profile video up -d video; ok "$name -> udp://${VIDEO_HOST}:${VIDEO_PORT}"
-        info "QGC: Application Settings > Video > Source 'UDP h.264 Video Stream', port ${VIDEO_PORT}";;
-    down) compose --profile video stop video; compose --profile video rm -f video >/dev/null; ok "$name stopped";;
-    logs) exec docker logs -f --tail 100 "$name";;
-    test) command -v gst-launch-1.0 >/dev/null || die "video test: needs gst-launch-1.0 on the host"
-          info "playing udp ${VIDEO_PORT} (Ctrl-C to stop; close QGC's video first - one receiver per port)"
-          exec gst-launch-1.0 udpsrc port="${VIDEO_PORT}" caps="application/x-rtp,media=video,encoding-name=H264,payload=96" \
-            ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false;;
-    *) die "video: up|down|logs|test [--drone N] [--topic T] [--host IP] [--port P]";; esac
-}
-
 cmd_ros(){
   case "${1:-shell}" in
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
@@ -236,7 +220,7 @@ cmd_config(){
   info "resolved for the next ./bisg up"
   view_parse
   echo "  view      $(view_label)$( [[ "${SIM_VIEW}" == auto ]] && { have_x11 && echo "   (auto: X server on $DISPLAY)" || echo "   (auto: no X server)"; } )"
-  echo "  scenario  $( [[ -n "${SIM_SCENARIO:-}" ]] && scenario_path "$SIM_SCENARIO" || echo "${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}" )"
+  echo "  scenario  $( [[ -n "${SIM_SCENARIO:-}" ]] && scenario_path "$SIM_SCENARIO" || echo "${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}" )"
   echo "  fcu_url   ${FCU_URL:-udp://:$((14540 + DRONE_ID - 1))@127.0.0.1:$((14580 + DRONE_ID - 1))  (derived from DRONE_ID)}"
   local _v=""
   [[ "$VIEW_STREAM" =~ ^(web|both)$ ]]    && _v="http://$(stream_addr):${SIM_WEB_PORT}/"
@@ -258,9 +242,10 @@ cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f 
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
-  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; video) shift; cmd_video "$@";; ros) shift; cmd_ros "$@";;
+  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; ros) shift; cmd_ros "$@";;
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
+  drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;
   view|stream) shift; cmd_view "$@";;
   all) shift; cmd_all "$@";; stop) cmd_stop;; down) cmd_down;; restart) shift; cmd_restart "$@";;
   -h|--help|help|"") usage;; *) die "unknown command: $1";;

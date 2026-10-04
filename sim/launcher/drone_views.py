@@ -38,6 +38,9 @@ class DroneViews:
         self.third_eye_enabled = third_eye is not None
         self.near, self.far = [float(x) for x in cfg.get("depth_range", [0.1, 15.0])]
         self.interval = 1.0 / max(float(cfg.get("preview_hz", 5.0)), 0.5)
+        # The window shows these at ~1/3 of screen height: colour-mapping and uploading full HD720 frames (np.log on 920k
+        # floats + two 3.7 MB textures per refresh) cost ~0.2 of the sim's real-time factor. Subsample instead.
+        self.stride = max(1, int(cfg.get("preview_stride", 2)))
         self.t_last = 0.0
         self.enabled = True
         # Near = red: index 255 of Turbo is dark red, 0 is dark blue.
@@ -54,8 +57,8 @@ class DroneViews:
             with ui.HStack(spacing=2):
                 ui.ImageWithProvider(self.p_rgb, fill_policy=fit)
                 ui.ImageWithProvider(self.p_depth, fill_policy=fit)
-                # if self.p_third_eye is not None:
-                ui.ImageWithProvider(self.p_third_eye, fill_policy=fit)
+                if self.p_third_eye is not None:
+                    ui.ImageWithProvider(self.p_third_eye, fill_policy=fit)
         # Tab next to the Content browser (bottom panel) so it doesn't cover the viewport; drag it out to float.
         self.window.deferred_dock_in("Content", ui.DockPolicy.CURRENT_WINDOW_IS_ACTIVE)
         LOG.info("zed preview: window '%s' (%.0f Hz, depth %.2f-%.1f m, red = near)",
@@ -74,11 +77,13 @@ class DroneViews:
             depth = self.cam.get_depth()
             if rgba is None or depth is None or rgba.size == 0 or depth.size == 0:
                 return
-            rgba = np.ascontiguousarray(rgba, dtype=np.uint8)
+            H, W = rgba.shape[:2]
+            k = self.stride
+            rgba = np.ascontiguousarray(rgba[::k, ::k], dtype=np.uint8)
             h, w = rgba.shape[:2]
             self.p_rgb.set_data_array(rgba, [w, h])
 
-            d = np.asarray(depth, dtype=np.float32).reshape(h, w)
+            d = np.asarray(depth, dtype=np.float32).reshape(H, W)[::k, ::k]
             valid = np.isfinite(d) & (d > 0)
             norm = (np.log(np.clip(np.where(valid, d, self.far), self.near, self.far)) - self._log_near) / self._log_span
             idx = (np.clip(norm, 0.0, 1.0) * 255).astype(np.uint8)
@@ -95,7 +100,7 @@ class DroneViews:
                 try:
                     third_rgba = self.third_eye.get_rgba()
                     if third_rgba is not None and third_rgba.size:
-                        third_rgba = np.ascontiguousarray(third_rgba, dtype=np.uint8)
+                        third_rgba = np.ascontiguousarray(third_rgba[::k, ::k], dtype=np.uint8)
                         th, tw = third_rgba.shape[:2]
                         self.p_third_eye.set_data_array(third_rgba, [tw, th])
                 except Exception as exc:  # Keep the ZED and depth preview alive if this camera fails.

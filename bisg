@@ -7,9 +7,9 @@
 #   ./bisg view                         how to watch a run (browser URL / WebRTC client)   ./bisg shell [sim|ros]
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
-#   ./bisg video up|down|logs|test      ZED image -> RTP/H.264 UDP for QGroundControl (docs/video-qgc.md)
 #   ./bisg stop | down | restart
-#   ./bisg zed ext-build|image|up|down|status|logs|check       real ZED SDK + zed_wrapper in the sim (ZED_SOURCE=sdk)
+#   ./bisg zed plan|set|up|services|enable|status|logs|check|test|down|ext-build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
+#   ./bisg drone up|down|status|logs|check|build   the real drone (Jetson, or a USB ZED Mini on the workstation): MAVROS on the Pixracer + the ZED stack
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
 #   ./bisg check                        host preflight only (scripts/check_env.sh)
 set -euo pipefail
@@ -18,6 +18,7 @@ case "${1:-}" in
   setup) shift; exec "$HERE/scripts/setup.sh" "$@";;
   check) exec "$HERE/scripts/check_env.sh";;
   zed) shift; exec "$HERE/scripts/zed.sh" "$@";;
+  drone) shift; exec "$HERE/scripts/drone.sh" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
   -h|--help|help|"") sed -n 2,14p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;

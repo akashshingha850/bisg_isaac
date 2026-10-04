@@ -1,0 +1,17 @@
+# Scenario: single_iris, GPS-denied — PX4 EKF2 fuses vision (vio_mock -> mavros/odometry/out)
+# for position, velocity, yaw and height; GPS and magnetometer are off (config/px4).
+# Needs the vehicle service running (`./bisg all`, or `./bisg vehicle up`): without vio_mock
+# there is no position source and PX4 will not arm.
+#   SIM_SCENARIO=single_iris_vio ./bisg all headless
+extends: single_iris.yaml
+
+px4:
+  params_file: config/px4/sim_default.params
+
+world:
+  objects:                     # depth test target (tests/zed_depth_box.py): a 1 m cube straight ahead of the
+    - name: depth_box          # drone's start pose. Front face at x=3.5 -> 3.32 m from the ZED lens (mount x
+      type: cuboid             # 0.18). Top at 1 m: below the 2 m tests/vio_flight.py square, no collision.
+      position: [4.0, 0.0, 0.5]
+      size: [1.0, 1.0, 1.0]
+      color: [1.0, 0.45, 0.0]  # orange, easy to find in the images

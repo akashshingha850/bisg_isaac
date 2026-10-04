@@ -1,0 +1,199 @@
+# ZED Mini stack — ONE file for everything the ZED SDK does on this drone, in the sim and on the Jetson.
+#
+#   ./bisg zed plan              what is on, which topics it publishes, which services start (no containers needed)
+#   ./bisg zed up                start the wrapper + every enabled service below
+#   ./bisg zed set a.b.c=value   change one key in this file, e.g.  ./bisg zed set object_detection.enabled=true
+#
+# Layout: one block per ZED SDK module (docs.stereolabs.com/docs/development/zed-sdk/modules), then `services`, then `sim`.
+#   * Inside a module block the keys are the zed_wrapper's OWN parameter names (documented in
+#     docker/zed/zed-ros2-wrapper/zed_wrapper/config/common_stereo.yaml). Any key not listed here can be added;
+#     a name the wrapper does not know, or a value of the wrong type, is rejected by `./bisg zed plan` before anything starts.
+#   * `enabled` is the module's master switch (it maps onto the wrapper's own switch: pos_tracking_enabled, od_enabled, ...).
+#   * `publish_*` keys only ADVERTISE a topic; the wrapper computes it while something subscribes. Leaving one on is free.
+#   * `sim:` holds the few deltas the simulated camera needs; they are NOT applied on the Jetson.
+# Topics appear under /drone_<n>/zed/zed_node/ (docs/interface-contract.md).
+#
+# Cost hints are for the Jetson Orin NX; the workstation GPU does not care.
+
+# --- SDK module: Camera (open parameters) ---------------------------------------------------------------------------
+camera:
+  grab_resolution: HD720            # HD2K | HD1080 | HD720 | VGA   (ZED Mini 720p: 15/30/60 fps)
+  grab_frame_rate: 30
+  pub_frame_rate: 30.0              # publish rate of images + depth; <= grab_frame_rate, 0 = grab rate
+  camera_timeout_sec: 5
+  camera_max_reconnect: 5
+  camera_flip: false                # true when the camera is mounted upside down
+  self_calib: true                  # re-run self calibration at open
+
+# --- SDK module: Video + camera controls ----------------------------------------------------------------------------
+video:
+  publish_left_right: true          # left/ + right/ rectified colour images and camera_info
+  publish_rgb: false                # rgb/ (the left image again), raw/, gray/, stereo/ (side by side)
+  publish_raw: false
+  publish_gray: false
+  publish_stereo: false
+  auto_exposure_gain: true          # false = fixed `exposure` / `gain` below (0-100). Fast motion: lower exposure
+  exposure: 80
+  gain: 80
+  auto_whitebalance: true
+
+# --- SDK module: Sensors (ZED Mini = IMU only; no magnetometer, barometer or temperature probe) ---------------------
+sensors:
+  publish_imu: true                 # imu/data
+  publish_imu_raw: false            # imu/data_raw
+  publish_imu_tf: true
+  publish_cam_imu_transf: false     # camera <-> IMU extrinsics
+  sensors_pub_rate: 200.0           # Hz, max 400
+
+# --- SDK module: Depth sensing ----------------------------------------------------------------------------------------
+depth:
+  enabled: true                     # false = depth_mode NONE: also switches OFF tracking, mapping, detection (all need depth)
+  depth_mode: NEURAL_LIGHT          # NEURAL_LIGHT | NEURAL | NEURAL_PLUS   (cost: LIGHT < NEURAL < PLUS)
+  min_depth: 0.2                    # m  (ZED Mini 0.1-0.3 min)
+  max_depth: 15.0                   # m  (ZED Mini max 15)
+  depth_confidence: 95              # 1-100: lower keeps more (noisier) pixels
+  depth_texture_conf: 100
+  remove_saturated_areas: true
+  publish_depth_map: true           # depth/depth_registered (32FC1, metres)
+  publish_depth_confidence: false   # confidence/confidence_map
+  publish_disparity: false          # disparity/disparity_image
+  publish_depth_info: false         # depth/depth_info
+  publish_point_cloud: true         # point_cloud/cloud_registered
+  point_cloud_freq: 10.0            # Hz
+  point_cloud_res: COMPACT          # COMPACT | REDUCED (half)
+  voxel_point_cloud: false          # decimated cloud (SDK >= 5.3)
+
+# --- SDK module: Region of interest (mask the drone's own props / legs out of depth + tracking) ---------------------
+region_of_interest:
+  enabled: false                    # automatic_roi: learn the static parts of the robot seen by the camera
+  depth_far_threshold_meters: 2.5
+  image_height_ratio_cutoff: 0.5    # 0.5 = ignore the upper half (sky)
+  publish_roi_mask: false           # roi_mask/image
+  # manual_polygon: '[[0.25,0.25],[0.75,0.25],[0.75,0.75],[0.25,0.75]]'   # normalised image coordinates; ignored while enabled
+
+# --- SDK module: Positional tracking (visual-inertial odometry) ---------------------------------------------------
+positional_tracking:
+  enabled: true                     # odom, pose, TF odom -> base_link
+  pos_tracking_mode: AUTO           # AUTO (= GEN_3 on SDK 5.4) | GEN_1 | GEN_3. NOT GEN_2: the wrapper rejects it
+  imu_fusion: true                  # true on the real camera (400 Hz IMU); the sim cannot supply that stream -> see `sim:`
+  publish_tf: true
+  publish_map_tf: false             # MAVROS/PX4 owns `map`; the wrapper publishes odom -> base only
+  area_memory: false                # loop closure / relocalisation in a saved map of the site
+  area_file_path: ''                # .area file to relocalise in a known site
+  set_gravity_as_origin: true       # align the world to the IMU's gravity: z up, yaw kept
+  two_d_mode: false                 # planar motion only: keep false on a drone
+  publish_odom_pose: true           # odom, pose
+  publish_pose_cov: false           # pose_with_covariance
+  publish_cam_path: false           # path_odom, path_map
+  publish_3d_landmarks: false       # tracked VIO landmarks (debug)
+
+# --- SDK module: Global localization (GNSS + VIO fusion; outdoors only) --------------------------------------------
+global_localization:
+  enabled: false
+  gnss_fix_topic: /fix              # sensor_msgs/NavSatFix; for PX4 GPS remap mavros/global_position/raw/fix to it
+  gnss_zero_altitude: false
+  enable_reinitialization: false
+
+# --- SDK module: Spatial mapping (fused colour point cloud of everything seen) -------------------------------------
+spatial_mapping:
+  enabled: false                    # mapping/fused_cloud
+  resolution: 0.05                  # m per voxel, 0.01-0.2
+  max_mapping_range: 5.0            # m, 2-20
+  fused_pointcloud_freq: 1.0        # Hz
+
+# --- SDK module: Plane detection (floor / wall plane at a clicked point) -------------------------------------------
+plane_detection:
+  enabled: false                    # plane, plane_marker (needs positional tracking)
+  pd_max_distance_threshold: 0.15
+  pd_normal_similarity_threshold: 15.0
+
+# --- SDK module: Object detection + tracking (AI; people, vehicles, animals, ...) ----------------------------------
+object_detection:
+  enabled: false                    # obj_det/objects. First start downloads + optimises the model (minutes). Heavy on an Orin NX
+  detection_model: MULTI_CLASS_BOX_FAST   # MULTI_CLASS_BOX_FAST | _MEDIUM | _ACCURATE | PERSON_HEAD_BOX_FAST | PERSON_HEAD_BOX_ACCURATE
+  enable_tracking: true             # keep object ids across frames
+  max_range: 15.0                   # m, <= depth.max_depth
+  filtering_mode: NMS3D             # NONE | NMS3D | NMS3D_PER_CLASS
+  prediction_timeout: 2.0           # s an undetected object stays tracked
+  allow_reduced_precision_inference: false
+  classes:                          # per-class switch + minimum confidence (0-99)
+    people:          {enabled: true,  confidence_threshold: 65.0}
+    vehicle:         {enabled: true,  confidence_threshold: 60.0}
+    bag:             {enabled: false, confidence_threshold: 40.0}
+    animal:          {enabled: false, confidence_threshold: 40.0}
+    electronics:     {enabled: false, confidence_threshold: 45.0}
+    fruit_vegetable: {enabled: false, confidence_threshold: 50.0}
+    sport:           {enabled: false, confidence_threshold: 30.0}
+
+# --- SDK module: Body tracking (AI; human skeletons) ---------------------------------------------------------------
+body_tracking:
+  enabled: false                    # body_trk/skeletons
+  model: HUMAN_BODY_FAST            # HUMAN_BODY_FAST | HUMAN_BODY_MEDIUM | HUMAN_BODY_ACCURATE
+  body_format: BODY_38              # BODY_18 | BODY_34 | BODY_38
+  max_range: 15.0
+  enable_body_fitting: false
+  enable_tracking: true
+
+# --- SDK feature: Streaming (send the camera to another machine; open it there with the SDK's stream input) ---------
+streaming:
+  enabled: false
+  codec: H265                       # H264 | H265
+  port: 30000                       # even number
+  bitrate: 12500                    # kbit/s, 1000-60000
+  adaptative_bitrate: false
+
+# --- SDK feature: Recording (SVO) ----------------------------------------------------------------------------------
+recording:
+  svo_encoding_preset: DEFAULT      # DEFAULT | ULTRAFAST | FAST | MEDIUM | SLOW   (used by `./bisg zed record start`)
+
+# ====================================================================================================================
+# Services around the wrapper. Each is a compose service on the ZED image (docker/compose.yaml: profile `zed` in the sim, `drone` on the real drone);
+# `./bisg zed up` starts exactly the enabled ones. docs/zed-stack.md.
+# ====================================================================================================================
+services:
+  # ZED SDK output -> PX4 over MAVROS (ADR-001). One node, one switch per module.
+  px4_bridge:
+    enabled: true
+    health:                         # M10: module status topic + STATUSTEXT to QGC when tracking / depth is lost or back
+      enabled: true
+      depth_min_valid: 0.3          # warn when less than this fraction of the depth image is valid
+      timeout_s: 2.0                # a feed silent this long counts as lost
+    odometry:                       # M1: zed odom -> mavros/odometry/out -> EKF2 external vision. Silent while tracking is not OK
+      enabled: true
+      restamp: false                # true = stamp with the node clock on arrival (what the sim needs, see `sim:`)
+      min_rate_hz: 5.0              # below this the source counts as lost and nothing is sent (sim: lower, it runs at ~0.4x real time)
+    obstacle_distance:              # M2: depth -> 72 x 5 deg sector map -> PX4 collision prevention + QGC proximity radar
+      enabled: true
+      band: 0.6                     # m: only depth within +-band of the camera height counts (drone's own height band)
+      min_range: 0.3                # m: ignore closer returns
+      max_range: 8.0                # m: farther = free
+      rate_hz: 10.0
+  # ZED left image -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
+  qgc_video:
+    enabled: false
+    topic: ''                       # empty = left/color/rect/image of this drone
+    host: 127.0.0.1                 # where QGC runs (LAN/VPN IP for a remote QGC)
+    port: 5600
+    bitrate: 2000                   # kbit/s
+    fps: 0                          # cap, 0 = every frame
+    encoder: auto                   # auto | x264 | nvenc (Jetson hardware encoder)
+
+# ====================================================================================================================
+# Sim-only deltas (ZED_SOURCE=sdk: the real SDK reads the Isaac ZED Mini twin). Same nesting as above; NOT used on the Jetson.
+# ====================================================================================================================
+sim:
+  positional_tracking:
+    # The extension streams orientation + acceleration once per rendered frame, never the 400 Hz gyro+accel stream of the
+    # real camera. GEN_3 refuses to fuse a low-rate IMU ("HIGH FREQUENCY SENSORS DATA REQUIRED" -> wrapper FATAL).
+    imu_fusion: false
+  sensors:
+    # Without this the wrapper polls the (absent) sensor channel on every grab and logs
+    # "sl::getSensorsData error: INVALID FUNCTION PARAMETERS" thousands of times a minute.
+    sensors_image_sync: true
+  services:
+    px4_bridge:
+      odometry:
+        enabled: false              # sim default: the drone flies on GPS / vio_mock and the SDK is only observed. true = closed loop on the
+                                    # SDK's VIO (GPS-denied scenario, start `zed up` while `./bisg all` waits): works, accuracy 0.5 m, docs/bugs.md B17
+        restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
+        min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low

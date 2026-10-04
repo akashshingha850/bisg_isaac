@@ -6,7 +6,7 @@
 #
 # Facts about the base image (verified 2026-09-12): Ubuntu 24.04, runs as user
 # `isaac-sim` (uid 1234, HOME=/isaac-sim), no sudo, Isaac python 3.12 at /isaac-sim/python.sh.
-# 5.1.0 baseline: git tag isaac-5.1-baseline (docs/migrate.md, docs/migration-report.md).
+# 5.1.0 baseline: git tag isaac-5.1-baseline (archive/docs/migrate.md, archive/docs/migration-report.md).
 
 ARG ISAAC_TAG=6.0.0
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_TAG}
@@ -55,14 +55,14 @@ USER ${ISAAC_USER}
 RUN cd ${PX4_DIR} && make px4_sitl_default -j"$(nproc)" \
     && find build/px4_sitl_default -name "*.o" -delete
 
-# --- isaac-sim: Pegasus, built from the third_party/PegasusSimulator submodule -----
+# --- isaac-sim: Pegasus, built from the docker/sim/PegasusSimulator submodule -----
 # Built FROM the submodule (not re-cloned) so local commits there reach the image — the
-# submodule tracks a local branch on top of the pinned tag (see third_party/README.md).
-# Requires `git submodule update --init third_party/PegasusSimulator` before this build.
-COPY --chown=${ISAAC_USER}:${ISAAC_USER} third_party/PegasusSimulator/ ${PEGASUS_DIR}/
+# submodule tracks a local branch on top of the pinned tag (see docs/sources.md).
+# Requires `git submodule update --init docker/sim/PegasusSimulator` before this build.
+COPY --chown=${ISAAC_USER}:${ISAAC_USER} docker/sim/PegasusSimulator/ ${PEGASUS_DIR}/
 RUN test -f ${PEGASUS_DIR}/extensions/pegasus.simulator/setup.py || \
-      { echo "ERROR: third_party/PegasusSimulator is empty/uninitialized." >&2; \
-        echo "Run: git submodule update --init third_party/PegasusSimulator" >&2; exit 1; } \
+      { echo "ERROR: docker/sim/PegasusSimulator is empty/uninitialized." >&2; \
+        echo "Run: git submodule update --init docker/sim/PegasusSimulator" >&2; exit 1; } \
     && sed -i "s|^px4_dir:.*|px4_dir: ${PX4_DIR}|" \
         ${PEGASUS_DIR}/extensions/pegasus.simulator/config/configs.yaml
 # setup.py needs ISAACSIM_PATH to patch apps/isaacsim.exp.base.kit (replicator agent ext).

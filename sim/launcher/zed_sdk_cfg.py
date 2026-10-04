@@ -19,7 +19,7 @@ def zed_source(zed_cfg: dict) -> str:
 
 def ext_folder() -> str:
     """Folder holding the built extension (docker/zed/build_isaac_ext.sh). Checked before Kit starts."""
-    path = os.environ.get("ZED_ISAAC_EXT_DIR", "/workspace/third_party/zed-isaac-sim/exts")
+    path = os.environ.get("ZED_ISAAC_EXT_DIR", "/workspace/docker/zed/zed-isaac-sim/exts")
     plugin = os.path.join(path, EXT_ID, "bin", "libsl.sensor.camera.plugin.so")
     if not os.path.isfile(plugin):
         raise SystemExit(f"[launch] ZED SDK mode needs the zed-isaac-sim extension, not found at {plugin}\n"

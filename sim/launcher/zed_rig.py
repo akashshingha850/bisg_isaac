@@ -107,7 +107,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
     """Build the ZED Mini rig on `vehicle` (a Pegasus Multirotor) and publish it
     under ROS 2 namespace `ns` (e.g. "/drone_1"), matching the interface contract.
 
-    cfg keys (all optional, see sim/configs/*.yaml `sensors.zed`):
+    cfg keys (all optional, see docker/sim/configs/*.yaml `sensors.zed`):
       mount_xyz_rpy: [x,y,z,roll_deg,pitch_deg,yaw_deg] of zed_camera_link on base_link (FLU)
       baseline: stereo baseline, metres (ZED Mini = 0.063)
       resolution: [width, height] (HD720 = [1280, 720])
@@ -115,7 +115,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
       imu_rate: IMU publish rate (ZED Mini wrapper = 200)
       depth_range: [near, far] metres
       preview / preview_hz: GUI window with left image + depth (sim/launcher/drone_views.py)
-    features: zed_features.Features — the zed_wrapper switches (deploy/jetson/zed_params.yaml).
+    features: zed_features.Features — the zed_wrapper switches (docker/zed/zed.yaml).
       Here: video.publish_left_right, depth.publish_depth_map, sensors.publish_imu. None = all on.
 
     Returns {"left": Camera, "right": Camera, "fx", "fy", "cx", "cy"} (intrinsics in pixels).
