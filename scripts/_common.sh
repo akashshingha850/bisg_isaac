@@ -56,6 +56,7 @@ conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1
+conf_default VIDEO_HOST 127.0.0.1; conf_default VIDEO_PORT 5600;       conf_default VIDEO_BITRATE 2000;      conf_default VIDEO_FPS 0
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
 conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git

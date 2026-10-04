@@ -7,6 +7,7 @@
 #   ./bisg view                         how to watch a run (browser URL / WebRTC client)   ./bisg shell [sim|ros]
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
+#   ./bisg video up|down|logs|test      ZED image -> RTP/H.264 UDP for QGroundControl (docs/video-qgc.md)
 #   ./bisg stop | down | restart
 #   ./bisg zed ext-build|image|up|down|status|logs|check       real ZED SDK + zed_wrapper in the sim (ZED_SOURCE=sdk)
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
@@ -18,6 +19,6 @@ case "${1:-}" in
   check) exec "$HERE/scripts/check_env.sh";;
   zed) shift; exec "$HERE/scripts/zed.sh" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
-  -h|--help|help|"") sed -n 2,13p "$0";;
+  -h|--help|help|"") sed -n 2,14p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

@@ -24,6 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # MAVROS needs the GeographicLib datasets (geoid) for global position conversions.
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
+# Video out (docker/ros/video_stream.py): ROS Image -> RTP/H.264 for QGroundControl.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-gi gir1.2-gstreamer-1.0 gstreamer1.0-tools \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+    && rm -rf /var/lib/apt/lists/*
+
 # rosdep for our workspace (initialised once at image build; updated at first run if needed)
 RUN rosdep init 2>/dev/null || true && rosdep update --rosdistro jazzy || true
 
@@ -33,6 +39,7 @@ RUN printf '%s\n' 'source /opt/ros/jazzy/setup.bash' '[ -f /workspace/ros2_ws/in
 WORKDIR /workspace/ros2_ws
 COPY docker/ros/entrypoint.sh /usr/local/bin/ros-entrypoint.sh
 COPY docker/ros/mavros_sim_time.py /usr/local/lib/bisg/mavros_sim_time.py
+COPY docker/ros/video_stream.py /usr/local/lib/bisg/video_stream.py
 RUN chmod +x /usr/local/bin/ros-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
 CMD ["bash"]

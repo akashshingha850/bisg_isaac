@@ -29,7 +29,7 @@ import time
 
 import numpy as np
 
-from zed_preview import _turbo_lut
+from drone_views import _turbo_lut
 
 LOG = logging.getLogger("launch")
 _RES_STRIDE = {"COMPACT": 4, "REDUCED": 8}
@@ -86,6 +86,8 @@ class ZedDepthProducts:
         self.map_keys = np.zeros(0, np.int64)
         self.map_xyz = np.zeros((0, 3), np.float32)
         self.map_rgb = np.zeros(0, np.uint32)
+        self._last_cloud_render_time = None
+        self._map_draw_dirty = False
 
         from isaacsim.core.experimental.utils.app import enable_extension  # noqa: WPS433
         enable_extension("isaacsim.ros2.bridge")
@@ -110,21 +112,26 @@ class ZedDepthProducts:
             if self.map_on else None
 
         if self.draw_cloud or self.draw_map:
+            # Draw through the viewport's own scene layer (RegisterScene), which Kit stacks *under* the HUD
+            # and menu bar; a frame of our own would sit on top and cover the HUD text.
             import omni.ui.scene as sc  # noqa: WPS433
-            from omni.kit.viewport.utility import get_active_viewport_window  # noqa: WPS433
-            vw = get_active_viewport_window()
-            if vw is None:
-                LOG.warning("zed depth: no viewport window, not drawing")
+            from omni.kit.viewport.registry import RegisterScene  # noqa: WPS433
+            owner = self
+            empty = dict(colors=[[0.0, 0.0, 0.0, 0.0]], sizes=[0.0])
+
+            class _CloudScene:
+                name = "bisg ZED cloud"
+                categories = ("bisg",)
+                visible = True
+
+                def __init__(self, desc):
+                    owner.sc_map = sc.Points([[0.0, 0.0, 0.0]], **empty)
+                    owner.sc_cloud = sc.Points([[0.0, 0.0, 0.0]], **empty)
+
+            self._scene_reg = RegisterScene(_CloudScene, f"bisg.zed_depth.{ns}")
+            if not hasattr(self, "sc_cloud"):
+                LOG.warning("zed depth: no viewport scene layer, not drawing")
                 self.draw_cloud = self.draw_map = False
-            else:
-                empty = dict(colors=[[0.0, 0.0, 0.0, 0.0]], sizes=[0.0])
-                with vw.get_frame("bisg_zed_depth"):
-                    self.scene_view = sc.SceneView()
-                    with self.scene_view.scene:
-                        self.sc_map = sc.Points([[0.0, 0.0, 0.0]], **empty)
-                        self.sc_cloud = sc.Points([[0.0, 0.0, 0.0]], **empty)
-                vw.viewport_api.add_scene_view(self.scene_view)
-                self.viewport_window = vw
         LOG.info("zed depth: point_cloud %s (%.0f Hz, %s), disparity %s, mapping %s%s; GUI cloud %s, map %s",
                  "on" if self.cloud_on else "off", 1.0 / self.cloud_interval,
                  f"every {self.stride}th px", "on" if self.disp_on else "off",
@@ -184,7 +191,7 @@ class ZedDepthProducts:
             if map_pub:
                 self._publish_map(stamp)
             if jobs["draw"]:
-                self._draw(depth, rgba, pose)
+                self._draw(depth, rgba, pose, float(t_render))
         except Exception as exc:  # noqa: BLE001 — never stop the sim for a sensor product
             LOG.warning("zed depth: update failed, disabling (%s)", exc)
             self.enabled = False
@@ -270,18 +277,22 @@ class ZedDepthProducts:
         self.map_keys = np.concatenate([self.map_keys, keys[new]])
         self.map_xyz = np.concatenate([self.map_xyz, centres.astype(np.float32)])
         self.map_rgb = np.concatenate([self.map_rgb, rgb[first[new]]])
+        self._map_draw_dirty = True
 
     def _publish_map(self, stamp):
         n = len(self.map_keys)
         if n:
             self.pub_map.publish(self._cloud_msg(self.map_xyz, self.map_rgb, f"{self.ns}/odom", stamp, 1, n, dense=True))
 
-    def _draw(self, depth, rgba, pose):
-        R, t = pose
-        if self.draw_cloud:
+    def _draw(self, depth, rgba, pose, render_time):
+        # Keep the UI scene primitives alive. Replace live-cloud buffers only for a
+        # genuinely new camera render; fused-map buffers change only when integration
+        # adds previously unseen voxels.
+        if self.draw_cloud and render_time != self._last_cloud_render_time:
             pts, d = self._points(depth, self.draw_stride)
             ok = np.isfinite(d)
             if ok.any():
+                R, t = pose
                 world = pts[ok] @ R.T + t
                 if self.draw_color == "rgb" and rgba is not None:
                     col = rgba[::self.draw_stride, ::self.draw_stride, :3][ok] / 255.0
@@ -291,7 +302,16 @@ class ZedDepthProducts:
                 self.sc_cloud.positions = world.tolist()
                 self.sc_cloud.colors = np.concatenate([col, np.ones((len(col), 1))], 1).tolist()
                 self.sc_cloud.sizes = [self.point_size] * len(world)
-        if self.draw_map and len(self.map_keys):
+            else:
+                # Clear a previously visible cloud when a new frame has no valid depth.
+                self.sc_cloud.positions = [[0.0, 0.0, 0.0]]
+                self.sc_cloud.colors = [[0.0, 0.0, 0.0, 0.0]]
+                self.sc_cloud.sizes = [0.0]
+            self._last_cloud_render_time = render_time
+        if self.draw_map and self._map_draw_dirty:
+            self._map_draw_dirty = False
+            if not len(self.map_keys):
+                return
             sel = np.arange(len(self.map_keys))
             if len(sel) > self.map_draw_max:
                 sel = sel[:: int(np.ceil(len(sel) / self.map_draw_max))]

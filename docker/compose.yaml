@@ -164,6 +164,24 @@ services:
         sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params_sim.yaml
     restart: on-failure
 
+  # ZED (or any raw Image topic) -> RTP/H.264 UDP, shown by QGroundControl's "UDP h.264 Video Stream" source.
+  # docs/video-qgc.md. Same image as mavros; start with `./bisg video up`.
+  video:
+    <<: *ros-base
+    container_name: bisg-video-${DRONE_ID:-1}
+    profiles: ["video"]
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      DRONE_ID: ${DRONE_ID:-1}
+      VIDEO_TOPIC: ${VIDEO_TOPIC:-}          # empty = /drone_<DRONE_ID>/zed/zed_node/left/color/rect/image
+      VIDEO_HOST: ${VIDEO_HOST:-127.0.0.1}   # where QGC runs
+      VIDEO_PORT: ${VIDEO_PORT:-5600}
+      VIDEO_BITRATE: ${VIDEO_BITRATE:-2000}
+      VIDEO_FPS: ${VIDEO_FPS:-0}
+      VIDEO_ENCODER: ${VIDEO_ENCODER:-auto}
+    command: ["video_stream"]
+    restart: unless-stopped
+
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
   ros:
     <<: *ros-base

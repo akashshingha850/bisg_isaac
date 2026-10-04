@@ -93,6 +93,10 @@ from isaacsim import SimulationApp  # noqa: E402
 # passed straight to Kit as command-line settings.
 PERF = CFG.get("perf", {}) or {}
 _app_cfg = {"headless": HEADLESS}
+if (CFG.get("app") or {}).get("viewport_hud", True):
+    # Kit's own viewport HUD (the "Display > Heads Up Display" menu), on at start instead of by hand.
+    # displayOptions bitmask: SimulationApp's default 3094 + FPS (1<<0), Device (1<<13), Host (1<<14) memory.
+    _app_cfg["display_options"] = 3094 | (1 << 0) | (1 << 13) | (1 << 14)
 for _k in ("disable_viewport_updates", "limit_cpu_threads", "sync_loads", "renderer",
            "active_gpu", "physics_gpu", "multi_gpu", "max_gpu_count", "width", "height",
            "anti_aliasing", "denoiser", "fast_shutdown"):
@@ -413,7 +417,7 @@ class App:
         self.pg.initialize_world()
         RenderingManager.set_dt(float(self.pg._world_settings.get("rendering_dt", 1.0 / 60.0)))
         self.vehicles = []
-        self.previews = []  # ZED left|depth windows + depth products (zed_preview.py, zed_depth.py)
+        self.previews = []  # drone-view windows (ZED left|depth + third eye) + depth products (drone_views.py, zed_depth.py)
         self.stop = False
         self.web = WebView(WEB_PORT, WEB_INTERVAL) if WEB_VIEW else None
 
@@ -438,11 +442,22 @@ class App:
 
         phase("vehicles spawned")
         self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
-        eye, target = cfg.get("app", {}).get("viewport_eye"), cfg.get("app", {}).get("viewport_target")
-        if eye and target and (not HEADLESS or STREAMING):
+        app_cfg = cfg.get("app", {})
+        eye, target = app_cfg.get("viewport_eye"), app_cfg.get("viewport_target")
+        if not (eye and target):
+            # Kit's default perspective camera sits ~hundreds of metres away (blank view until you zoom in):
+            # frame the spawned vehicles instead. Set viewport_eye + viewport_target to pin a view.
+            import numpy as np  # noqa: WPS433
+            pts = np.array([[float(x) for x in v.get("position", [0.0, 0.0, 0.07])]
+                            for v in cfg.get("vehicles", [])] or [[0.0, 0.0, 0.07]])
+            centre = pts.mean(axis=0)
+            spread = float(np.linalg.norm(pts - centre, axis=1).max())
+            eye = centre + np.array([-2.5 - spread, -2.0 - spread, 1.8 + 0.5 * spread])
+            target = centre + np.array([0.0, 0.0, 0.5])
+        if not HEADLESS or STREAMING:
             from isaacsim.core.rendering_manager import ViewportManager  # noqa: WPS433
             ViewportManager.set_camera_view("/OmniverseKit_Persp", eye=[float(x) for x in eye], target=[float(x) for x in target])
-            LOG.info("viewport camera: eye %s -> target %s", eye, target)
+            LOG.info("viewport camera: eye %s -> target %s", [round(float(x), 2) for x in eye], [round(float(x), 2) for x in target])
 
     def spawn_vehicle(self, v, px4_cfg):
         vid = int(v.get("id", 0))
@@ -480,6 +495,12 @@ class App:
         self.vehicles.append(veh)
         LOG.info("vehicle %d spawned at %s as %s", vid, pos, prim)
 
+        third_eye_cfg = (self.cfg.get("app", {}).get("third_eye") or {})
+        third_eye = None
+        if third_eye_cfg.get("enabled", False) and (not HEADLESS or STREAMING):
+            from third_eye import attach_third_eye  # noqa: WPS433
+            third_eye = attach_third_eye(veh, third_eye_cfg)
+
         zed = v.get("sensors", {}).get("zed", {})
         if zed.get("enabled", False) and zed_source(zed) == "sdk":
             from zed_sdk_rig import attach_zed_sdk  # noqa: WPS433
@@ -501,8 +522,9 @@ class App:
             # A UI exists with a window (not headless) or a WebRTC stream (which shows the full UI).
             has_ui = not HEADLESS or STREAMING
             if zed.get("preview", False) and has_ui:
-                from zed_preview import ZedPreview  # noqa: WPS433
-                self.previews.append(ZedPreview(cams, f"/drone_{vid + 1}", zed))
+                from drone_views import DroneViews  # noqa: WPS433
+                self.previews.append(DroneViews(cams, f"/drone_{vid + 1}", zed, third_eye,
+                                                third_eye_cfg.get("preview_hz", 8.0)))
             view = zed.get("view", {}) or {}
             if (features.on("depth.publish_point_cloud") or features.on("depth.publish_disparity")
                     or features.on("mapping.mapping_enabled") or (has_ui and view.get("point_cloud", True))):

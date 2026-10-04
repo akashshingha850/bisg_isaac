@@ -2,6 +2,7 @@
 # Entrypoint for bisg/ros. Sources ROS 2 and the overlay in /workspace/ros2_ws if built.
 #   mavros            launch MAVROS for DRONE_ID using FCU_URL (defaults to SITL instance DRONE_ID-1)
 #   vio_mock          launch the sim mock VIO source (bisg_vehicle) in namespace /drone_<DRONE_ID>
+#   video_stream      ROS Image topic -> RTP/H.264 UDP for QGroundControl (VIDEO_* env, docs/video-qgc.md)
 #   build             colcon build the workspace (ros2_ws/src bind-mounted)
 #   bash | <cmd>      shell / arbitrary command with the environment sourced
 set -eo pipefail
@@ -40,6 +41,10 @@ case "${1:-bash}" in
   vio_mock)
     echo "[entrypoint] vio_mock ns=/${NS} ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
     exec ros2 run bisg_vehicle vio_mock --ros-args -r "__ns:=/${NS}" -p use_sim_time:="${USE_SIM_TIME}"
+    ;;
+  video_stream)
+    echo "[entrypoint] video_stream drone=${DRONE_ID} -> udp://${VIDEO_HOST:-127.0.0.1}:${VIDEO_PORT:-5600}"
+    exec python3 /usr/local/lib/bisg/video_stream.py
     ;;
   build)
     cd /workspace/ros2_ws

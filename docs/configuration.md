@@ -117,6 +117,14 @@ SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in sim/configs/ (no 
 path is passed to the container as `SIM_CONFIG=/workspace/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
+`single_iris` defaults to Isaac Sim's built-in Simple Room (including its table) and opens a trailing
+third-eye camera image in the same preview panel as the ZED left image and depth in GUI mode. The
+environment loads from Isaac Sim's asset library, so no USD download or project-local asset copy is
+needed. The camera follows the drone from farther behind and above; adjust `app.third_eye.position`,
+`pitch_deg`, or `preview_hz` in the scenario if needed. To switch worlds, edit `world.preset` in
+`sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`, `"Hospital"`, or
+`"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.
+
 ## ZED source: `ZED_SOURCE`
 
 ```

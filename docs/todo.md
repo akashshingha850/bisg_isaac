@@ -20,6 +20,7 @@ Known defects, with causes and candidate fixes, are in [bugs.md](bugs.md).
 
 ## Done — the real ZED SDK in the sim — 2026-10-03 (branch `migrate/isaac-6.0`)
 
+- [x] ZED video in QGroundControl (2026-10-04): `./bisg video up|down|logs|test` streams a ROS image topic (default drone's ZED left) as RTP/H.264 UDP :5600 via `docker/ros/video_stream.py` (GStreamer added to `bisg/ros`, compose profile `video`, `VIDEO_*` in bisg.conf). Verified: 1280x720 decoded from the UDP stream on the host; QGC click-through (Video source = UDP h.264) and the Jetson nvenc path are untested. `docs/video-qgc.md`. Also: Kit's own viewport HUD on by default, viewport auto-framed on the vehicles, ZED cloud drawn under the HUD, `zed_preview.py` -> `drone_views.py`.
 Docs: [zed-sdk-sim.md](zed-sdk-sim.md) (how it works, every sim-vs-hardware difference, troubleshooting), [decisions/ADR-007-zed-sdk-in-sim.md](decisions/ADR-007-zed-sdk-in-sim.md), skill `zed-sdk`.
 `ZED_SOURCE=sdk ./bisg up headless && ./bisg zed up && ./bisg zed check`: Stereolabs' `zed-isaac-sim` v5.2.1 streams a ZED Mini twin (`ZED_M`) into the unmodified `zed_wrapper`.
 - [x] Extension built in the sim image (`./bisg zed ext-build`, pinned `529e538`, Kit range widened for the 6.0.0 image); `bisg/zed:desktop` = Stereolabs image + CycloneDDS overlay; `deploy/launch/zed_drone.launch.py` shared by sim and Jetson
@@ -123,7 +124,7 @@ Phase 3 — Sensors, ZED Mini contract, VIO
   rosbags left/right/depth/state + `analysis/depth_per_frame.csv`): 1054 airborne depth frames, none with a pixel
   < 0.5 m at up to ±21° roll/pitch; floor rows at hover fit a camera pitch of −0.1..−0.2° vs truth +0.1°
   (depth metric + rig level); 32FC1 metres, left optical frame, +inf beyond 15 m, no NaN. GUI: scenario
-  `sensors.zed.preview` opens a "ZED Mini /drone_N - left | depth" window (`sim/launcher/zed_preview.py`,
+  `sensors.zed.preview` opens a "ZED Mini /drone_N - left | depth" window (`sim/launcher/drone_views.py`,
   reads the render products directly, so HD720 works without DDS).
 - [x] ZED point cloud + depth test box (2026-09-26). `sim/launcher/zed_pointcloud.py` (now `zed_depth.py`): contract topic
   `zed/zed_node/point_cloud/cloud_registered` (organized 320x180, x y z rgb, `zed_left_camera_frame`, sim time,
@@ -132,7 +133,7 @@ Phase 3 — Sensors, ZED Mini contract, VIO
   `spawn_objects`): `single_iris_vio` has a 1 m orange `depth_box` at x=4. `tests/zed_depth_box.py` checks the
   cloud against it: parked front face −0.1 mm, width 1.000 m; hovering (`--min-alt 1.9`) front +0.2 mm, top
   +6.5 mm (pose/cloud pairing while climbing) — PASS. Floor from the hover cloud 1.98 m below the lens (2.04
-  expected). GUI view aimed at the drone (`app.viewport_eye/target`), ZED window docked in the bottom panel.
+  expected). GUI view auto-framed on the spawned vehicles (pin with `app.viewport_eye/target`; Kit's default camera is far away, and the first fixed eye sat outside the room walls = black view), ZED window docked in the bottom panel.
 - [x] ZED SDK feature switches (2026-09-26): `deploy/jetson/zed_params.yaml` now lists every wrapper feature with its
   switch (video, sensors, depth, ROI, pos tracking, GNSS, mapping, OD, body tracking, streaming) and is read by the
   sim too (`sim/launcher/zed_features.py`; scenario `sensors.zed.features` overrides; "NOT simulated" warning).

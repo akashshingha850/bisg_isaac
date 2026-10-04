@@ -114,7 +114,7 @@ def attach_zed_mini(vehicle, ns: str, cfg: dict, features=None):
       fps: camera update rate
       imu_rate: IMU publish rate (ZED Mini wrapper = 200)
       depth_range: [near, far] metres
-      preview / preview_hz: GUI window with left image + depth (sim/launcher/zed_preview.py)
+      preview / preview_hz: GUI window with left image + depth (sim/launcher/drone_views.py)
     features: zed_features.Features — the zed_wrapper switches (deploy/jetson/zed_params.yaml).
       Here: video.publish_left_right, depth.publish_depth_map, sensors.publish_imu. None = all on.
 

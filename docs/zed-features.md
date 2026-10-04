@@ -65,7 +65,7 @@ what has actually been exercised (2026-10-03, `./bisg zed check` + a 4 m square 
 Scenario `sensors.zed.view`: live point cloud and fused map drawn over the main viewport
 (`point_cloud`, `fused_cloud`, `draw_color: depth|rgb`, point sizes, caps), plus the
 `preview` window (left image | depth). It is drawn by `sim/launcher/zed_depth.py` /
-`zed_preview.py`, and never appears in the ZED camera images.
+`drone_views.py`, and never appears in the ZED camera images.
 
 ## Checks
 

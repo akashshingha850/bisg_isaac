@@ -143,6 +143,24 @@ cmd_vehicle(){
     *) die "vehicle: up|down|restart|logs [--drone N]";; esac
 }
 
+# ROS image topic (default: the drone's ZED left image) -> RTP/H.264 UDP for QGroundControl. docs/video-qgc.md
+cmd_video(){
+  local sub="${1:-up}"; shift || true
+  while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; --topic) export VIDEO_TOPIC=$2; shift;;
+    --host) export VIDEO_HOST=$2; shift;; --port) export VIDEO_PORT=$2; shift;; *) die "video: unknown arg $1";; esac; shift; done
+  local name="bisg-video-${DRONE_ID}"
+  case $sub in
+    up) compose --profile video up -d video; ok "$name -> udp://${VIDEO_HOST}:${VIDEO_PORT}"
+        info "QGC: Application Settings > Video > Source 'UDP h.264 Video Stream', port ${VIDEO_PORT}";;
+    down) compose --profile video stop video; compose --profile video rm -f video >/dev/null; ok "$name stopped";;
+    logs) exec docker logs -f --tail 100 "$name";;
+    test) command -v gst-launch-1.0 >/dev/null || die "video test: needs gst-launch-1.0 on the host"
+          info "playing udp ${VIDEO_PORT} (Ctrl-C to stop; close QGC's video first - one receiver per port)"
+          exec gst-launch-1.0 udpsrc port="${VIDEO_PORT}" caps="application/x-rtp,media=video,encoding-name=H264,payload=96" \
+            ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false;;
+    *) die "video: up|down|logs|test [--drone N] [--topic T] [--host IP] [--port P]";; esac
+}
+
 cmd_ros(){
   case "${1:-shell}" in
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
@@ -240,7 +258,7 @@ cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f 
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
-  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; ros) shift; cmd_ros "$@";;
+  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; video) shift; cmd_video "$@";; ros) shift; cmd_ros "$@";;
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
   view|stream) shift; cmd_view "$@";;

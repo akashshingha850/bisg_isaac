@@ -1,6 +1,6 @@
 """
-Live ZED view in the Isaac GUI: left camera image and its depth, side by side, as a second
-camera perspective next to the main viewport.
+Live drone views in the Isaac GUI: the ZED left camera image and its depth side by side, plus
+the optional third-eye (chase) view, as extra camera perspectives next to the main viewport.
 
 Reads the rig's own render products (Camera.get_rgba / get_depth, the same data the ROS writers
 publish), so it works at HD720 even when DDS can't carry the frames (docs/bugs.md B2).
@@ -27,11 +27,15 @@ def _turbo_lut():
     return (np.clip(rgb, 0.0, 1.0) * 255).astype(np.uint8)
 
 
-class ZedPreview:
-    def __init__(self, cams: dict, ns: str, cfg: dict):
+class DroneViews:
+    def __init__(self, cams: dict, ns: str, cfg: dict, third_eye=None, third_eye_hz: float = 8.0):
         import omni.ui as ui  # noqa: WPS433 — only importable once Kit's UI is up
 
         self.cam = cams["left"]
+        self.third_eye = third_eye
+        self.third_eye_interval = 1.0 / max(float(third_eye_hz), 0.5)
+        self.third_eye_last_update = 0.0
+        self.third_eye_enabled = third_eye is not None
         self.near, self.far = [float(x) for x in cfg.get("depth_range", [0.1, 15.0])]
         self.interval = 1.0 / max(float(cfg.get("preview_hz", 5.0)), 0.5)
         self.t_last = 0.0
@@ -42,14 +46,16 @@ class ZedPreview:
 
         self.p_rgb = ui.ByteImageProvider()
         self.p_depth = ui.ByteImageProvider()
-        self.window = ui.Window(f"ZED Mini {ns} - left | depth", width=960, height=330)
+        self.p_third_eye = ui.ByteImageProvider() if third_eye is not None else None
+        title = f"ZED Mini {ns} - left | depth" + (" | third-eye" if third_eye is not None else "")
+        self.window = ui.Window(title, width=1920 if third_eye is not None else 1280, height=560)
         fit = ui.IwpFillPolicy.IWP_PRESERVE_ASPECT_FIT
         with self.window.frame:
-            with ui.VStack(spacing=4):
-                with ui.HStack(spacing=4):
-                    ui.ImageWithProvider(self.p_rgb, fill_policy=fit)
-                    ui.ImageWithProvider(self.p_depth, fill_policy=fit)
-                self.label = ui.Label("waiting for the first ZED frame...", height=18)
+            with ui.HStack(spacing=2):
+                ui.ImageWithProvider(self.p_rgb, fill_policy=fit)
+                ui.ImageWithProvider(self.p_depth, fill_policy=fit)
+                # if self.p_third_eye is not None:
+                ui.ImageWithProvider(self.p_third_eye, fill_policy=fit)
         # Tab next to the Content browser (bottom panel) so it doesn't cover the viewport; drag it out to float.
         self.window.deferred_dock_in("Content", ui.DockPolicy.CURRENT_WINDOW_IS_ACTIVE)
         LOG.info("zed preview: window '%s' (%.0f Hz, depth %.2f-%.1f m, red = near)",
@@ -82,11 +88,20 @@ class ZedPreview:
             vis[~valid, :3] = 0
             self.p_depth.set_data_array(vis, [w, h])
 
-            v = d[valid]
-            if v.size:
-                self.label.text = (f"{w}x{h}   depth min {v.min():.2f} m   median {np.median(v):.2f} m   "
-                                   f"< 0.5 m {(v < 0.5).mean() * 100:.1f}%   no depth {(~valid).mean() * 100:.1f}%   "
-                                   f"(red {self.near:g} m -> blue {self.far:g} m, log)")
+            third_eye_due = (self.third_eye is not None and self.third_eye_enabled
+                             and now - self.third_eye_last_update >= self.third_eye_interval)
+            if third_eye_due:
+                self.third_eye_last_update = now
+                try:
+                    third_rgba = self.third_eye.get_rgba()
+                    if third_rgba is not None and third_rgba.size:
+                        third_rgba = np.ascontiguousarray(third_rgba, dtype=np.uint8)
+                        th, tw = third_rgba.shape[:2]
+                        self.p_third_eye.set_data_array(third_rgba, [tw, th])
+                except Exception as exc:  # Keep the ZED and depth preview alive if this camera fails.
+                    LOG.warning("third-eye preview: update failed, disabling (%s)", exc)
+                    self.third_eye_enabled = False
+
         except Exception as exc:  # noqa: BLE001 — a broken preview must never stop the sim
             LOG.warning("zed preview: update failed, disabling (%s)", exc)
             self.enabled = False

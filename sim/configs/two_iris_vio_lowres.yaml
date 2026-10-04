@@ -26,7 +26,7 @@ vehicles:
         imu_rate: 200.0
         depth_range: [0.1, 15.0]
         preview: true                  # GUI/WebRTC: extra window with the ZED left image + depth (red near,
-        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/zed_preview.py
+        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/drone_views.py
         # ZED SDK features (depth products, mapping, OD, ...): switched in the real zed_wrapper overlay,
         # read by the sim too so both run the same set. docs/zed-features.md lists them.
         features_file: deploy/jetson/zed_params.yaml
@@ -63,7 +63,7 @@ vehicles:
         imu_rate: 200.0
         depth_range: [0.1, 15.0]
         preview: true                  # GUI/WebRTC: extra window with the ZED left image + depth (red near,
-        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/zed_preview.py
+        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/drone_views.py
         # ZED SDK features (depth products, mapping, OD, ...): switched in the real zed_wrapper overlay,
         # read by the sim too so both run the same set. docs/zed-features.md lists them.
         features_file: deploy/jetson/zed_params.yaml

@@ -50,7 +50,7 @@ in `sim/assets/README.md` when that work starts.
 
 | Config | Purpose |
 |---|---|
-| `sim/configs/single_iris.yaml` | Default. Warehouse world, textured, safe settings. |
+| `sim/configs/single_iris.yaml` | Default GUI/perception scenario. Simple Room, ZED + third-eye views; 60 Hz physics / 20 Hz rendering to target real-time operation. |
 | `sim/configs/headless_fast.yaml` | Regression/flight-stack profile: headless, no render, no materials, tiny grid world, 640×360. Not valid for perception work. |
 
 ```
@@ -87,8 +87,10 @@ caches; the very first warehouse run was ~249 s because it downloaded the assets
 | `headless_fast.yaml` headless, no view | ~186 s | ~192 s | 317 | **1.27** | grid world, `render: false` — the profile for tests |
 | `single_iris.yaml` GUI | ~250 s | ~260 s | not measured | | window on `:0` |
 
-`rtf >= 1.0` means the sim keeps up with wall clock. Only `headless_fast` clears it; the textured
-warehouse does not, which is expected on a 2080 Ti and is why regression runs use the fast profile.
+`rtf >= 1.0` means the sim keeps up with wall clock. The 250 Hz full-rate ZED setup did not reach this
+on the measured Isaac Sim 6 host, so `single_iris.yaml` now targets real time with 60 Hz physics and
+20 Hz rendering. This lowers the PX4 sensor/MAVLink update rate; confirm flight stability for the task
+before relying on this profile for control-fidelity work. `./bisg debug perf` reports the actual RTF.
 
 ### Render cadence (fixed 2026-09-13)
 
