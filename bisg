@@ -8,7 +8,7 @@
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
 #   ./bisg stop | down | restart
-#   ./bisg zed plan|set|up|services|enable|status|logs|check|test|down|ext-build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
+#   ./bisg zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
 #   ./bisg drone up|down|status|logs|check|build   the real drone (Jetson, or a USB ZED Mini on the workstation): MAVROS on the Pixracer + the ZED stack
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
 #   ./bisg check                        host preflight only (scripts/check_env.sh)

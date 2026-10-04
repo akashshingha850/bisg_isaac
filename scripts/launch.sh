@@ -13,7 +13,7 @@
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
 #   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
 #   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
-#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
+#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
 #   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)

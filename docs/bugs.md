@@ -23,6 +23,7 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
 | [B16](#b16) | S2 | ZED | Contract TF frames are `drone_<n>/`-prefixed; the real wrapper cannot publish a prefix |
 | [B17](#b17) | S2 | ZED | SDK odometry now feeds EKF2 closed loop in the sim (bridge `odometry`, restamped); accuracy under flight is 0.37/0.53/0.34 m vs the 0.3 m bound |
+| [B19](#b19) | S3 | ZED | Enabling the streaming server in the sim (`enable_streaming`) crashes the wrapper (SIGSEGV) |
 | [B18](#b18) | S3 | ZED | The SDK connects to the sim's stream once per sim run (restart the sim to reconnect) |
 
 ---
@@ -370,3 +371,13 @@ starts before the stream exists. `./bisg zed up` retries once, which covers a mi
 - **2026-10-03 — "SDK tracking dead, frames corrupted" in the first ZED spike.** Harness bug, not the SDK: the ZED asset was
   nested under a kinematic body instead of fixed-jointed, so the camera never moved (identical frames -> `Duplicate frame
   detected` -> `CORRUPTED FRAME`, odometry exactly 0). With the `FixedJoint` mount: 0 corrupted frames, odometry tracks.
+
+<a id="b19"></a>
+## B19 — `enable_streaming` crashes the wrapper in the sim
+**Sev S3 · found 2026-10-05 by `tests/zed_bench.py --streaming` · open.**
+With `ZED_SOURCE=sdk` the camera is already an input stream (the Isaac ZED Mini twin), and asking the wrapper to serve a stream as well fails:
+`[ZED][ERROR] [Streaming] Cannot enable streaming: Err Code 3` -> `Error starting the Streaming server` -> `component_container_isolated ... process has died ... exit code -11`.
+After that the wrapper is gone and the sim must be restarted to reconnect (B18). `docker/zed/zed.yaml` `streaming.enabled: true` at start would crash it the same way.
+**Workaround:** keep `streaming` off in the sim (the default); test it on the real camera. The bench only runs it with `--streaming`, last.
+**To check:** whether the same call works with the real camera on USB (expected), and whether Stereolabs' extension can relay a stream (no).
+

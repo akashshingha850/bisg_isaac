@@ -257,6 +257,8 @@ def load(path=None, sim=None):
     if sim is None:
         sim = os.environ.get("ZED_STACK_SIM") == "1"
     path = path or os.environ.get("ZED_STACK_CONFIG") or DEFAULT_CONFIG
+    if not os.path.isabs(path):
+        path = os.path.join(ROOT, path)          # repo-relative: the same string works on the host and in the containers
     try:
         with open(path) as f:
             data = yaml.safe_load(f) or {}

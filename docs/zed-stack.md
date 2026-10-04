@@ -36,15 +36,15 @@ wrapper's shipped YAML, so they follow the pinned wrapper version. A module that
 | `camera` | Camera | – | resolution, fps, flip, timeouts | verified |
 | `video` | Camera / video + controls | `publish_*` | `left\|right/color/rect/image`, `…/camera_info`, `rgb/`, `*/raw/`, `*/gray/`, `stereo/` | verified (left/right) |
 | `sensors` | Sensors | `publish_*` | `imu/data`, `imu/data_raw` (ZED Mini: IMU only, no mag/baro/temp) | `imu/data` published by the sim itself (the stream has no sensor channel) |
-| `depth` | Depth sensing | `enabled` (false → `depth_mode: NONE`) | `depth/depth_registered`, `point_cloud/cloud_registered`, `disparity/…`, `confidence/…`, `depth/depth_info` | depth + cloud verified; the rest should work, not exercised |
-| `region_of_interest` | Region of interest | `enabled` | `roi_mask/image` | not exercised |
-| `positional_tracking` | Positional tracking | `enabled` | `odom`, `pose`, `pose/status`, `pose_with_covariance`, `path_*`, `pose/landmarks` | verified: RMSE 0.088 m over a takeoff + 4 m square + landing |
+| `depth` | Depth sensing | `enabled` (false → `depth_mode: NONE`) | `depth/depth_registered`, `point_cloud/cloud_registered`, `disparity/…`, `confidence/…`, `depth/depth_info` | verified (all five; disparity = f·T/depth exactly) |
+| `region_of_interest` | Region of interest | `enabled` | `roi_mask/image` | runs, publishes no mask (nothing of the robot is in the sim view); test on hardware |
+| `positional_tracking` | Positional tracking | `enabled` | `odom`, `pose`, `pose/status`, `pose_with_covariance`, `path_*`, `pose/landmarks` | verified: all topics; RMSE 0.088 m over a takeoff + 4 m square + landing |
 | `global_localization` | Global localization (GNSS fusion) | `enabled` | `geo_pose`, `pose/filtered`, `pose/fused_fix` | no (we fly GPS-denied) |
-| `spatial_mapping` | Spatial mapping | `enabled` | `mapping/fused_cloud` | should work, not exercised |
-| `plane_detection` | Plane detection | `enabled` | `plane`, `plane_marker` | should work, not exercised |
-| `object_detection` | Object detection + tracking (AI) | `enabled` | `obj_det/objects`; per-class switches under `classes:` | not exercised: needs people/vehicles in the scene + model download |
-| `body_tracking` | Body tracking (AI) | `enabled` | `body_trk/skeletons` | not exercised, same |
-| `streaming` | Streaming | `enabled` | – (open the stream with the SDK elsewhere) | not meaningful: the camera *is* a stream |
+| `spatial_mapping` | Spatial mapping | `enabled` | `mapping/fused_cloud` | verified (40 k points; **+4 GB RAM**) |
+| `plane_detection` | Plane detection | `enabled` | `plane`, `plane_marker` | verified (clicked point in the `odom` frame) |
+| `object_detection` | Object detection + tracking (AI) | `enabled` | `obj_det/objects`; per-class switches under `classes:` | runs at the camera rate (model: 278 s first start, +4 GB RAM); accuracy untested: no people/vehicles in the scene |
+| `body_tracking` | Body tracking (AI) | `enabled` | `body_trk/skeletons` | runs at the camera rate (80 s first start, **+7 GB RAM**); accuracy untested |
+| `streaming` | Streaming | `enabled` | – (open the stream with the SDK elsewhere) | **crashes the wrapper in the sim** (B19); real camera only |
 | `recording` | SVO recording | – | services `start_svo_rec` / `stop_svo_rec` | not meaningful in sim: record a rosbag |
 
 `publish_*` keys only **advertise** a topic; the wrapper computes it while something subscribes, so leaving one on costs nothing.
@@ -102,6 +102,7 @@ not an SSH tunnel). `./bisg zed video-test` plays it on the host without QGC (cl
 | `tests/unit/`, `tests/zed_bridge_fake.py`, `tests/zed_sdk_check.py` | config + maths tests · bridge on fake topics · live SDK check (sim and Jetson, `--no-gt`) |
 
 ## Checks
+- `./bisg zed bench` — tests every SDK module above on one wrapper and measures rate / CPU / RAM / GPU per module: **[zed-benchmark.md](zed-benchmark.md)** (16/16 phases pass in the sim).
 - `./bisg zed test` — 15 unit tests (compile, validation, `set`, sector maths) and the bridge on fake topics (obstacle sectors, odometry frames/restamp/silence on lost tracking/recovery, STATUSTEXT, status JSON).
 - `./bisg zed check` — the real SDK in the sim: streams, geometry (HD720, 63 mm baseline), depth, health flags, tracking vs ground truth.
 - Emulated rig (`ZED_SOURCE=emulated`): `docker/zed/zed.yaml` still decides which products the sim publishes (`sim/launcher/zed_features.py` reads it through `zed_stack`); a switch that is on but not simulated is logged at startup.

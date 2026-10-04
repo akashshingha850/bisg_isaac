@@ -11,6 +11,7 @@
 #   zed.sh down | status | logs [wrapper|bridge|video] [-f] | check [args]
 #   zed.sh video-test                 host GStreamer player on the video port (close QGC's video first)
 #   zed.sh test                       unit tests + the bridge against fake topics (no camera, no sim)
+#   zed.sh bench [--quick] [--streaming] [--window S]   test + benchmark every SDK module on a FRESH sim (restarts it), table -> out/zed_bench.*
 #   zed.sh ext-build | image          build the Isaac Sim extension / the bisg/zed image (once)
 #
 # Typical run:   ZED_SOURCE=sdk ./bisg all headless && ./bisg zed up && ./bisg zed status
@@ -78,6 +79,28 @@ case "$sub" in
 
   services) container_running "$ZNAME" || die "$ZNAME is not running (./bisg zed up)"; start_services;;   # restart only the side services (after `zed set`), wrapper untouched
 
+  bench)
+    # One wrapper, every module in turn (tests/zed_bench.py). The SDK connects once per sim run (B18), so this restarts the sim.
+    window=20; extra=()
+    for a in "${passthru[@]:-}"; do case "$a" in --quick) extra+=(--skip-ai --window 8);; --streaming) extra+=(--streaming);; --window) ;; "") ;; [0-9]*) window=$a;; *) die "bench: [--quick] [--streaming] [--window S]";; esac; done
+    info "fresh SDK sim for the benchmark (./bisg down; ZED_SOURCE=sdk ./bisg all headless)"
+    "$ROOT/bisg" zed down >/dev/null 2>&1 || true; "$ROOT/bisg" down >/dev/null 2>&1 || true
+    ZED_SOURCE=sdk "$ROOT/bisg" all headless >/dev/null 2>&1 || die "sim did not come up (./bisg logs)"
+    zs derive -o "$ROOT/docker/zed/.bench.yaml" \
+      video.publish_rgb=true video.publish_raw=true video.publish_gray=true video.publish_stereo=true \
+      sensors.publish_imu_raw=true sensors.publish_cam_imu_transf=true \
+      depth.publish_depth_confidence=true depth.publish_disparity=true depth.publish_depth_info=true \
+      region_of_interest.enabled=true region_of_interest.publish_roi_mask=true \
+      positional_tracking.publish_pose_cov=true positional_tracking.publish_cam_path=true positional_tracking.publish_3d_landmarks=true \
+      plane_detection.enabled=true >/dev/null
+    export ZED_STACK_CONFIG=docker/zed/.bench.yaml
+    "$0" up --drone "$DRONE_ID" >/dev/null 2>&1 || die "zed up failed on the bench config"
+    mkdir -p "$ROOT/out"
+    zexec "cd /workspace && mkdir -p /tmp/o && python3 tests/zed_bench.py --drone ${DRONE_ID} --window ${window} ${extra[*]:-} --json /tmp/o/zed_bench.json" 2>&1 | grep -v '^\[WARN\]' | tee "$ROOT/out/zed_bench.txt"
+    docker cp "$ZNAME:/tmp/o/zed_bench.json" "$ROOT/out/zed_bench.json" 2>/dev/null && ok "out/zed_bench.json"
+    docker stats --no-stream --format '  {{.Name}}: cpu {{.CPUPerc}}  mem {{.MemUsage}}' "$ZNAME" "bisg-zed-bridge-${DRONE_ID}" 2>/dev/null
+    unset ZED_STACK_CONFIG; "$ROOT/bisg" zed down >/dev/null 2>&1 || true; info "sim left running; ./bisg down to stop";;
+
   enable)   # switch an SDK module on/off in the RUNNING wrapper (no restart); docker/zed/zed.yaml is not changed
     mod="${passthru[0]:-}"; state="${passthru[1]:-on}"
     case "$mod" in object_detection) srv=enable_obj_det;; body_tracking) srv=enable_body_trk;; spatial_mapping) srv=enable_mapping;;
@@ -129,5 +152,5 @@ for l in sys.stdin:
     docker run --rm --network host --ipc host -e ROS_DOMAIN_ID=77 -v "$ROOT":/workspace:ro --entrypoint bash bisg/zed:${ZED_VARIANT} \
       -lc 'source /opt/ros/jazzy/setup.bash; cd /workspace && python3 tests/zed_bridge_fake.py' 2>&1 | grep -E "PASS|FAIL|^[a-z]" ;;
 
-  *) sed -n 2,21p "$0"; exit 2;;
+  *) sed -n 2,22p "$0"; exit 2;;
 esac

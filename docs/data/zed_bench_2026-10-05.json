@@ -1,0 +1,507 @@
+{
+ "date": "2026-10-05 01:24:19",
+ "args": {
+  "drone": 1,
+  "window": 20.0,
+  "warmup": 6.0,
+  "only": "",
+  "streaming": false,
+  "skip_ai": false,
+  "json": "/tmp/o/full.json"
+ },
+ "results": [
+  {
+   "missing": [],
+   "wall_s": 20.8,
+   "sim_s": 17.1,
+   "rtf": 0.82,
+   "cpu_cores": 0.47,
+   "rss_mb": 875,
+   "gpu_util": 51.0,
+   "gpu_mem_mb": 4077,
+   "topics": {},
+   "phase": "idle",
+   "module": "(no subscriber)",
+   "status": "PASS",
+   "note": "baseline: wrapper running, nothing requested",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.8,
+   "sim_s": 16.6,
+   "rtf": 0.798,
+   "cpu_cores": 0.51,
+   "rss_mb": 903,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4081,
+   "topics": {
+    "left/color/rect/image": {
+     "n": 496,
+     "wall_hz": 23.8,
+     "sim_hz": 29.8,
+     "mb_s": 87.7
+    },
+    "left/color/rect/camera_info": {
+     "n": 497,
+     "wall_hz": 23.8,
+     "sim_hz": 29.9,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "video_left",
+   "module": "video",
+   "status": "PASS",
+   "note": "1280x720",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.7,
+   "sim_s": 16.3,
+   "rtf": 0.788,
+   "cpu_cores": 0.55,
+   "rss_mb": 925,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4082,
+   "topics": {
+    "left/color/rect/image": {
+     "n": 487,
+     "wall_hz": 23.5,
+     "sim_hz": 29.9,
+     "mb_s": 86.7
+    },
+    "right/color/rect/image": {
+     "n": 488,
+     "wall_hz": 23.6,
+     "sim_hz": 29.9,
+     "mb_s": 86.9
+    },
+    "left/color/rect/camera_info": {
+     "n": 488,
+     "wall_hz": 23.6,
+     "sim_hz": 29.9,
+     "mb_s": 0.0
+    },
+    "right/color/rect/camera_info": {
+     "n": 488,
+     "wall_hz": 23.6,
+     "sim_hz": 29.9,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "video_stereo",
+   "module": "video",
+   "status": "PASS",
+   "note": "1280x720",
+   "setup_s": 8.7
+  },
+  {
+   "missing": [],
+   "wall_s": 20.9,
+   "sim_s": 16.2,
+   "rtf": 0.775,
+   "cpu_cores": 0.68,
+   "rss_mb": 966,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4082,
+   "topics": {
+    "rgb/color/rect/image": {
+     "n": 481,
+     "wall_hz": 23.1,
+     "sim_hz": 29.7,
+     "mb_s": 85.0
+    },
+    "left/color/raw/image": {
+     "n": 481,
+     "wall_hz": 23.1,
+     "sim_hz": 29.7,
+     "mb_s": 85.0
+    },
+    "left/gray/rect/image": {
+     "n": 481,
+     "wall_hz": 23.1,
+     "sim_hz": 29.7,
+     "mb_s": 21.2
+    },
+    "stereo/color/rect/image": {
+     "n": 481,
+     "wall_hz": 23.1,
+     "sim_hz": 29.7,
+     "mb_s": 170.0
+    }
+   },
+   "phase": "video_variants",
+   "module": "video",
+   "status": "PASS",
+   "note": "1280x720",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.8,
+   "sim_s": 16.6,
+   "rtf": 0.798,
+   "cpu_cores": 0.5,
+   "rss_mb": 986,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4082,
+   "topics": {
+    "depth/depth_registered": {
+     "n": 490,
+     "wall_hz": 23.5,
+     "sim_hz": 29.5,
+     "mb_s": 86.7
+    }
+   },
+   "phase": "depth",
+   "module": "depth",
+   "status": "PASS",
+   "note": "63% valid, 1.57-5.11 m",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.6,
+   "sim_s": 16.5,
+   "rtf": 0.799,
+   "cpu_cores": 0.5,
+   "rss_mb": 1013,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4097,
+   "topics": {
+    "point_cloud/cloud_registered": {
+     "n": 206,
+     "wall_hz": 10.0,
+     "sim_hz": 12.5,
+     "mb_s": 18.3
+    }
+   },
+   "phase": "point_cloud",
+   "module": "depth",
+   "status": "PASS",
+   "note": "448x256 points, fields x,y,z,rgb",
+   "setup_s": 8.6
+  },
+  {
+   "missing": [],
+   "wall_s": 20.7,
+   "sim_s": 16.2,
+   "rtf": 0.783,
+   "cpu_cores": 0.62,
+   "rss_mb": 1041,
+   "gpu_util": 50.0,
+   "gpu_mem_mb": 4097,
+   "topics": {
+    "disparity/disparity_image": {
+     "n": 481,
+     "wall_hz": 23.3,
+     "sim_hz": 29.8,
+     "mb_s": 0.0
+    },
+    "confidence/confidence_map": {
+     "n": 481,
+     "wall_hz": 23.3,
+     "sim_hz": 29.8,
+     "mb_s": 85.8
+    },
+    "depth/depth_info": {
+     "n": 481,
+     "wall_hz": 23.3,
+     "sim_hz": 29.8,
+     "mb_s": 0.0
+    },
+    "depth/depth_registered": {
+     "n": 481,
+     "wall_hz": 23.3,
+     "sim_hz": 29.8,
+     "mb_s": 85.8
+    }
+   },
+   "phase": "depth_extras",
+   "module": "depth",
+   "status": "PASS",
+   "note": "f*T/disparity vs depth = 1.000; confidence 0-100; depth_info 0.45-5.18 m",
+   "setup_s": 8.7
+  },
+  {
+   "missing": [],
+   "wall_s": 20.9,
+   "sim_s": 17.0,
+   "rtf": 0.813,
+   "cpu_cores": 0.49,
+   "rss_mb": 1065,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4097,
+   "topics": {
+    "roi_mask/image": {
+     "n": 0,
+     "wall_hz": 0.0,
+     "sim_hz": 0.0,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "roi_mask",
+   "module": "region_of_interest",
+   "status": "WARN",
+   "note": "no mask published (automatic ROI needs the camera to see parts of the robot; the sim view is clear)",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.9,
+   "sim_s": 16.9,
+   "rtf": 0.809,
+   "cpu_cores": 0.51,
+   "rss_mb": 1091,
+   "gpu_util": 54.0,
+   "gpu_mem_mb": 4098,
+   "topics": {
+    "odom": {
+     "n": 502,
+     "wall_hz": 24.0,
+     "sim_hz": 29.6,
+     "mb_s": 0.0
+    },
+    "pose": {
+     "n": 502,
+     "wall_hz": 24.0,
+     "sim_hz": 29.6,
+     "mb_s": 0.0
+    },
+    "pose/status": {
+     "n": 502,
+     "wall_hz": 24.0,
+     "sim_hz": 29.6,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "tracking",
+   "module": "positional_tracking",
+   "status": "PASS",
+   "note": "odometry_status=0, odom (0.002, 0.025, -0.005) frame odom->zed_camera_link",
+   "setup_s": 9.0
+  },
+  {
+   "missing": [],
+   "wall_s": 20.7,
+   "sim_s": 16.9,
+   "rtf": 0.815,
+   "cpu_cores": 0.48,
+   "rss_mb": 1114,
+   "gpu_util": 52.0,
+   "gpu_mem_mb": 4098,
+   "topics": {
+    "pose_with_covariance": {
+     "n": 503,
+     "wall_hz": 24.2,
+     "sim_hz": 29.7,
+     "mb_s": 0.0
+    },
+    "path_odom": {
+     "n": 41,
+     "wall_hz": 2.0,
+     "sim_hz": 2.4,
+     "mb_s": 0.0
+    },
+    "path_map": {
+     "n": 41,
+     "wall_hz": 2.0,
+     "sim_hz": 2.4,
+     "mb_s": 0.0
+    },
+    "pose/landmarks": {
+     "n": 84,
+     "wall_hz": 4.0,
+     "sim_hz": 5.0,
+     "mb_s": 0.2
+    }
+   },
+   "phase": "tracking_extras",
+   "module": "positional_tracking",
+   "status": "PASS",
+   "note": "cov diag x=3.00e-02 yaw=3.63e-03; path_odom 586 poses; path_map 586 poses; landmarks 3027",
+   "setup_s": 8.7
+  },
+  {
+   "missing": [],
+   "wall_s": 20.5,
+   "sim_s": 16.6,
+   "rtf": 0.808,
+   "cpu_cores": 0.47,
+   "rss_mb": 1134,
+   "gpu_util": 52.0,
+   "gpu_mem_mb": 4098,
+   "topics": {
+    "imu/data": {
+     "n": 2482,
+     "wall_hz": 120.8,
+     "sim_hz": 149.5,
+     "mb_s": 0.0
+    },
+    "imu/data_raw": {
+     "n": 494,
+     "wall_hz": 24.0,
+     "sim_hz": 29.8,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "imu",
+   "module": "sensors",
+   "status": "PASS",
+   "note": "imu/data ok; imu/data_raw ok",
+   "setup_s": 8.6
+  },
+  {
+   "missing": [],
+   "wall_s": 20.8,
+   "sim_s": 16.8,
+   "rtf": 0.811,
+   "cpu_cores": 0.64,
+   "rss_mb": 5383,
+   "gpu_util": 53.0,
+   "gpu_mem_mb": 4103,
+   "topics": {
+    "mapping/fused_cloud": {
+     "n": 20,
+     "wall_hz": 1.0,
+     "sim_hz": 1.2,
+     "mb_s": 0.6
+    }
+   },
+   "phase": "spatial_mapping",
+   "module": "spatial_mapping",
+   "status": "PASS",
+   "note": "40159 points, frame map",
+   "setup_s": 21.0
+  },
+  {
+   "missing": [],
+   "wall_s": 20.8,
+   "sim_s": 16.8,
+   "rtf": 0.806,
+   "cpu_cores": 0.52,
+   "rss_mb": 1224,
+   "gpu_util": 54.0,
+   "gpu_mem_mb": 4099,
+   "topics": {
+    "plane": {
+     "n": 0,
+     "wall_hz": 0.0,
+     "sim_hz": 0.0,
+     "mb_s": 0.0
+    },
+    "plane_marker": {
+     "n": 0,
+     "wall_hz": 0.0,
+     "sim_hz": 0.0,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "plane_detection",
+   "module": "plane_detection",
+   "status": "PASS",
+   "note": "normal (-0.83,-0.07,-0.56), 211 triangles",
+   "setup_s": 11.4
+  },
+  {
+   "missing": [],
+   "wall_s": 20.9,
+   "sim_s": 16.4,
+   "rtf": 0.784,
+   "cpu_cores": 0.65,
+   "rss_mb": 1229,
+   "gpu_util": 51.0,
+   "gpu_mem_mb": 4099,
+   "topics": {
+    "left/color/rect/image": {
+     "n": 489,
+     "wall_hz": 23.4,
+     "sim_hz": 29.9,
+     "mb_s": 86.4
+    },
+    "right/color/rect/image": {
+     "n": 489,
+     "wall_hz": 23.4,
+     "sim_hz": 29.9,
+     "mb_s": 86.4
+    },
+    "depth/depth_registered": {
+     "n": 489,
+     "wall_hz": 23.4,
+     "sim_hz": 29.9,
+     "mb_s": 86.4
+    },
+    "point_cloud/cloud_registered": {
+     "n": 209,
+     "wall_hz": 10.0,
+     "sim_hz": 12.8,
+     "mb_s": 18.4
+    },
+    "odom": {
+     "n": 489,
+     "wall_hz": 23.4,
+     "sim_hz": 29.9,
+     "mb_s": 0.0
+    },
+    "imu/data": {
+     "n": 2424,
+     "wall_hz": 116.1,
+     "sim_hz": 148.1,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "drone_core",
+   "module": "(typical drone load)",
+   "status": "PASS",
+   "note": "stereo + depth + cloud + odometry + imu together",
+   "setup_s": 8.9
+  },
+  {
+   "missing": [],
+   "wall_s": 20.9,
+   "sim_s": 16.9,
+   "rtf": 0.811,
+   "cpu_cores": 0.6,
+   "rss_mb": 5340,
+   "gpu_util": 54.0,
+   "gpu_mem_mb": 4193,
+   "topics": {
+    "obj_det/objects": {
+     "n": 506,
+     "wall_hz": 24.2,
+     "sim_hz": 29.9,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "object_detection",
+   "module": "object_detection",
+   "status": "PASS",
+   "note": "0 objects in view (the room has none; this proves the model runs, not accuracy)",
+   "setup_s": 277.7
+  },
+  {
+   "missing": [],
+   "wall_s": 20.7,
+   "sim_s": 16.6,
+   "rtf": 0.801,
+   "cpu_cores": 0.66,
+   "rss_mb": 8285,
+   "gpu_util": 55.0,
+   "gpu_mem_mb": 4223,
+   "topics": {
+    "body_trk/skeletons": {
+     "n": 495,
+     "wall_hz": 23.9,
+     "sim_hz": 29.8,
+     "mb_s": 0.0
+    }
+   },
+   "phase": "body_tracking",
+   "module": "body_tracking",
+   "status": "PASS",
+   "note": "0 skeletons in view (none in the room: runs, accuracy untested)",
+   "setup_s": 80.3
+  }
+ ]
+}
