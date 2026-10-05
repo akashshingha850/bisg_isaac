@@ -95,6 +95,7 @@ Key properties:
 | ZED Isaac extension (ADR-007) | **`zed-isaac-sim` v5.2.1** (`529e538`; a branch upstream, pin the SHA), Kit range widened to 110.1.1 for the 6.0.0 image | streams a simulated ZED Mini (stereo + frame-rate IMU) into the real SDK; built by `docker/zed/build_isaac_ext.sh` into `docker/zed/zed-isaac-sim` | — |
 | ZED ROS 2 wrapper | `zed-ros2-wrapper` matching SDK, Jazzy | its topic/frame names define our ZED contract | — |
 | Docker | Compose v2, nvidia runtime | present on host | ADR-002 |
+| Remote access | **Tailscale `v1.102.5`** (`tailscale/tailscale`, compose service `vpn`) | reach the sim from another network; WebRTC needs UDP, which tunnels do not carry | ADR-009 |
 | GPU budget | RTX 2080 Ti 11 GB | below Isaac's recommended 3070; swarm tests run headless, 1 camera/drone, ≤1280×720 | risk R1 |
 
 The values above are applied from the pins block of `config/bisg.conf` (`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`);
@@ -223,6 +224,7 @@ Still open (record in `hardware.md` when known):
 - [ADR-003 One PX4 version for SITL and Pixracer](decisions/ADR-003-px4-version.md)
 - [ADR-004 CycloneDDS + zenoh bridge for the fleet network](decisions/ADR-004-dds.md)
 - [ADR-005 ROS 2 Jazzy in all containers](decisions/ADR-005-ros2-jazzy.md)
+- [ADR-009 Remote access through a Tailscale compose service](decisions/ADR-009-remote-access-vpn.md)
 
 ## 12. Workstation OS migration (22.04 → 24.04) — done 2026-09-21/22
 

@@ -15,6 +15,47 @@ one you can use depends on whether UDP reaches you.
 `SIM_VIEW=both` runs the two at once, and `gui+web` / `gui+webrtc` add a stream on top of the local
 window. Either transport forces rendering on, so never use one for a timing or regression run.
 
+## You are on another network: the `vpn` service
+
+A Tailscale node runs as a compose service (`vpn`, ADR-009) on the host network. This server gets a
+`100.x.y.z` tailnet address, and everything listening here (browser view, WebRTC, SSH, MAVLink) is reachable from
+your other devices on the same tailnet. It makes outbound connections only: no port forwarding, no public IP,
+and it works behind NAT and campus firewalls (falling back to Tailscale's HTTPS relays when UDP is blocked).
+Nothing is exposed to the internet. Only devices logged into your tailnet can connect.
+
+**On the sim server, once:**
+
+```
+echo SIM_VIEW_ADDR=vpn >> docker/.env     # WebRTC advertises this host's tailnet IP
+./bisg vpn up                             # first time: prints a login URL, open it in any browser
+```
+
+The login is kept in the `bisg-vpn_vpn-state` volume, and the container restarts with the machine
+(`restart: unless-stopped`), so later runs need nothing. For an unattended setup, put a reusable auth key from
+the Tailscale admin console in `docker/.env` as `TS_AUTHKEY=tskey-...`. It is a secret, so never put it in `config/bisg.conf`.
+
+**On the machine you watch from:** install Tailscale (Windows/macOS/Linux/iOS/Android app) and log in with the
+same account. If that machine is a Linux box with this repo, `./bisg vpn up` there works too.
+
+**Then:**
+
+```
+./bisg up webrtc        # or: ./bisg up web     (on the sim server)
+./bisg vpn status       # prints the address and what to open
+```
+
+| From the remote machine | Open |
+|---|---|
+| Interactive Isaac UI | Isaac Sim WebRTC Streaming Client → the server's `100.x` address |
+| Still frames in a browser | `http://100.x.y.z:8899/` |
+| Shell | `ssh <user>@100.x.y.z` (or the MagicDNS name, `VPN_HOSTNAME`, default `bisg-<hostname>`) |
+| QGroundControl | on the server `GCS_URL=udp://@<remote's 100.x IP>:14550` in `docker/.env`, then `./bisg mavros up`; QGC listens on 14550 by default |
+
+`./bisg down` stops the sim but not the VPN (own compose project `bisg-vpn`). `./bisg vpn down` disconnects;
+`./bisg vpn logout` also forgets the login. `--accept-dns=false` is set, so the host's DNS is not touched
+(this matters on a shared machine). ROS 2 DDS discovery does not cross the tailnet (no multicast); use the views above or
+`./bisg shell` over SSH.
+
 ## You are on a VS Code tunnel (this workstation's usual case)
 
 ```
@@ -58,9 +99,7 @@ connect it to that address, and open TCP 49100 + UDP 47998 on the host firewall.
 needs no GPU. Without `SIM_VIEW_ADDR` a remote client connects to the signalling port and then
 receives no video, which looks like a hang.
 
-[Tailscale](https://tailscale.com) is the least-effort option here: install it on both machines, read the
-workstation's `100.x.y.z` address off `tailscale ip -4`, put it in `SIM_VIEW_ADDR`. WireGuard and
-ZeroTier work the same way.
+From another network, use the `vpn` service above (`SIM_VIEW_ADDR=vpn`). On a LAN, the LAN IP is enough.
 
 ## What does not work
 
@@ -82,7 +121,10 @@ All in the "What you see" block of [`config/bisg.conf`](../config/bisg.conf):
 | Key | Default | Meaning |
 |---|---|---|
 | `SIM_VIEW` | `auto` | `gui` \| `headless` \| `web` \| `webrtc` \| `both` \| `auto`, combined with `+` |
-| `SIM_VIEW_ADDR` | empty | address advertised to remote clients; required for remote WebRTC |
+| `SIM_VIEW_ADDR` | empty | address advertised to remote clients; required for remote WebRTC; `vpn` = this host's tailnet IP. Per machine: `docker/.env` |
+| `VPN_HOSTNAME` | `bisg-<hostname>` | this host's name on the tailnet (`vpn` service) |
+| `TAILSCALE_TAG` | `v1.102.5` | image pin of the `vpn` service (ADR-009) |
+| `TS_AUTHKEY` | empty | `docker/.env` only: auth key for an unattended `./bisg vpn up` |
 | `SIM_WEB_PORT` | `8899` | TCP port of the browser view |
 | `SIM_WEB_INTERVAL` | `1.0` | seconds between captured frames |
 
@@ -97,5 +139,7 @@ Per-run overrides: `./bisg up web`, `webrtc`, `both`, `gui+webrtc`, or the flags
 | `ERR_CONNECTION_REFUSED` on `http://127.0.0.1:8899/` | nothing is listening: the sim is not running (`./bisg status`), still booting, or was started with no web view. `./bisg view` says which. A GPU/driver problem stops the container before any port opens — `./bisg up` reports that case directly |
 | Page does not load at all | port not forwarded, or the sim was started with no web view: `./bisg view` says which |
 | WebRTC client connects, black window | no UDP path, or `SIM_VIEW_ADDR` unset/wrong |
+| `SIM_VIEW_ADDR=vpn but the vpn service has no address` | `./bisg vpn up` (and finish the login), then `./bisg up` again |
+| Remote machine cannot reach `100.x` | it is not on the same tailnet (`tailscale status` there), or the server's node is logged out (`./bisg vpn status`) |
 | Everything is slower | expected: a view forces rendering; use `SIM_VIEW=headless` for tests |
 | Frames look stale | `SIM_WEB_INTERVAL` is the refresh rate; lower it, at the cost of GPU time |

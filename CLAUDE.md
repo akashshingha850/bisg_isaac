@@ -12,6 +12,7 @@ Read `docs/plan.md` for architecture, `docs/todo.md` for what is in progress. Up
 - Version pins live in `docs/plan.md` §4 and are applied from the pins block of `config/bisg.conf`. Change a pin only with an ADR update.
 - Settings layering (`docs/configuration.md`): `config/bisg.conf` = every project default, in topic comment blocks (view, sim, ros, drone, pins, links); `docker/zed/zed.yaml` = everything the ZED does (SDK modules, PX4 bridge, QGC video; ADR-008); `docker/.env` = this machine only; scenario YAML = world/vehicle content. A new knob goes in the matching block + `conf_default` in `scripts/_common.sh`, never hard-coded in a script. One key lives in exactly one place.
 - One key, `SIM_VIEW`, decides window + remote view: `gui|headless|web|webrtc|both|auto`, combined with `+` (`gui+webrtc`); `./bisg up <value>` overrides it per run. `web` (still frames on one TCP port) survives a VS Code/SSH tunnel; `webrtc` needs UDP 47998, so LAN or VPN only (`docs/remote-access.md`).
+- **Remote access from another network** is the `vpn` compose service (Tailscale, ADR-009; `./bisg vpn up|status|down`), own compose project so `./bisg down` never stops it. `SIM_VIEW_ADDR=vpn` (in `docker/.env`) advertises the tailnet IP. Tunnels (SSH/Cloudflare) carry only the `web` view, never WebRTC's UDP. No ZeroTier.
 - Containers are ROS 2 **Jazzy** (ADR-005), Ubuntu 24.04 base. The host has no ROS install at all; never make a script depend on host ROS.
 - Order: single-drone twin → assets/models → one real drone → swarm. Swarm work waits for Phase 6.
 - Never `git submodule update --remote` in `docker/sim/PegasusSimulator` or `docker/zed/zed-ros2-wrapper` without checking the pin.
@@ -20,12 +21,24 @@ Read `docs/plan.md` for architecture, `docs/todo.md` for what is in progress. Up
 - **The real ZED SDK runs in the sim** (`ZED_SOURCE=sdk`, `docs/zed-sdk-sim.md`): Stereolabs' `zed-isaac-sim` v5.2.x extension streams a ZED Mini twin into the unmodified `zed_wrapper` (`./bisg zed ext-build|image|up|check`). `emulated` (default) is the no-SDK rig + `vio_mock`. The ZED asset must be **fixed-jointed** to the vehicle body (a nested reference does not follow it: black frames, odom 0). One odometry source per run: with `sdk`, never start `vio_mock`. The wrapper is launched by `docker/zed/zed_drone.launch.py` in sim and on the Jetson. ZED topic names are the 5.4.1 ones (`left/color/rect/image`, not `image_rect_color`). The SDK connects once per sim run (B18): never `zed up` twice against one sim run. Isaac 5.1 has no ZED Mini twin.
 - Before trusting a sim run after any pin/API change, run the three checks that gate the migration: `./bisg smoke`, `tests/vio_flight.py` (needs `SIM_SCENARIO=single_iris_vio ./bisg all headless`), `tests/zed_depth_box.py`; after a ZED-stack change also `./bisg zed test` (no sim needed). Sim speed on 6.0 is ~0.3-0.5x real time (Pegasus Python per-step cost, `migration-errors.md` M8); time-based test margins must allow for it.
 
-## Host facts (this workstation)
-- Ubuntu 24.04.5 LTS, no ROS install on host, RTX 4500 Ada Generation 24 GB VRAM, NVIDIA driver **580.178.04**, Docker 29.1.3, 125 GB RAM, 24 cores. Driver must stay on the 580 branch — the 595.x/R590 branch this GPU shipped with segfaults Isaac Sim 5.1's RTX renderer (`docs/plan.md` §12; untested on 6.0); `scripts/check_env.sh` hard-fails on any 59x driver.
-- **Docker's data-root is `/opt/docker-data`** (moved from `/var/lib/docker` on 2026-10-03 because `/` is only 140 GB; `/etc/docker/daemon.json`, backup `daemon.json.bak-before-datarootmove`). Images, volumes and build cache no longer compete with the OS disk; `./bisg check` prints the root and its free space.
-- Bulk storage lives on `/opt` (1.9 TB ext4, ~1.3 TB free) — **not** `/media/ubuntu/ssd`, which does not exist on this box. `ARCHIVE_DIR` and any large-artifact paths must point under `/opt`.
-- GPU access from containers works: user `bisg` is in the `docker` group and the NVIDIA Container Toolkit + `nvidia` runtime are installed and verified (`./bisg check`, `docker run --gpus all`).
-- Isaac Sim 6.0 is verified on this GPU (RTX 4500 Ada, driver 580.178.04): ~30 s to `sim ready` warm, ~190 s on the first boot or after `./bisg debug clean-cache`. Use `timeout` and `PYTHONUNBUFFERED=1` when driving it from scripts; prefer headless for tests. The 59x-driver guard was found on 5.1 and is **not** re-tested on 6.0 — keep it.
+## Host facts (two workstations)
+The project must run unchanged on both; anything machine-specific goes in `docker/.env` (git-ignored), never in `config/bisg.conf` or a script. Check which box you are on with `hostname` / `nvidia-smi` before trusting a path or GPU figure below.
+
+**Workstation A — user `bisg`, 1x RTX 4500 Ada**
+- Ubuntu 24.04.5 LTS, no ROS install on host, RTX 4500 Ada Generation 24 GB VRAM, NVIDIA driver **580.178.04**, Docker 29.1.3, 125 GB RAM, 24 cores.
+- **Docker's data-root is `/opt/docker-data`** (moved from `/var/lib/docker` on 2026-10-03 because `/` is only 140 GB; `/etc/docker/daemon.json`, backup `daemon.json.bak-before-datarootmove`). `./bisg check` prints the root and its free space.
+- Bulk storage lives on `/opt` (1.9 TB ext4, ~1.3 TB free) — **not** `/media/ubuntu/ssd`, which does not exist on this box. `ARCHIVE_DIR` and any large-artifact paths must point under `/opt` (set in `docker/.env`).
+- Isaac Sim 6.0 verified: ~30 s to `sim ready` warm, ~190 s on the first boot or after `./bisg debug clean-cache`.
+
+**Workstation B — `ict-em018kc6`, user `akashshingha`, 2x RTX 6000 Ada, shared**
+- Ubuntu 24.04.3 LTS, no ROS install on host, 2x RTX 6000 Ada Generation 48 GB VRAM, NVIDIA driver **580.105.08**, Docker 29.1.3 (data-root default `/var/lib/docker`, `/` is a 3.7 TB LV), 188 GB RAM, Threadripper PRO 7975WX (64 threads). Multi-user machine: do not touch other users' processes.
+- **GPU contention:** the user's vLLM server (`systemctl --user` unit `lc-chat.service`, ~46 GB on each GPU) leaves too little VRAM for Isaac (PhysX "fail to launch kernel", then crash ~45 s into boot). It is disabled since 2026-10-06; `systemctl --user start lc-chat` brings it back — stop it again before a sim run. Check `nvidia-smi` first when the sim crashes on boot here.
+- Isaac Sim 6.0 + `./bisg smoke` + MAVROS verified 2026-10-06: ~55 s to `sim ready` + PX4 ready (headless).
+
+**Both**
+- Driver must stay on the 580 branch — the 595.x/R590 branch segfaulted Isaac Sim 5.1's RTX renderer (`docs/plan.md` §12; untested on 6.0); `scripts/check_env.sh` hard-fails on any 59x driver. Keep that guard.
+- GPU access from containers needs the user in the `docker` group + NVIDIA Container Toolkit (`./bisg check`, `docker run --gpus all`). After adding a user to the group, a fresh login (or `newgrp docker` / `sg docker -c ...`) is needed before the socket works.
+- Use `timeout` and `PYTHONUNBUFFERED=1` when driving the sim from scripts; prefer headless for tests.
 
 ## Skills
 Finished experiments and superseded docs live in `archive/` (PX4-link study, 5.1→6.0 migration report/plan); raw run logs are in `~/bisg-archive/` (outside the repo). Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, zed-sdk, swarm-spawn, jetson-deploy, sim-regression). See `docs/skills.md`.

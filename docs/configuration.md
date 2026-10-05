@@ -88,8 +88,9 @@ SIM_VIEW=headless ./bisg up   # same, for one shell
 `./bisg view` prints the URLs and addresses for whatever is running.
 
 Two supporting keys: `SIM_VIEW_ADDR` (the address a remote viewer connects to — this host's LAN,
-Tailscale or public IP; empty means local clients only, and WebRTC media never arrives without it
-from another machine) and `SIM_WEB_PORT` / `SIM_WEB_INTERVAL` for the browser view.
+Tailscale or public IP; `vpn` = this host's tailnet IP from the `vpn` service; empty means local
+clients only, and WebRTC media never arrives without it from another machine; it is machine-specific,
+so set it in `docker/.env`) and `SIM_WEB_PORT` / `SIM_WEB_INTERVAL` for the browser view.
 
 There is no browser URL for `webrtc` — NVIDIA dropped the in-browser client after Isaac Sim 4.0 and
 this image carries only the server extensions; `web` is the browser route. Both streams force
@@ -107,6 +108,12 @@ put `SIM_STREAM` in `docker/.env`: `./bisg` rejects the old keys there rather th
 `SIM_STREAM_ADDR`. A leftover old key in `config/bisg.conf` or `docker/.env` aborts with a message
 instead of being silently ignored. `SIM_MODE=gui` + `SIM_STREAM=webrtc` becomes `SIM_VIEW=gui+webrtc`;
 `SIM_MODE=headless` + `SIM_STREAM=web` becomes `SIM_VIEW=web`.
+
+## Remote access: `VPN_HOSTNAME`, `TS_AUTHKEY`
+
+The `vpn` service (Tailscale, ADR-009) puts this host on your tailnet so another network can reach the sim
+(`./bisg vpn up|status|down`, `docs/remote-access.md`). `VPN_HOSTNAME` (default `bisg-<hostname>`) names the
+node; `TS_AUTHKEY` is a secret and lives in `docker/.env` only. Without it, `./bisg vpn up` prints a login URL once.
 
 ## Scenario
 
@@ -156,7 +163,7 @@ Port math lives in `docs/interface-contract.md`; changing it is a contract chang
 
 ## Pins and links
 
-`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ZED_ISAAC_EXT_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
+`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ZED_ISAAC_EXT_TAG`, `TAILSCALE_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
 `scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `ZED_ISAAC_EXT_REPO`, `PX4_REPO` feed `scripts/fetch_sources.sh`.
 Pins are an ADR decision (`docs/plan.md` §4, ADR-003/005) — change the file *and* the ADR, then
 `./bisg setup --rebuild`.

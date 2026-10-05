@@ -19,12 +19,12 @@ default=desktop; [[ "$(uname -m)" == aarch64 ]] && default=jetson     # pick by 
 case "${1:-$default}" in
   desktop)
     ( cd "$WRAPPER/docker" && ./build_desktop.sh --ros-distro jazzy --os ubuntu-24.04 --sdk "$ZED_SDK" --cuda 12.8 )
-    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_jazzy.*ubuntu.*24" || true)
+    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_(desktop_)?jazzy.*u(buntu)?-?24" || true)
     tag=bisg/zed:desktop-base; final=bisg/zed:desktop ;;
   jetson)
     # JetPack 7.x = L4T r38.4 (Ubuntu 24.04, CUDA 13). Adjust --os if `cat /etc/nv_tegra_release` differs.
     ( cd "$WRAPPER/docker" && ./build_jetson.sh --ros-distro jazzy --os l4t-r38.4 --sdk "$ZED_SDK" )
-    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_jazzy.*(l4t|jetson)" || true)
+    src=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E "zed_ros2_(l4t_|jetson_)?jazzy.*(l4t|jetson)|zed_ros2_(l4t|jetson).*jazzy" || true)
     tag=bisg/zed:l4t-r38-base; final=bisg/zed:l4t-r38 ;;
   *) echo "usage: $0 desktop|jetson"; exit 2 ;;
 esac

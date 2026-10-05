@@ -13,6 +13,8 @@
 #   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
 #   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
 #                        (./bisg drone ...; runs on the Jetson, or on the workstation for a bench test with a USB ZED Mini)
+#   vpn                  Tailscale node: reach this host (sim view, WebRTC, MAVLink) from another network   x86_64 and arm64
+#                        (./bisg vpn ...; own compose project `bisg-vpn`, so ./bisg down never cuts remote access)
 # Image tags: bisg/ros:jazzy, bisg/px4-bridge:jazzy (bisg/ros + MAVSDK server + uXRCE-DDS agent) and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
 # is `desktop` on x86_64 and `l4t-r38` on the Jetson (docker/zed/build.sh builds the right one).
 #
@@ -278,6 +280,28 @@ services:
         params:=/tmp/zed_params.yaml
     restart: unless-stopped
 
+  # Remote access from another network (docs/remote-access.md, ADR-009). A Tailscale node on the HOST network: the host gets a
+  # 100.x tailnet address, and everything already listening here (web view 8899, WebRTC 49100/tcp + 47998/udp, MAVLink) is
+  # reachable from your other tailnet devices. Outbound connections only — no port forwarding, works behind NAT / campus
+  # firewalls (falls back to Tailscale's HTTPS relays). No TS_AUTHKEY = interactive login: `./bisg vpn up` prints the URL.
+  # --accept-dns=false: leave the host's resolver alone (shared machine). State persists in vpn-state (no re-login after reboot).
+  vpn:
+    image: tailscale/tailscale:${TAILSCALE_TAG:-v1.102.5}
+    container_name: bisg-vpn
+    profiles: ["vpn"]
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    volumes: ["vpn-state:/var/lib/tailscale"]
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"                     # kernel tun: UDP (WebRTC media) works like any LAN interface
+      TS_HOSTNAME: ${VPN_HOSTNAME:-bisg-sim}
+      TS_AUTHKEY: ${TS_AUTHKEY:-}               # docker/.env only (secret); empty = login URL in the logs
+      TS_ACCEPT_DNS: "false"
+      TS_EXTRA_ARGS: ${VPN_EXTRA_ARGS:-}
+    restart: unless-stopped                     # comes back after a reboot until `./bisg vpn down`
+
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
   ros:
     <<: *ros-base
@@ -294,6 +318,7 @@ services:
     command: ["sleep", "infinity"]
 
 volumes:
+  vpn-state:
   zed-resources:
   zed-settings:
   isaac-kit-logs:

@@ -45,6 +45,7 @@ cmd_up(){
   local profile=sim; [[ $mode == headless ]] && profile=sim-headless
   if container_running "$SIM_NAME"; then warn "$SIM_NAME already running (./bisg status). Use restart."; return 0; fi
   gpu_preflight || exit 1
+  resolve_view_addr                                # SIM_VIEW_ADDR=vpn -> this host's tailnet IP (what WebRTC advertises)
   # scenario: -c flag > SIM_CONFIG exported in the shell > SIM_SCENARIO (config file) > compose default
   if [[ -n "$cfg" ]]; then export SIM_CONFIG="$(scenario_path "$cfg")"
   elif [[ "${BISG_SRC[SIM_CONFIG]:-}" != environment && -n "${SIM_SCENARIO:-}" ]]; then
@@ -191,7 +192,7 @@ cmd_view(){
     echo "  1. install the Isaac Sim WebRTC Streaming Client (NVIDIA download; the viewing machine needs no GPU)"
     echo "  2. connect it to:  ${C_B}${addr}${C_0}     (same machine: 127.0.0.1)"
     echo "  3. needs TCP ${STREAM_SIGNAL_PORT} + UDP ${STREAM_MEDIA_PORT} — UDP will not pass a VS Code/SSH tunnel; use a VPN (Tailscale) or the browser view"
-    [[ -z "${SIM_VIEW_ADDR:-}" ]] && echo "  remote clients also need SIM_VIEW_ADDR=${addr} in config/bisg.conf (it is what the server advertises)"
+    [[ -z "${SIM_VIEW_ADDR:-}" ]] && echo "  remote clients also need SIM_VIEW_ADDR=${addr} in docker/.env (it is what the server advertises); another network: SIM_VIEW_ADDR=vpn + ./bisg vpn up"
   fi
 
   ss -ltnup 2>/dev/null | grep -E ":(${STREAM_SIGNAL_PORT}|${STREAM_MEDIA_PORT}|${SIM_WEB_PORT}) " | awk '{print "  listening: "$1, $5}' | sort -u || true
@@ -213,11 +214,12 @@ cmd_config(){
   local k v
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
+  show "remote"     VPN_HOSTNAME
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT ZED_SOURCE
   show "ros 2"      ROS_DOMAIN_ID
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG ISAAC_IMAGE ROS_BASE_IMAGE
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG TAILSCALE_TAG ISAAC_IMAGE ROS_BASE_IMAGE
   show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR
   info "resolved for the next ./bisg up"
   view_parse

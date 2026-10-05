@@ -26,6 +26,9 @@ Built 2026-10-05: **one compose service, `px4-bridge`** (a container per drone a
 - [ ] Port the ZED bridge's output (odometry / obstacle map / health) to another bridge if MAVSDK or xrce ever becomes the default
 
 ## Now — host / hardware
+- [x] Second workstation `ict-em018kc6` (2x RTX 6000 Ada, shared) set up 2026-10-06: images built, `./bisg smoke` + MAVROS pass headless. Not yet run there: `vio_flight`, `zed_depth_box`
+- [ ] Remote access from another network: compose service `vpn` (Tailscale, ADR-009, `./bisg vpn up|status`, `SIM_VIEW_ADDR=vpn`) built 2026-10-06; verify WebRTC client + browser view from an off-site machine
+- [ ] `SIM_VIEW_ADDR=192.168.192.200` and `ARCHIVE_DIR=/media/ubuntu/ssd/...` in `config/bisg.conf` are machine-specific: move each to the owning machine's `docker/.env`
 - [ ] **Host (needs sudo): `net.core.rmem_max`** — until set, HD720 ZED images/depth/clouds do not cross containers over CycloneDDS (`docs/setup.md`); `ZED_RMW=rmw_fastrtps_cpp` is the no-sudo fallback
 - [ ] Remaining answers → `hardware.md`: Orin NX RAM variant, exact L4T/CUDA (`cat /etc/nv_tegra_release`), frame/motor/battery, Pixracer firmware, deployment site
 - [ ] **Bench day (Orin NX + Pixracer + ZED Mini)**: `docker/zed/build.sh jetson`; `python3 tests/zed_sdk_check.py --drone 1 --no-gt`; record the unit's real `K` in `hardware.md`; trajectory vs tape measure; MAVROS lean idle CPU / command RTT with the ZED wrapper running (gate for MAVSDK in `archive/px4-link-study/study-px4-link.md` §7); `uxrce_dds_client` RAM only if DDS is revisited
