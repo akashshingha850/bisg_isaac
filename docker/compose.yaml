@@ -8,11 +8,12 @@
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
 # Profiles (one file for the workstation AND the Jetson; ./bisg picks images by CPU architecture, scripts/_common.sh):
 #   sim | sim-headless   Isaac Sim + PX4 SITL                    x86_64 only
-#   ros | tools          MAVROS + vio_mock / dev shell           x86_64 and arm64
+#   ros | tools          vio_mock / dev shell                    x86_64 and arm64
+#   px4-bridge           the one PX4 bridge service: mavros | mavsdk | xrce, chosen by PX4_BRIDGE (config/bisg.conf)   x86_64 and arm64
 #   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
-#   drone                the real drone: MAVROS on the Pixracer serial link + the ZED stack on the real camera
+#   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
 #                        (./bisg drone ...; runs on the Jetson, or on the workstation for a bench test with a USB ZED Mini)
-# Image tags: bisg/ros:jazzy and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
+# Image tags: bisg/ros:jazzy, bisg/px4-bridge:jazzy (bisg/ros + MAVSDK server + uXRCE-DDS agent) and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
 # is `desktop` on x86_64 and `l4t-r38` on the Jetson (docker/zed/build.sh builds the right one).
 #
 # One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
@@ -75,6 +76,44 @@ x-ros-base: &ros-base
     - ..:/workspace:rw
 
 services:
+  # ================= PX4 BRIDGE: ONE service, the bridge it runs is PX4_BRIDGE =================
+  #   PX4_BRIDGE=mavros | mavsdk | xrce | none          <- set it in config/bisg.conf (docker/.env for this machine, or in the shell for one run)
+  # mavros: MAVLink -> ROS 2 /drone_N/mavros/* (default; the ZED bridge, vio_mock and the tests need it)   mavsdk: gRPC server for MAVSDK clients
+  # xrce: uXRCE-DDS agent, PX4's uORB as ROS 2 /fmu/*. One image (bisg/px4-bridge = bisg/ros + the MAVSDK server + the agent), one entrypoint
+  # (docker/px4-bridge/entrypoint.sh) that starts the chosen one from env: no `command:`. `./bisg px4-bridge plan|up|status` operates it and starts
+  # one container per drone and bridge (own compose project each), so several drones, or mavros next to xrce, run side by side.
+  # BRIDGE_DEVICE / FCU_URL / MAVSDK_URL / XRCE_TRANSPORT / BRIDGE_SIM_TIME are set by ./bisg for the real drone (`--hw`, `./bisg drone up`).
+  px4-bridge:
+    image: bisg/px4-bridge:jazzy
+    build: {context: .., dockerfile: docker/px4-bridge/Dockerfile}
+    container_name: bisg-${PX4_BRIDGE:-mavros}-${DRONE_ID:-1}     # one per bridge and drone: bisg-mavros-1, bisg-xrce-2, ...
+    profiles: ["px4-bridge"]
+    network_mode: host
+    ipc: host
+    volumes: ["..:/workspace:rw"]
+    devices: ["${BRIDGE_DEVICE:-/dev/null}:${BRIDGE_DEVICE:-/dev/null}"]   # the Pixracer's serial port on the drone (/dev/px4); /dev/null = nothing (sim)
+    group_add: ["dialout"]
+    environment:
+      PX4_BRIDGE: ${PX4_BRIDGE:-mavros}
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}        # xrce: must equal PX4's UXRCE_DDS_DOM_ID
+      DRONE_ID: ${DRONE_ID:-1}
+      # mavros
+      FCU_URL: ${FCU_URL:-}                     # empty = the sim's PX4 (udp, port from DRONE_ID); serial:///dev/px4:921600 on the drone
+      GCS_URL: ${GCS_URL:-}                     # second MAVROS link (QGC / logger); empty = off
+      MAVROS_PLUGINS: ${MAVROS_PLUGINS:-lean}   # lean = docker/ros/mavros_lean.yaml | full = MAVROS' stock ~50 plugins
+      USE_SIM_TIME: ${BRIDGE_SIM_TIME:-true}    # PX4 SITL runs on sim time; false on the drone
+      # mavsdk
+      MAVSDK_PORT: ${MAVSDK_PORT:-50051}
+      MAVSDK_URL: ${MAVSDK_URL:-}               # empty = udpin://0.0.0.0:14540+(DRONE_ID-1); serial:///dev/px4:921600 on the drone
+      # xrce
+      XRCE_TRANSPORT: ${XRCE_TRANSPORT:-udp}    # udp in the sim, serial on the drone
+      XRCE_PORT: ${XRCE_PORT:-8888}
+      XRCE_DEV: ${BRIDGE_DEVICE:-/dev/px4}
+      XRCE_BAUD: ${XRCE_BAUD:-921600}
+    entrypoint: ["/workspace/docker/px4-bridge/entrypoint.sh"]
+    restart: on-failure                         # PX4_BRIDGE=none exits 0 and stays down
+  # =============================================================================================================
+
   sim:
     <<: *sim-base
     container_name: bisg-sim
@@ -112,20 +151,6 @@ services:
       SIM_WEB_PORT: ${SIM_WEB_PORT:-8899}
       SIM_WEB_INTERVAL: ${SIM_WEB_INTERVAL:-1.0}
     command: ["launch"]
-
-  # MAVROS for one drone (Phase 2 makes this a generated per-drone service).
-  mavros:
-    <<: *ros-base
-    container_name: bisg-mavros-${DRONE_ID:-1}
-    profiles: ["ros"]
-    environment:
-      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      DRONE_ID: ${DRONE_ID:-1}
-      FCU_URL: ${FCU_URL:-}
-      GCS_URL: ${GCS_URL:-}          # second MAVROS link (QGC / logger); empty = off
-      USE_SIM_TIME: "true"           # PX4 SITL runs on sim time; /clock from the launcher (interface-contract.md)
-    command: ["mavros"]
-    restart: unless-stopped
 
   # vio_mock: sim-only mock VIO source (docker/ros/ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
   vehicle:
@@ -223,22 +248,6 @@ services:
   # ---- the real drone (profile `drone`, ./bisg drone up) ---------------------------------------------------------
   # MAVROS on the Pixracer: TELEM2 <-> Orin NX UART (udev rule -> /dev/px4), 921600 baud (docs/hardware.md). PX4 and the
   # Jetson both run on real time, so no sim clock.
-  drone-mavros:
-    <<: *ros-base
-    container_name: bisg-mavros-${DRONE_ID:-1}
-    profiles: ["drone"]
-    environment:
-      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      DRONE_ID: ${DRONE_ID:-1}
-      FCU_URL: ${DRONE_FCU_URL:-serial:///dev/px4:921600}
-      GCS_URL: ${GCS_URL:-}
-      USE_SIM_TIME: "false"
-    devices:
-      - /dev/px4:/dev/px4
-    group_add: ["dialout"]
-    command: ["mavros"]
-    restart: unless-stopped
-
   # The ZED wrapper on the real camera: same image, same launch file, same docker/zed/zed.yaml as the sim, without the `sim:` block.
   drone-zed:
     image: bisg/zed:${ZED_VARIANT:-desktop}

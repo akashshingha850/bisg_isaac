@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Shared helpers for bisg scripts. Source, do not execute.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="$ROOT/docker/compose.yaml"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT/docker/compose.yaml}"
 ENV_FILE="$ROOT/docker/.env"
 SIM_NAME=bisg-sim
 ROS_NAME=bisg-ros
-ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools --profile zed --profile drone)
+ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools --profile zed --profile drone --profile px4-bridge)
 
 # --- output -------------------------------------------------------------------
 if [[ -t 1 ]]; then C_G=$'\e[32m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_0=$'\e[0m'; else C_G=; C_Y=; C_R=; C_B=; C_0=; fi
@@ -56,6 +56,8 @@ conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1
+conf_default PX4_BRIDGE mavros
+conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 # One compose file serves the x86_64 workstation and the arm64 Jetson; the only per-arch thing is the ZED image tag.
 case "$(uname -m)" in
@@ -67,6 +69,11 @@ conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.g
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
 conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
 conf_default PX4_REPO https://github.com/PX4/PX4-Autopilot.git
+# The PX4 bridge on the real drone: the Pixracer's serial port instead of the sim's UDP, wall-clock time (docker/bridge/*.yaml read these).
+bridge_env_drone(){
+  local ser="${DRONE_FCU_URL:-serial:///dev/px4:921600}"
+  export BRIDGE_DEVICE=/dev/px4 BRIDGE_SIM_TIME=false FCU_URL="$ser" MAVSDK_URL="$ser" XRCE_TRANSPORT=serial
+}
 export FCU_URL="${FCU_URL:-}" GCS_URL="${GCS_URL:-}"      # empty = derived / disabled
 export SIM_VIEW_ADDR="${SIM_VIEW_ADDR:-}"                 # empty = local viewers only
 

@@ -90,7 +90,7 @@ Exit test
 **Goal:** one real drone (Jetson Orin NX, JetPack 7.2, Pixracer, ZED Mini) runs the Phase 2/3 stack.
 
 Deliverables
-- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `drone-mavros`, `drone-zed`, `zed-bridge`, `zed-video` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
+- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, via `./bisg px4-bridge up --hw`), `drone-zed`, `zed-bridge`, `zed-video` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
 - Pixracer: PX4 pinned tag flashed, `config/px4/drone_1.params` (TELEM2 921600 onboard mode, EV fusion, safety).
 - `bisg_bringup/launch/real_drone.launch.py`: ZED wrapper + `vio_relay` (zed odom → `mavros/odometry/out`).
 - Bench procedure (`hardware.md`): props off, MAVROS heartbeat, EKF2 EV fusion healthy (`ekf2 status`), offboard on bench.

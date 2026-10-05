@@ -18,6 +18,13 @@ the real SDK (wrapper 21-25 Hz, bridge all modules `ok`, PX4 receives `OBSTACLE_
 - [ ] B18 — the SDK connects once per sim run (never `zed up` twice against one sim run); retry on Isaac Sim 6.0.1
 - [ ] Switch `GEN_3` IMU-fused tracking on for the bench (`positional_tracking.imu_fusion` is already true outside the `sim:` block)
 
+## Now — PX4 bridge ([px4-bridge.md](px4-bridge.md))
+Built 2026-10-05: **one compose service, `px4-bridge`** (a container per drone and bridge) (image `bisg/px4-bridge` = `bisg/ros` + MAVSDK server + uXRCE-DDS agent, entrypoint `docker/px4-bridge/entrypoint.sh`, env only, no `command:`); the variable `PX4_BRIDGE=mavros|mavsdk|xrce|none` in `config/bisg.conf` picks which bridge the entrypoint runs; `./bisg px4-bridge plan|up|down|status|logs|params|build`; `./bisg all` and `./bisg drone up` start it (sim and drone differ only by env: `BRIDGE_DEVICE`, `FCU_URL`).
+- [x] Verified on a standalone PX4 v1.17 SITL: all three values start through the one entrypoint (MAVROS connected, MAVSDK listening and discovering PX4, the agent exposing 65 `/fmu` topics), `none` exits 0 and stays down, `./bisg mavros up|state|down`; 10 unit tests (`python3 -m unittest tests.unit.test_px4_bridge_cli`). Not re-run on the full Isaac stack (`./bisg all`) since the refactor
+- [ ] Not yet run: the serial (`--hw`) path on a real Pixracer, `bisg/px4-bridge` built natively on arm64
+- [x] Several drones and several methods at once: one container per drone and bridge (`bisg-<bridge>-N`, own compose project), `PX4_BRIDGE=mavros,xrce`, `--drone N`; tried with two PX4 instances running mavros + xrce each. Open: per-drone defaults (`PX4_BRIDGE_DRONE_N`) for the swarm phase; MAVSDK's gRPC port is one per host (two mavsdk bridges need different `MAVSDK_PORT`)
+- [ ] Port the ZED bridge's output (odometry / obstacle map / health) to another bridge if MAVSDK or xrce ever becomes the default
+
 ## Now — host / hardware
 - [ ] **Host (needs sudo): `net.core.rmem_max`** — until set, HD720 ZED images/depth/clouds do not cross containers over CycloneDDS (`docs/setup.md`); `ZED_RMW=rmw_fastrtps_cpp` is the no-sudo fallback
 - [ ] Remaining answers → `hardware.md`: Orin NX RAM variant, exact L4T/CUDA (`cat /etc/nv_tegra_release`), frame/motor/battery, Pixracer firmware, deployment site

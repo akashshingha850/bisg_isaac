@@ -51,7 +51,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 
 - JetPack 7.2 (L4T r38.x, Ubuntu 24.04). Docker + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
 - Images: `bisg/ros:arm64` (ROS 2 **Jazzy**, ADR-005), `bisg/zed:l4t-r38` from `docker/zed/build.sh jetson` (Stereolabs scripts, SDK 5.4.1, L4T r38.4) — built on the Jetson or pushed from the workstation.
-- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `drone-mavros` (serial), `drone-zed` (wrapper), `zed-bridge`, `zed-video`; `vehicle` (offboard, health) comes with Phase 2/5.
+- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, `BRIDGE_DEVICE=/dev/px4`; runs MAVROS, MAVSDK or the XRCE agent per `PX4_BRIDGE`, docs/px4-bridge.md), `drone-zed` (wrapper), `zed-bridge`, `zed-video`; `vehicle` (offboard, health) comes with Phase 2/5.
 - Clock: chrony to the ground station; ROS wall time.
 - Boot: a systemd unit starts the compose profile; a physical LED / `vehicle/state` shows readiness.
 - Power mode: `nvpmodel` MAXN or 25 W; `jetson_clocks` for consistent VIO latency.

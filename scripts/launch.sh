@@ -14,13 +14,14 @@
 #   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
 #   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
 #   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
+#   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
 #   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
-usage(){ sed -n 2,20p "$0"; }
+usage(){ sed -n 2,21p "$0"; }
 
 cmd_up(){
   local cfg="" attach=0 wait=1 win="" str=""
@@ -123,9 +124,9 @@ cmd_mavros(){
   while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; *) die "mavros: unknown arg $1";; esac; shift; done
   local name="bisg-mavros-${DRONE_ID}"
   case $sub in
-    up) info "MAVROS for drone ${DRONE_ID} (ns /drone_${DRONE_ID}, fcu ${FCU_URL:-udp instance $((DRONE_ID-1))})"; compose --profile ros up -d mavros ros; ok "$name started";;
-    down) compose --profile ros stop mavros; compose --profile ros rm -f mavros >/dev/null; ok "$name stopped";;
-    restart) compose --profile ros restart mavros;;
+    up) info "MAVROS for drone ${DRONE_ID} (ns /drone_${DRONE_ID}, fcu ${FCU_URL:-udp instance $((DRONE_ID-1))})"; "$(dirname "$0")/px4-bridge.sh" up mavros; compose --profile tools up -d ros >/dev/null;;
+    down) "$(dirname "$0")/px4-bridge.sh" down mavros;;
+    restart) docker restart "$name";;
     logs) exec docker logs -f --tail 100 "$name";;
     state) container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
            ros_exec "ros2 daemon stop >/dev/null 2>&1; timeout 30 ros2 topic echo --no-daemon /drone_${DRONE_ID}/mavros/state --once 2>/dev/null | grep -E '^(connected|armed|guided|mode|system_status)'" || fail "no state from /drone_${DRONE_ID}/mavros/state (is the sim + PX4 up? ./bisg status)";;
@@ -215,6 +216,7 @@ cmd_config(){
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT ZED_SOURCE
   show "ros 2"      ROS_DOMAIN_ID
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
+  show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
   show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG ISAAC_IMAGE ROS_BASE_IMAGE
   show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR
   info "resolved for the next ./bisg up"
@@ -231,13 +233,15 @@ cmd_config(){
 
 cmd_all(){
   cmd_up "${1:-headless}" --no-wait
-  if [[ "${ZED_SOURCE:-emulated}" == sdk ]]; then   # the SDK is the odometry source: no vio_mock (one publisher on zed/zed_node/odom)
-    compose --profile ros up -d mavros ros >/dev/null; ok "mavros + ros started (ZED_SOURCE=sdk: no vio_mock; start the wrapper with ./bisg zed up)"
-  else compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle + ros started"; fi
-  cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state
+  "$(dirname "$0")/px4-bridge.sh" up                  # the bridge(s) PX4_BRIDGE names (MAVROS by default)
+  if [[ ",$PX4_BRIDGE," == *,mavros,* && "${ZED_SOURCE:-emulated}" != sdk ]]; then   # sdk: the SDK is the odometry source, no vio_mock (one publisher on zed/zed_node/odom)
+    compose --profile ros up -d vehicle ros >/dev/null; ok "vehicle (vio_mock) + ros started"
+  else compose --profile ros up -d ros >/dev/null; ok "ros started (no vio_mock: ZED_SOURCE=sdk, or the bridge is not MAVROS)"; fi
+  cmd_wait "$SIM_WAIT_TIMEOUT"
+  if [[ ",$PX4_BRIDGE," == *,mavros,* ]]; then cmd_mavros state; else "$(dirname "$0")/px4-bridge.sh" status; fi
 }
-cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; }
-cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; }
+cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; }
+cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null; }
 cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }
 
 case "${1:-}" in
@@ -246,6 +250,7 @@ case "${1:-}" in
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
   drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;
+  px4-bridge) shift; exec "$(dirname "$0")/px4-bridge.sh" "$@";;
   view|stream) shift; cmd_view "$@";;
   all) shift; cmd_all "$@";; stop) cmd_stop;; down) cmd_down;; restart) shift; cmd_restart "$@";;
   -h|--help|help|"") usage;; *) die "unknown command: $1";;

@@ -97,7 +97,7 @@ not an SSH tunnel). `./bisg zed video-test` plays it on the host without QGC (cl
 | `docker/zed/zed_stack/bridge/`, `docker/zed/zed_stack/video.py` | the two services |
 | `docker/zed/` | `bisg/zed` = Stereolabs' image + CycloneDDS + `mavros_msgs` + GStreamer (`Dockerfile.overlay`); `build.sh desktop\|jetson`; `build_isaac_ext.sh` |
 | `docker/zed/zed_drone.launch.py` | wrapper launch with the contract's topic names — shared by sim and Jetson |
-| `docker/compose.yaml` | `zed` (sim twin) / `drone-zed` (real camera), `zed-bridge`, `zed-video`, `drone-mavros`; profiles `zed` and `drone` |
+| `docker/compose.yaml` | `zed` (sim twin) / `drone-zed` (real camera), `zed-bridge`, `zed-video`, `px4-bridge` (serial, via `./bisg px4-bridge up --hw`); profiles `zed` and `drone` |
 | `scripts/zed.sh` | `./bisg zed …` |
 | `tests/unit/`, `tests/zed_bridge_fake.py`, `tests/zed_sdk_check.py` | config + maths tests · bridge on fake topics · live SDK check (sim and Jetson, `--no-gt`) |
 

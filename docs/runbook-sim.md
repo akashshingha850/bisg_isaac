@@ -9,6 +9,7 @@ All commands from the repo root. The `./bisg` CLI wraps everything below (`./bis
 ./bisg view                                       # watch a headless run (browser URL / WebRTC client)
 ./bisg up [gui|headless|web|webrtc|both] [-c <scenario>]   ./bisg wait  ./bisg status  ./bisg logs -f
 ./bisg smoke            ./bisg mavros up|state|logs|down     ./bisg ros shell     ./bisg shell
+./bisg px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   # the PX4 bridge: one service, PX4_BRIDGE in config/bisg.conf (docs/px4-bridge.md)
 ./bisg all headless     # sim + mavros + ros, wait, print mavros state
 ./bisg down | stop | restart
 ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache

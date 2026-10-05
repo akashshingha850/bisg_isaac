@@ -9,6 +9,7 @@
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
 #   ./bisg stop | down | restart
 #   ./bisg zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
+#   ./bisg px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge: one service, PX4_BRIDGE picks MAVROS / MAVSDK / uXRCE-DDS (docs/px4-bridge.md)
 #   ./bisg drone up|down|status|logs|check|build   the real drone (Jetson, or a USB ZED Mini on the workstation): MAVROS on the Pixracer + the ZED stack
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
 #   ./bisg check                        host preflight only (scripts/check_env.sh)
@@ -19,7 +20,8 @@ case "${1:-}" in
   check) exec "$HERE/scripts/check_env.sh";;
   zed) shift; exec "$HERE/scripts/zed.sh" "$@";;
   drone) shift; exec "$HERE/scripts/drone.sh" "$@";;
+  px4-bridge) shift; exec "$HERE/scripts/px4-bridge.sh" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
-  -h|--help|help|"") sed -n 2,14p "$0";;
+  -h|--help|help|"") sed -n 2,15p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

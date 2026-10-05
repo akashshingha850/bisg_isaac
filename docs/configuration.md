@@ -143,10 +143,14 @@ wrapper container's RMW; `rmw_fastrtps_cpp` is the no-sudo fallback while `net.c
 | Key | Default | Used by |
 |---|---|---|
 | `DRONE_ID` | `1` | namespace `/drone_N`, `MAV_SYS_ID N`, PX4 SITL instance `N-1` |
-| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/ros/entrypoint.sh`) |
+| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/px4-bridge/entrypoint.sh`) |
 | `GCS_URL` | empty → no second link | MAVROS `gcs_url:=` (QGroundControl, logger) |
 | `MAVLINK_GCS_PORT` | `14550` | `./bisg debug mavlink` probe |
 | `ROS_DOMAIN_ID` | `0` | every container |
+| `PX4_BRIDGE` | `mavros` | which bridge the one `px4-bridge` service runs: `mavros \| mavsdk \| xrce \| none` (`./bisg px4-bridge up`, `all`, `drone up`): `docs/px4-bridge.md` |
+| `MAVROS_PLUGINS` | `lean` | MAVROS plugin set: `lean` (`docker/ros/mavros_lean.yaml`) or `full` (stock) |
+| `MAVSDK_PORT` | `50051` | gRPC port of the `mavsdk` link |
+| `XRCE_PORT` / `XRCE_BAUD` | `8888` / `921600` | uXRCE-DDS agent: UDP port in the sim, serial baud on the drone |
 
 Port math lives in `docs/interface-contract.md`; changing it is a contract change, not a config tweak.
 
