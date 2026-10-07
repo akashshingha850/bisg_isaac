@@ -224,11 +224,11 @@ serial.
 
 `EKF2_HGT_REF` and `EKF2_MAG_TYPE` are `reboot_required`, and SITL answers `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN`
 with DENIED. Pushed params therefore leave EKF2 on its old origin and yaw source; that is what caused the
-2026-09-21 "−90 m" local z. The sim now applies params at boot (`px4.params_file`), so the script is only
+2026-09-21 "−90 m" local z. The sim now applies params at boot (`px4.params`), so the script is only
 correct for hardware.
 
 **Possible fixes.** Have the script detect SITL (autopilot `HEARTBEAT` + `AUTOPILOT_VERSION` flags, or a
-`--sitl` flag) and refuse with a pointer to `px4.params_file`, or warn loudly when a pushed param is
+`--sitl` flag) and refuse with a pointer to `px4.params`, or warn loudly when a pushed param is
 `reboot_required`.
 
 ---

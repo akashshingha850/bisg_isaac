@@ -122,6 +122,7 @@ services:
     profiles: ["sim"]
     environment:
       <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${SIM_GPU:-all}      # GPU for Isaac Sim: an index (0), a UUID or all (config/bisg.conf, machine value in docker/.env)
       DISPLAY: ${DISPLAY:-:1}
       QT_X11_NO_MITSHM: "1"
       ACCEPT_EULA: "Y"
@@ -141,6 +142,7 @@ services:
     profiles: ["sim-headless"]
     environment:
       <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${SIM_GPU:-all}
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
@@ -167,6 +169,7 @@ services:
     ipc: host
     environment:
       <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${ZED_GPU:-all}      # GPU for the ZED SDK wrapper (depth / AI); a different one from SIM_GPU splits the load
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}   # rmw_fastrtps_cpp = shared-memory fallback while net.core.rmem_max is small (docs/setup.md)
       CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml

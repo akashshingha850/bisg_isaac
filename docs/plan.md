@@ -187,7 +187,7 @@ timesync handles PX4 ↔ ROS clock. Hardware uses wall clock; chrony on Jetsons 
    `real_drone.launch.py` (ZED wrapper + relay). Everything above them is one launch file.
 4. Sensor rates, resolutions and mount offsets in the sim config mirror the hardware BOM
    (`docs/hardware.md`) and are checked by a test.
-5. PX4 parameters are stored as `.params` files in `config/px4/` and loaded into SITL too.
+5. PX4 parameters are stored as `.params` files in `docker/sim/px4/` and loaded into SITL too.
 
 ## 9. Risks and mitigations
 

@@ -13,7 +13,7 @@ releases. The twin is only valid if SITL and the flashed firmware match. The use
 - The same tag is flashed to the Pixracer (`px4_fmu-v4_default`).
 - Pegasus: the release matching the Isaac Sim pin (`v5.1.0` for Isaac 5.1.0); for Isaac Sim 6.0.0, PR #144 head `fcb99c0` (no 6.0 release tag exists yet).
 - The pin is recorded in the submodule commits (`docker/sim/PegasusSimulator`), `docker/sim/Dockerfile` (`PX4_TAG` arg),
-  `config/px4/README.md`, and here.
+  `docker/sim/px4/README.md`, and here.
 
 ## Selection procedure (Phase 1)
 1. Check out the candidate tag; in `bisg/sim` build `px4_sitl_default` and fly the Phase 1 smoke test with Pegasus autolaunch

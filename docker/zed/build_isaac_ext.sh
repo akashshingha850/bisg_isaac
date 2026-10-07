@@ -28,6 +28,13 @@ if grep -q '^kit = \["110.1.2"\]' "$TOML"; then
   info "widened extension Kit range to 110.1.1 + 110.1.2 (image ISAAC_TAG=${ISAAC_TAG})"
 fi
 
+BIN="$EXT/exts/sl.sensor.camera/bin"
+STAMP="$EXT/.bisg-built"
+stamp(){ { git -C "$EXT" rev-parse HEAD; git -C "$EXT" diff HEAD | sha256sum; echo "$IMG"; } 2>/dev/null | tr '\n' ' '; }
+if [[ "${1:-}" != "--force" && -f "$BIN/libsl.sensor.camera.plugin.so" && -f "$BIN/libsl_zed.so" && -f "$STAMP" && "$(cat "$STAMP")" == "$(stamp)" ]]; then
+  ok "extension already built from this source ($EXT/exts); skipping (--force rebuilds)"; exit 0
+fi
+
 # Kit's packman dependencies (CUDA, Kit SDK, python: ~12 GB unpacked) go to a host cache so they are fetched once and
 # do not fill the container layer. Override with PACKMAN_CACHE (e.g. a path on /opt when / is small).
 CACHE="${PACKMAN_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/packman}"
@@ -38,8 +45,8 @@ docker run --rm --user "$(id -u):$(id -g)" --entrypoint bash \
   -e HOME=/tmp -e LD_LIBRARY_PATH= -e PM_PACKAGES_ROOT=/packman \
   -v "$EXT:/src" -v "$CACHE:/packman" -w /src "$IMG" -c './build.sh'
 
-BIN="$EXT/exts/sl.sensor.camera/bin"
 for f in libsl.sensor.camera.plugin.so libsl_zed.so; do
   [[ -f "$BIN/$f" ]] || die "build finished but $BIN/$f is missing"
 done
+stamp > "$STAMP"
 ok "extension built: $EXT/exts (sl.sensor.camera ${ZED_ISAAC_EXT_TAG})"

@@ -15,7 +15,7 @@
 #   zed.sh video-test                 host GStreamer player on the video port (close QGC's video first)
 #   zed.sh test                       unit tests + the bridge against fake topics (no camera, no sim)
 #   zed.sh bench [--quick] [--streaming] [--window S]   test + benchmark every SDK module on a FRESH sim (restarts it), table -> out/zed_bench.*
-#   zed.sh build | image              build the Isaac Sim extension / the bisg/zed image (once)
+#   zed.sh build | image [--force]   build the Isaac Sim extension / the bisg/zed image (once; each skips when its sources are unchanged, --force rebuilds)
 #
 # Typical run:   ./bisg all headless && ./bisg zed up && ./bisg zed status
 set -euo pipefail
@@ -68,8 +68,8 @@ video_hint(){ info "QGC on ${VIDEO_HOST:-the host in services.qgc_video}: Applic
 case "$sub" in
   plan) zs plan $([[ $hw == 1 ]] || echo --sim);;
   set)  zs set "${passthru[@]}";;
-  build|ext-build) exec "$ROOT/docker/zed/build_isaac_ext.sh";;
-  image)     exec "$ROOT/docker/zed/build.sh";;           # variant by CPU architecture
+  build|ext-build) exec "$ROOT/docker/zed/build_isaac_ext.sh" "${passthru[@]:-}";;
+  image)     exec "$ROOT/docker/zed/build.sh" "${passthru[@]:-}";;           # variant by CPU architecture
 
   up)
     zs plan --sim >/dev/null || die "docker/zed/zed.yaml is invalid (fix it: ./bisg zed plan)"
@@ -107,7 +107,7 @@ case "$sub" in
     for a in "${passthru[@]:-}"; do case "$a" in --quick) extra+=(--skip-ai --window 8);; --streaming) extra+=(--streaming);; --window) ;; "") ;; [0-9]*) window=$a;; *) die "bench: [--quick] [--streaming] [--window S]";; esac; done
     info "fresh SDK sim for the benchmark (./bisg down; ./bisg all headless)"
     "$ROOT/bisg" zed down >/dev/null 2>&1 || true; "$ROOT/bisg" down >/dev/null 2>&1 || true
-    "$ROOT/bisg" all headless >/dev/null 2>&1 || die "sim did not come up (./bisg logs)"
+    ZED_AUTOSTART=0 ROS_TOOLS_AUTOSTART=0 "$ROOT/bisg" all headless >/dev/null 2>&1 || die "sim did not come up (./bisg logs)"
     zs derive -o "$ROOT/docker/zed/.bench.yaml" \
       video.publish_rgb=true video.publish_raw=true video.publish_gray=true video.publish_stereo=true \
       sensors.publish_imu_raw=true sensors.publish_cam_imu_transf=true \

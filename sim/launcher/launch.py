@@ -348,8 +348,15 @@ def spawn_objects(objects):
                  size.tolist(), pos.tolist(), *(v for a in range(3) for v in (pos[a] - size[a] / 2, pos[a] + size[a] / 2)))
 
 
-def apply_px4_params(params_file):
-    """Hand a config/px4/*.params file to PX4 SITL at boot.
+PX4_PARAM_DIR = "docker/sim/px4"
+
+
+def apply_px4_params(params):
+    """Hand PX4 parameter files (docker/sim/px4/*.params) to PX4 SITL at boot.
+
+    `params` is one name or a list, applied in order (a later file overrides an earlier one); a bare name
+    like "collision_prevention" means docker/sim/px4/collision_prevention.params, anything else is a path
+    (absolute, or relative to /workspace).
 
     PX4's posix rcS runs `param set <name> <value>` for every PX4_PARAM_<name> env var before
     any module starts, and Pegasus launches PX4 with this process's environment. So the
@@ -357,15 +364,23 @@ def apply_px4_params(params_file):
     there is no push + reboot step, which SITL can't do anyway (Pegasus runs PX4 from a fresh
     temp dir each launch, so a saved param never survives). Applies to every PX4 instance.
     """
-    if not params_file:
+    if not params:
         return
-    path = params_file if os.path.isabs(params_file) else os.path.join("/workspace", params_file)
-    with open(path) as f:
-        for line in f:
-            line = line.split("#", 1)[0].split()
-            if line:  # "NAME VALUE MAV_PARAM_TYPE" (scripts/push_px4_params.py format)
-                os.environ[f"PX4_PARAM_{line[0]}"] = line[1]
-                LOG.info("px4 param %s = %s (%s)", line[0], line[1], params_file)
+    seen = {}
+    for name in [params] if isinstance(params, str) else params:
+        path = name if "/" in name or name.endswith(".params") else f"{PX4_PARAM_DIR}/{name}.params"
+        path = path if os.path.isabs(path) else os.path.join("/workspace", path)
+        if not os.path.isfile(path):
+            raise SystemExit(f"[launch] px4 params file not found: {path} (px4.params in the scenario; files live in {PX4_PARAM_DIR}/)")
+        with open(path) as f:
+            for line in f:
+                line = line.split("#", 1)[0].split()
+                if line:  # "NAME VALUE MAV_PARAM_TYPE" (scripts/push_px4_params.py format)
+                    if line[0] in seen and seen[line[0]][0] != line[1]:
+                        LOG.warning("px4 param %s: %s (%s) overrides %s (%s)", line[0], line[1], name, *seen[line[0]])
+                    seen[line[0]] = (line[1], name)
+                    os.environ[f"PX4_PARAM_{line[0]}"] = line[1]
+    LOG.info("px4 params from %s: %s", params, ", ".join(f"{k}={v[0]}" for k, v in seen.items()))
 
 
 class SimClock:
@@ -438,7 +453,7 @@ class App:
         spawn_objects(world_cfg.get("objects"))
 
         px4_cfg = cfg.get("px4", {})
-        apply_px4_params(px4_cfg.get("params_file"))
+        apply_px4_params(px4_cfg.get("params", px4_cfg.get("params_file")))   # `params_file` = the old key
         for v in cfg.get("vehicles", []):
             self.spawn_vehicle(v, px4_cfg)
 

@@ -1,6 +1,6 @@
 # PX4 collision prevention (Position mode) fed by the ZED depth image through MAVROS obstacle/send
-# (./bisg zed up (services.px4_bridge.obstacle_distance on), docs/obstacle-avoidance.md). Applied at SITL boot by the launcher (scenario px4.params_file);
-# same values on the Pixracer via scripts/push_px4_params.py. Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32).
+# (./bisg zed up (services.px4_bridge.obstacle_distance on), docs/obstacle-avoidance.md). Applied at SITL boot by the launcher (scenario `px4.params: [collision_prevention]`);
+# same values on the Pixracer via scripts/push_px4_params.py or QGC. Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32).
 # Parameter names/ranges verified against /opt/PX4-Autopilot/src/lib/collision_prevention/collisionprevention_params.c.
 
 CP_DIST        1.5  9   # m. Minimum distance PX4 keeps to an obstacle in Position mode; <= 0 turns collision prevention off

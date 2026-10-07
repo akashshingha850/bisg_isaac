@@ -36,7 +36,7 @@ px4:
   autolaunch: true
   airframe: gazebo-classic_iris
   enable_lockstep: false
-  params_file: null
+  params: null
 
 vehicles:
   - id: 0

@@ -4,9 +4,9 @@ Push PX4 EKF2/GPS params over MAVLink (Phase 3 — GPS-denied flight on ZED Mini
 
 Run once PX4 SITL is ready (same offboard link tests/smoke_takeoff.py uses, so it
 coexists with MAVROS on the same port):
-    python3 scripts/push_px4_params.py --instance 0
+    python3 scripts/push_px4_params.py --instance 0 [--file ekf2_vision --file collision_prevention]
 
-File format (config/px4/*.params): "NAME VALUE MAV_PARAM_TYPE" per line,
+File format (docker/sim/px4/*.params): "NAME VALUE MAV_PARAM_TYPE" per line,
 `#` comments allowed — NOT the 5-column QGC save format. See the file header for why.
 EKF2_HGT_REF/EKF2_EV_CTRL/etc reboot_required:true params need a PX4 reboot (or
 "param save" + power cycle on hardware) to take effect after being changed.
@@ -45,7 +45,8 @@ def load_params(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--instance", type=int, default=0)
-    ap.add_argument("--file", default="config/px4/sim_default.params")
+    ap.add_argument("--file", action="append", metavar="NAME|PATH",
+                    help="params file (repeatable, later wins): a bare name = docker/sim/px4/<name>.params; default ekf2_vision")
     ap.add_argument("--timeout", type=float, default=60.0)
     a = ap.parse_args()
 
@@ -66,7 +67,9 @@ def main():
             return 1
     print(f"[params] heartbeat from sysid {m.target_system} compid {m.target_component}", flush=True)
 
-    rows = load_params(a.file)
+    rows = []
+    for f in a.file or ["ekf2_vision"]:
+        rows += load_params(f if "/" in f or f.endswith(".params") else f"docker/sim/px4/{f}.params")
     ok = True
     for name, value, ptype in rows:
         wire_value = encode(value, ptype)

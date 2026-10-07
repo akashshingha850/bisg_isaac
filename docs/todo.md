@@ -58,3 +58,13 @@ Built 2026-10-05: **one compose service, `px4-bridge`** (a container per drone a
 
 ## Parked
 ArduPilot backend · Isaac Lab / RL for swarm policies · per-drone lidar if one is ever mounted · ZED `Sim2Real` post-process (`applyZedSim2Real`) to narrow the render-vs-camera gap
+
+## Done 2026-10-07 — ZED all-modules test + GPU split (ict-em018kc6)
+- [x] `./bisg zed bench`: 16/16 pass on 2x RTX 6000 Ada; all modules on at once also stable (docs/zed-benchmark.md). Not covered: global_localization (GNSS), streaming (B19); object/body accuracy needs people/vehicles in view.
+- [x] GPU split: `SIM_GPU` / `ZED_GPU` (config/bisg.conf, machine values in docker/.env, `NVIDIA_VISIBLE_DEVICES` per compose service). Sim on GPU 0, wrapper on GPU 1 verified with nvidia-smi.
+- [x] ZED_AUTOSTART / ROS_TOOLS_AUTOSTART (`docker/ros/tools.yaml`), `./bisg build`, `./bisg ros rviz|tools|start|stop`; bench starts its sim with both autostarts off.
+- [ ] Not yet run after the autostart fix: a plain `./bisg all headless` that starts the wrapper + RViz by itself.
+
+## Done 2026-10-07 — PX4 params reorganised
+- [x] `config/px4/` -> `docker/sim/px4/` (image config lives in its folder; `config/` is bisg.conf only). `sim_default.params` -> `ekf2_vision.params`. One topic per file (README table).
+- [x] Scenario key `px4.params: [a, b]` (bare name = docker/sim/px4/<name>.params, applied in order, later wins, overrides logged); `params_file` still read as the old key. `single_iris_vio` = `[ekf2_vision, collision_prevention]` (before, it dropped the obstacle params). `scripts/push_px4_params.py --file` is repeatable. Checked: loader applies both files, bad name gives a clear error. Not yet run through a sim boot.

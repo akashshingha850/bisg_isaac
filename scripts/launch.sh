@@ -11,7 +11,7 @@
 #   launch.sh shell [sim|ros]          interactive shell (sim: running container or a fresh one)
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
-#   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache]   build the images (default: all) and the ZED Isaac extension
+#   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache] [--force]   build the images (default: all) and the ZED Isaac extension
 #   launch.sh ros up|down|shell|tools|enable N|disable N|start N|stop N   dev container + the GUI tools in docker/ros/tools.yaml (rviz, rqt, ...)
 #   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
@@ -150,14 +150,17 @@ cmd_mavros(){
 }
 
 cmd_build(){
-  local nc=() targets=()
-  for a in "$@"; do case "$a" in --no-cache) nc=(--no-cache);; sim|ros|px4-bridge|zed|all) targets+=("$a");; *) die "build: [sim|ros|px4-bridge|zed|all] [--no-cache]";; esac; done
-  [[ ${#targets[@]} -eq 0 || " ${targets[*]} " == *" all "* ]] && targets=(ros px4-bridge); [[ "$BISG_ARCH" == x86_64 ]] && targets=(sim "${targets[@]}" zed)
+  local nc=() force=() targets=()
+  for a in "$@"; do case "$a" in --no-cache) nc=(--no-cache);; --force) force=(--force);; sim|ros|px4-bridge|zed|all) targets+=("$a");; *) die "build: [sim|ros|px4-bridge|zed|all] [--no-cache] [--force]";; esac; done
+  if [[ ${#targets[@]} -eq 0 || " ${targets[*]} " == *" all "* ]]; then
+    targets=(ros px4-bridge); [[ "$BISG_ARCH" == x86_64 ]] && targets=(sim ros px4-bridge zed)
+  fi
+  local z="$(dirname "$0")/zed.sh"
   for t in "${targets[@]}"; do case $t in
     sim) info "building bisg/sim:${ISAAC_TAG}"; compose build "${nc[@]}" sim;;
     ros) info "building bisg/ros:jazzy"; compose --profile ros build "${nc[@]}" ros;;
-    px4-bridge) info "building bisg/px4-bridge:jazzy (the agent compile takes ~10 min)"; compose --profile px4-bridge build "${nc[@]}" px4-bridge;;
-    zed) "$(dirname "$0")/zed.sh" image && "$(dirname "$0")/zed.sh" build;;     # bisg/zed image + the Stereolabs Isaac extension
+    px4-bridge) info "building bisg/px4-bridge:jazzy (the agent compile takes ~10 min the first time)"; compose --profile px4-bridge build "${nc[@]}" px4-bridge;;
+    zed) "$z" image "${force[@]}" && "$z" build "${force[@]}";;     # bisg/zed image + the Stereolabs Isaac extension; each skips if its sources are unchanged
   esac; done
   ok "build done: ${targets[*]}"
 }

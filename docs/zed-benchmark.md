@@ -68,3 +68,13 @@ or lower `pub_frame_rate`/depth resolution. A second full run (`--quick`) reprod
 | | 320x180 | 0.07 |
 
 The module runs at <= 10 Hz, i.e. ~1 % of one core at HD720 on this host (the Orin NX core is slower; still two orders of magnitude of headroom).
+
+
+## Second workstation, split GPUs (2026-10-07, `ict-em018kc6`, 2x RTX 6000 Ada)
+
+`SIM_GPU=0 ZED_GPU=1` (docker/.env): Isaac Sim on GPU 0, the ZED wrapper alone on GPU 1 (`NVIDIA_VISIBLE_DEVICES` per container, `docker/compose.yaml`). Same bench, HD720 / 30 fps,
+`single_iris` on the Full Warehouse preset, `net.core.rmem_max=16 MB`. **16/16 phases pass (1 WARN: `roi_mask`, as before)**; raw data: [data/zed_bench_2026-10-07_ict-em018kc6.json](data/zed_bench_2026-10-07_ict-em018kc6.json).
+- The Isaac python process sits on GPU 0 (about 4 GB, about 36 % busy); the wrapper's `component_container` on GPU 1 (1.7 GB for the base pipeline, 3.6 GB with every module on). The stream between them crosses via host shared memory, so the split needs no extra setup.
+- Camera and depth publish at 21 Hz wall (30 Hz sim, sim RTF 0.70), cloud 10 Hz, wrapper about 1.2 cores. Because the bench runs inside the wrapper container, its GPU columns are the ZED GPU only (no sim noise).
+- **Everything on at once** (video variants, depth extras, ROI, tracking extras, plane detection, spatial mapping, object detection, body tracking): wrapper 1.65 cores, 4.8 GB RAM, 3.6 GB GPU 1 at 3 % utilisation. Images 21 Hz, depth 21 Hz, cloud 10 Hz, odom 21 Hz, fused cloud 1 Hz. Objects / skeletons / plane publish only when something is in view (nothing is, so no messages).
+- Not covered: `global_localization` (needs a GNSS fix) and `streaming` (conflicts with the sim stream, B19).

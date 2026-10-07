@@ -1,12 +1,12 @@
 # Scenario: single_iris, GPS-denied — PX4 EKF2 fuses vision (ZED SDK odom -> zed-bridge -> mavros/odometry/out)
-# for position, velocity, yaw and height; GPS and magnetometer are off (config/px4).
+# for position, velocity, yaw and height; GPS and magnetometer are off (docker/sim/px4).
 # Needs the ZED stack with services.px4_bridge.odometry.enabled: true (docker/zed/zed.yaml `sim:`) and `./bisg zed up`
 # while `./bisg all` waits: without it there is no position source and PX4 will not arm (docs/bugs.md B17).
 #   SIM_SCENARIO=single_iris_vio ./bisg all headless
 extends: single_iris.yaml
 
 px4:
-  params_file: config/px4/sim_default.params
+  params: [ekf2_vision, collision_prevention]   # GPS-denied EKF2 + the obstacle params single_iris has (a list replaces, it does not add)
 
 world:
   objects:                     # depth test target (tests/zed_depth_box.py): a 1 m cube straight ahead of the

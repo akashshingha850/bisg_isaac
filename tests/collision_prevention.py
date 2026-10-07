@@ -8,7 +8,7 @@ the wall; with CP_DIST = D it must stop about D metres short. Measures the neare
 obstacle_distance node publishes. PASS if the drone moved at least --min-move m, the stick was still held when it stopped
 and the closest forward range stayed above CP_DIST - --slack.
 
-Needs: sim up, `./bisg mavros up`, `./bisg zed up` (services.px4_bridge.obstacle_distance on), PX4 CP_DIST > 0 (scenario px4.params_file).
+Needs: sim up, `./bisg mavros up`, `./bisg zed up` (services.px4_bridge.obstacle_distance on), PX4 CP_DIST > 0 (scenario px4.params).
     docker exec bisg-obstacle-1 python3 /workspace/tests/collision_prevention.py --alt 1.5 --cp-dist 1.5
 Exit 0 = PASS.
 """

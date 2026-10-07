@@ -14,7 +14,7 @@ Safety first: any step with props ON requires the RC kill switch verified that d
 
 ## Pixracer
 1. Build/flash `px4_fmu-v4_default` at the pinned tag (ADR-003) via QGC custom firmware or `make px4_fmu-v4_default upload`.
-2. Load `config/px4/drone_<n>.params` (QGC → Parameters → Tools → Load). Reboot. Confirm `MAV_SYS_ID`.
+2. Load `docker/sim/px4/drone_<n>.params` (QGC → Parameters → Tools → Load). Reboot. Confirm `MAV_SYS_ID`.
 3. Serial: TELEM2 ↔ Jetson UART, 921600; udev rule → `/dev/px4`.
 
 ## Bench checklist

@@ -26,7 +26,7 @@ Pegasus `px4_mavlink_backend.py` (connection port = base 4560 + vehicle_id, `-i`
 - Lockstep: off by default in our config (render FPS is not stable and Isaac 6.0 runs at ~0.3-0.5x real time). If PX4 seems frozen, check `PX4_SIM_SPEED_FACTOR` / lockstep setting.
 
 ## Params
-- Files in `config/px4/*.params` are loaded in SITL via `param load` in the startup script (Phase 3).
+- Files in `docker/sim/px4/*.params` are loaded in SITL via `param load` in the startup script (Phase 3).
 - Inspect live without QGC: `./bisg debug px4 commander status`, `./bisg debug px4 ekf2 status`, `./bisg debug px4 param show EKF2_EV*` (runs the `px4-<module>` client inside the sim container).
 
 ## Common rejections

@@ -27,7 +27,7 @@ Pixracer USB   ─────────────────────�
 
 Add a udev rule so the FC always appears as `/dev/px4`, and give the container user `dialout`.
 
-## PX4 parameters (`config/px4/<drone_n>.params`)
+## PX4 parameters (`docker/sim/px4/<drone_n>.params`)
 
 | Param | Value | Why |
 |---|---|---|
