@@ -1,21 +1,21 @@
 {
   "bisg": {
-    "mtime": 1791241618.7143013,
-    "seen": 1791241840.139759,
-    "ast_hash": "5845a40769bffb2373dc0f1a817fd676",
-    "semantic_hash": "5845a40769bffb2373dc0f1a817fd676"
+    "mtime": 1791380818.4084451,
+    "seen": 1791405315.4447002,
+    "ast_hash": "f567beedffa76344d15fd4ab9b37ec9d",
+    "semantic_hash": "f567beedffa76344d15fd4ab9b37ec9d"
   },
   "docker/zed/build.sh": {
-    "mtime": 1791235500.4941332,
-    "seen": 1791241840.1397731,
-    "ast_hash": "641a5071a745a000ce28a25204bc5df8",
-    "semantic_hash": "641a5071a745a000ce28a25204bc5df8"
+    "mtime": 1791404169.696519,
+    "seen": 1791405315.4449153,
+    "ast_hash": "7a05235a35ee56ed6ba3027dc52214e3",
+    "semantic_hash": "7a05235a35ee56ed6ba3027dc52214e3"
   },
   "scripts/_common.sh": {
-    "mtime": 1791241330.696863,
-    "seen": 1791241840.1397934,
-    "ast_hash": "5a54c90630dcaddf6eac5889d6eac6d8",
-    "semantic_hash": "5a54c90630dcaddf6eac5889d6eac6d8"
+    "mtime": 1791385088.3089986,
+    "seen": 1791405315.445303,
+    "ast_hash": "a5b54bca63a7463d11e18a23df9a96c0",
+    "semantic_hash": "a5b54bca63a7463d11e18a23df9a96c0"
   },
   "scripts/check_env.sh": {
     "mtime": 1791206952.548028,
@@ -30,10 +30,10 @@
     "semantic_hash": "b36f832ca8c1814dc49093650400fa08"
   },
   "scripts/launch.sh": {
-    "mtime": 1791241330.696996,
-    "seen": 1791241840.1397986,
-    "ast_hash": "b581c69a711903a103b4f71dfb112a76",
-    "semantic_hash": "b581c69a711903a103b4f71dfb112a76"
+    "mtime": 1791404227.6591244,
+    "seen": 1791405315.4453676,
+    "ast_hash": "0f09df7a25f085c3313d2cde519914af",
+    "semantic_hash": "0f09df7a25f085c3313d2cde519914af"
   },
   "scripts/pull_images.sh": {
     "mtime": 1791206864.524283,
@@ -48,10 +48,10 @@
     "semantic_hash": "543aa345b2911192a76079b2098df135"
   },
   "sim/launcher/launch.py": {
-    "mtime": 1791211338.6750178,
-    "seen": 1791241840.139808,
-    "ast_hash": "2dcad6b4d647ea88ad768bc389c5d6af",
-    "semantic_hash": "2dcad6b4d647ea88ad768bc389c5d6af"
+    "mtime": 1791397569.583767,
+    "seen": 1791405315.4454367,
+    "ast_hash": "1d01e228d8d877a1955c9020a1476b06",
+    "semantic_hash": "1d01e228d8d877a1955c9020a1476b06"
   },
   "tests/smoke_takeoff.py": {
     "mtime": 1791206952.549287,
@@ -60,88 +60,88 @@
     "semantic_hash": "a9906629a9f7eaeaaa5e23c5978ccfae"
   },
   ".claude/skills/jetson-deploy/SKILL.md": {
-    "mtime": 1791153038.4840975,
-    "seen": 1791154179.061321,
-    "ast_hash": "7f09341f466f0e49f10160238b84f9b9",
-    "semantic_hash": "7f09341f466f0e49f10160238b84f9b9"
+    "mtime": 1791397585.8850758,
+    "seen": 1791405315.445684,
+    "ast_hash": "8ba1f604f769a8723ef72ad4f0392779",
+    "semantic_hash": "8ba1f604f769a8723ef72ad4f0392779"
   },
   ".claude/skills/mavros-ops/SKILL.md": {
-    "mtime": 1790352404.060524,
-    "seen": 1791154179.0613217,
+    "mtime": 1791397585.88517,
+    "seen": 1791405315.4456847,
     "ast_hash": "43cea1c436591fc11636dea6167607ca",
     "semantic_hash": "43cea1c436591fc11636dea6167607ca"
   },
   ".claude/skills/px4-sitl/SKILL.md": {
-    "mtime": 1791153018.2392595,
-    "seen": 1791154179.0613222,
-    "ast_hash": "3815e10f45be257580e132d413a259e0",
-    "semantic_hash": "3815e10f45be257580e132d413a259e0"
+    "mtime": 1791397585.8852706,
+    "seen": 1791405315.4456851,
+    "ast_hash": "abe57b6240cb247c7eef9fff582dc81e",
+    "semantic_hash": "abe57b6240cb247c7eef9fff582dc81e"
   },
   ".claude/skills/sim-launch/SKILL.md": {
-    "mtime": 1791152835.5921347,
-    "seen": 1791154179.0613227,
-    "ast_hash": "1d176aee61f3c9b4c1200cbd1f349007",
-    "semantic_hash": "1d176aee61f3c9b4c1200cbd1f349007"
+    "mtime": 1791397585.885363,
+    "seen": 1791405315.445686,
+    "ast_hash": "4f1af351d3a28260e3b6751e9da0c3df",
+    "semantic_hash": "4f1af351d3a28260e3b6751e9da0c3df"
   },
   ".claude/skills/sim-regression/SKILL.md": {
-    "mtime": 1791152835.5929098,
-    "seen": 1791154179.061323,
+    "mtime": 1791397585.8854575,
+    "seen": 1791405315.4456868,
     "ast_hash": "5a3fea1c6a2bf763889f66392a10b7e5",
     "semantic_hash": "5a3fea1c6a2bf763889f66392a10b7e5"
   },
   ".claude/skills/swarm-spawn/SKILL.md": {
-    "mtime": 1791152835.59284,
-    "seen": 1791154179.0613234,
+    "mtime": 1791397585.8855507,
+    "seen": 1791405315.4456875,
     "ast_hash": "ac20ea623bada2107a9bb52d9c9a4282",
     "semantic_hash": "ac20ea623bada2107a9bb52d9c9a4282"
   },
   ".claude/skills/zed-contract/SKILL.md": {
-    "mtime": 1791153018.239728,
-    "seen": 1791154179.061324,
+    "mtime": 1791397585.8856547,
+    "seen": 1791405315.445688,
     "ast_hash": "c0f20e51adecceed69737140f843733b",
     "semantic_hash": "c0f20e51adecceed69737140f843733b"
   },
   "CLAUDE.md": {
-    "mtime": 1791241629.9244716,
-    "seen": 1791241840.1398304,
-    "ast_hash": "2a127d0e6d54dd57078322254ca9baad",
-    "semantic_hash": "2a127d0e6d54dd57078322254ca9baad"
+    "mtime": 1791384684.4312477,
+    "seen": 1791405315.4456894,
+    "ast_hash": "58ba6238c9f48cc013f12f40cb73df89",
+    "semantic_hash": "58ba6238c9f48cc013f12f40cb73df89"
   },
   "README.md": {
-    "mtime": 1791211338.66012,
-    "seen": 1791241840.139831,
-    "ast_hash": "4cee343e4463753b7310d3c27fb7bcac",
-    "semantic_hash": "4cee343e4463753b7310d3c27fb7bcac"
+    "mtime": 1791380677.8113682,
+    "seen": 1791405315.44569,
+    "ast_hash": "40806de3bb7ed91033859ca0afd653ad",
+    "semantic_hash": "40806de3bb7ed91033859ca0afd653ad"
   },
   "config/README.md": {
-    "mtime": 1791152835.5909166,
-    "seen": 1791154179.0613253,
+    "mtime": 1791211338.6618433,
+    "seen": 1791405315.4456904,
     "ast_hash": "229257d6800c39027cc1740c1f616da8",
     "semantic_hash": "229257d6800c39027cc1740c1f616da8"
   },
   "docker/compose.yaml": {
-    "mtime": 1791241618.71439,
-    "seen": 1791241840.1398373,
-    "ast_hash": "334352236407ae80eeff614a376c001a",
-    "semantic_hash": "334352236407ae80eeff614a376c001a"
+    "mtime": 1791385088.3088307,
+    "seen": 1791405315.4456909,
+    "ast_hash": "2e0666359a444574dd4e0e61c8580a3e",
+    "semantic_hash": "2e0666359a444574dd4e0e61c8580a3e"
   },
   "docker/zed/README.md": {
-    "mtime": 1791153552.6275215,
-    "seen": 1791154179.0613317,
-    "ast_hash": "8da2bfaa8763aa1fd9568944998f3ffe",
-    "semantic_hash": "8da2bfaa8763aa1fd9568944998f3ffe"
+    "mtime": 1791380818.4097955,
+    "seen": 1791405315.445699,
+    "ast_hash": "997b832ae3ecba501189aa8fe212845f",
+    "semantic_hash": "997b832ae3ecba501189aa8fe212845f"
   },
   "docs/configuration.md": {
-    "mtime": 1791241618.7151058,
-    "seen": 1791241840.1398404,
-    "ast_hash": "4293fa030d9600e109b8d1c3e4dd2a5d",
-    "semantic_hash": "4293fa030d9600e109b8d1c3e4dd2a5d"
+    "mtime": 1791397585.8823402,
+    "seen": 1791405315.4457011,
+    "ast_hash": "c50775df6ebb8d0422b30c67ea08fbba",
+    "semantic_hash": "c50775df6ebb8d0422b30c67ea08fbba"
   },
   "docs/debugging.md": {
-    "mtime": 1791152835.5914955,
-    "seen": 1791154179.0613332,
-    "ast_hash": "6532bb08e62d34c1072b1e84027afa62",
-    "semantic_hash": "6532bb08e62d34c1072b1e84027afa62"
+    "mtime": 1791397585.882503,
+    "seen": 1791405315.4457016,
+    "ast_hash": "bfe451218d378625305c9fa696edf3d8",
+    "semantic_hash": "bfe451218d378625305c9fa696edf3d8"
   },
   "docs/decisions/ADR-001-mavros.md": {
     "mtime": 1791211338.6646852,
@@ -150,106 +150,106 @@
     "semantic_hash": "5facec7356e6696c83b84bdfea6f8c82"
   },
   "docs/decisions/ADR-002-docker.md": {
-    "mtime": 1791023127.9041903,
-    "seen": 1791154179.0613341,
+    "mtime": 1791206952.5462136,
+    "seen": 1791405315.445731,
     "ast_hash": "c07ad1647382796e5385468f7d4c7e39",
     "semantic_hash": "c07ad1647382796e5385468f7d4c7e39"
   },
   "docs/decisions/ADR-003-px4-version.md": {
-    "mtime": 1791153560.2059345,
-    "seen": 1791154179.0613344,
-    "ast_hash": "9b0c9b98cd120fb52d3acb83184e83fe",
-    "semantic_hash": "9b0c9b98cd120fb52d3acb83184e83fe"
+    "mtime": 1791397585.8753762,
+    "seen": 1791405315.4457314,
+    "ast_hash": "c64f6997d76a536010961e35440bc71c",
+    "semantic_hash": "c64f6997d76a536010961e35440bc71c"
   },
   "docs/decisions/ADR-004-dds.md": {
-    "mtime": 1791023127.904277,
-    "seen": 1791154179.0613348,
+    "mtime": 1791206952.5463073,
+    "seen": 1791405315.4457319,
     "ast_hash": "b4b998ea637de6e19f84f6fbb5995f23",
     "semantic_hash": "b4b998ea637de6e19f84f6fbb5995f23"
   },
   "docs/decisions/ADR-005-ros2-jazzy.md": {
-    "mtime": 1791023127.904317,
-    "seen": 1791154179.061335,
+    "mtime": 1791206952.5463555,
+    "seen": 1791405315.4457326,
     "ast_hash": "5dfa815dc4fe7dd3d9c478301eeba958",
     "semantic_hash": "5dfa815dc4fe7dd3d9c478301eeba958"
   },
   "docs/hardware.md": {
-    "mtime": 1791211338.6649091,
-    "seen": 1791241840.1398432,
-    "ast_hash": "464d4d9d0703afa31eac3e0a55230d17",
-    "semantic_hash": "464d4d9d0703afa31eac3e0a55230d17"
+    "mtime": 1791397585.8826652,
+    "seen": 1791405315.4457357,
+    "ast_hash": "f6444a3d10a13d17ca80cd329709cabc",
+    "semantic_hash": "f6444a3d10a13d17ca80cd329709cabc"
   },
   "docs/interface-contract.md": {
-    "mtime": 1791153018.2395306,
-    "seen": 1791154179.0613365,
+    "mtime": 1791397585.8828318,
+    "seen": 1791405315.4457364,
     "ast_hash": "7f2e1f20707d0074fac39317de978c58",
     "semantic_hash": "7f2e1f20707d0074fac39317de978c58"
   },
   "docs/performance.md": {
-    "mtime": 1791240357.2218628,
-    "seen": 1791241840.1398444,
-    "ast_hash": "73c50424ff88e3bad1585ce0ba368696",
-    "semantic_hash": "73c50424ff88e3bad1585ce0ba368696"
+    "mtime": 1791397585.883266,
+    "seen": 1791405315.445738,
+    "ast_hash": "7659c62878927b730c6020560b9a62d0",
+    "semantic_hash": "7659c62878927b730c6020560b9a62d0"
   },
   "docs/plan.md": {
-    "mtime": 1791236562.5531776,
-    "seen": 1791241840.1398454,
-    "ast_hash": "91a8943ebcbb29073124ab61237023a4",
-    "semantic_hash": "91a8943ebcbb29073124ab61237023a4"
+    "mtime": 1791397585.8834713,
+    "seen": 1791405315.4457388,
+    "ast_hash": "b978fa97303ee64ade41b8a3e8a8ae6d",
+    "semantic_hash": "b978fa97303ee64ade41b8a3e8a8ae6d"
   },
   "docs/remote-access.md": {
-    "mtime": 1791241618.7148595,
-    "seen": 1791241840.1398468,
-    "ast_hash": "752d6d37b0ed275f5fdd08e9d8eaad1d",
-    "semantic_hash": "752d6d37b0ed275f5fdd08e9d8eaad1d"
+    "mtime": 1791397585.883754,
+    "seen": 1791405315.4457405,
+    "ast_hash": "ef090ffdde66f6379203e66e0d531ac9",
+    "semantic_hash": "ef090ffdde66f6379203e66e0d531ac9"
   },
   "docs/roadmap.md": {
-    "mtime": 1791211338.6655085,
-    "seen": 1791241840.139848,
-    "ast_hash": "8719f2bb5e46890a5273a87531e19bce",
-    "semantic_hash": "8719f2bb5e46890a5273a87531e19bce"
+    "mtime": 1791397585.8838854,
+    "seen": 1791405315.4457414,
+    "ast_hash": "ecc0b6efee15f20951a1ece7809ca1fc",
+    "semantic_hash": "ecc0b6efee15f20951a1ece7809ca1fc"
   },
   "docs/runbook-sim.md": {
-    "mtime": 1791211338.6655815,
-    "seen": 1791241840.139849,
-    "ast_hash": "db292aaf05231e182263ec4a4a5b9e59",
-    "semantic_hash": "db292aaf05231e182263ec4a4a5b9e59"
+    "mtime": 1791397585.884002,
+    "seen": 1791405315.4457421,
+    "ast_hash": "304e5287fab04b112573feb58db44f86",
+    "semantic_hash": "304e5287fab04b112573feb58db44f86"
   },
   "docs/setup.md": {
-    "mtime": 1791153560.2058892,
-    "seen": 1791154179.0613391,
-    "ast_hash": "03c210ef186a4c81a6b866f2c40b390a",
-    "semantic_hash": "03c210ef186a4c81a6b866f2c40b390a"
+    "mtime": 1791397585.8841176,
+    "seen": 1791405315.4457428,
+    "ast_hash": "181d8a9243576ad01385402288e4da1d",
+    "semantic_hash": "181d8a9243576ad01385402288e4da1d"
   },
   "docs/skills.md": {
-    "mtime": 1791030120.2348495,
-    "seen": 1791154179.0613396,
+    "mtime": 1791397585.884225,
+    "seen": 1791405315.4457436,
     "ast_hash": "85f423617259b93e2fb07dab9e5cfb0d",
     "semantic_hash": "85f423617259b93e2fb07dab9e5cfb0d"
   },
   "docs/todo.md": {
-    "mtime": 1791241629.9358315,
-    "seen": 1791241840.1398497,
-    "ast_hash": "6ac72ecbe55676cb19167867df11e7fb",
-    "semantic_hash": "6ac72ecbe55676cb19167867df11e7fb"
+    "mtime": 1791397596.81977,
+    "seen": 1791405315.4457448,
+    "ast_hash": "8ff1d722dcf06f6bac0ce03dbe6c6adc",
+    "semantic_hash": "8ff1d722dcf06f6bac0ce03dbe6c6adc"
   },
   "sim/assets/README.md": {
-    "mtime": 1789997305.8722968,
-    "seen": 1790072503.9207032,
+    "mtime": 1791206864.524558,
+    "seen": 1791405315.4457471,
     "ast_hash": "b5b444ed22cd1287c6cf10f512079587",
     "semantic_hash": "b5b444ed22cd1287c6cf10f512079587"
   },
   "sim/worlds/README.md": {
-    "mtime": 1789997305.8724816,
-    "seen": 1790072503.9207044,
+    "mtime": 1791206864.5249085,
+    "seen": 1791405315.4457476,
     "ast_hash": "478a0f2d9b1cf47a722ef66fc7dd2cd3",
     "semantic_hash": "478a0f2d9b1cf47a722ef66fc7dd2cd3"
   },
   "docker/ros/entrypoint.sh": {
-    "mtime": 1791211338.6623743,
-    "seen": 1791241840.139765,
-    "ast_hash": "d1ee41294b5500ee26bc992936e325e3",
-    "semantic_hash": "d1ee41294b5500ee26bc992936e325e3"
+    "mtime": 1791380635.691448,
+    "seen": 1791405315.444754,
+    "ast_hash": "c575ab6a99bebeac57980f0d34d85881",
+    "semantic_hash": "c575ab6a99bebeac57980f0d34d85881"
   },
   "docker/sim/entrypoint.sh": {
     "mtime": 1791211338.6632442,
@@ -258,16 +258,10 @@
     "semantic_hash": "259cd18c1f76563e268709bba8bee8b5"
   },
   "scripts/push_px4_params.py": {
-    "mtime": 1791211338.674469,
-    "seen": 1791241840.1398005,
-    "ast_hash": "c561264326bf608a50afd593fb699cc1",
-    "semantic_hash": "c561264326bf608a50afd593fb699cc1"
-  },
-  "sim/launcher/zed_rig.py": {
-    "mtime": 1791211338.675344,
-    "seen": 1791241840.1398146,
-    "ast_hash": "b305d03b62aafc2b81a871d3d9e40a4a",
-    "semantic_hash": "b305d03b62aafc2b81a871d3d9e40a4a"
+    "mtime": 1791397585.8701844,
+    "seen": 1791405315.4453888,
+    "ast_hash": "db264d783aa2997c0712b68d5eb18840",
+    "semantic_hash": "db264d783aa2997c0712b68d5eb18840"
   },
   "docker/ros/mavros_sim_time.py": {
     "mtime": 1791206864.5176663,
@@ -294,10 +288,10 @@
     "semantic_hash": "7c53b6d34f61f0bf64b0e11101d00016"
   },
   "docker/zed/build_isaac_ext.sh": {
-    "mtime": 1791211338.6634908,
-    "seen": 1791241840.1397748,
-    "ast_hash": "e44b60ef82e75522338d4b9efe46369e",
-    "semantic_hash": "e44b60ef82e75522338d4b9efe46369e"
+    "mtime": 1791404169.6968036,
+    "seen": 1791405315.444916,
+    "ast_hash": "20bf2f8ff050f428c2471c07efde985e",
+    "semantic_hash": "20bf2f8ff050f428c2471c07efde985e"
   },
   "docker/zed/zed_drone.launch.py": {
     "mtime": 1791211338.6636796,
@@ -312,10 +306,10 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "docker/zed/zed_stack/__main__.py": {
-    "mtime": 1791211338.66375,
-    "seen": 1791241840.1397784,
-    "ast_hash": "6cbe80a06e0b435bb25a37202f1748c1",
-    "semantic_hash": "6cbe80a06e0b435bb25a37202f1748c1"
+    "mtime": 1791294120.9110632,
+    "seen": 1791405315.444968,
+    "ast_hash": "30ec005922ae053ea2dd635d0de55295",
+    "semantic_hash": "30ec005922ae053ea2dd635d0de55295"
   },
   "docker/zed/zed_stack/bridge/__init__.py": {
     "mtime": 1791211338.6638167,
@@ -390,22 +384,16 @@
     "semantic_hash": "cb43abca71acb5e8e0ebc57ea222a487"
   },
   "scripts/fetch_sources.sh": {
-    "mtime": 1791211338.674306,
-    "seen": 1791241840.1397974,
-    "ast_hash": "ce8fb9f3d5f937f4be1412dca37583aa",
-    "semantic_hash": "ce8fb9f3d5f937f4be1412dca37583aa"
+    "mtime": 1791380818.4101083,
+    "seen": 1791405315.445367,
+    "ast_hash": "3be6703b5fd27be2ccf1933ad15a7311",
+    "semantic_hash": "3be6703b5fd27be2ccf1933ad15a7311"
   },
   "scripts/zed.sh": {
-    "mtime": 1791211338.6746392,
-    "seen": 1791241840.1398048,
-    "ast_hash": "31b7d68a823758e10ae8bd54d250170e",
-    "semantic_hash": "31b7d68a823758e10ae8bd54d250170e"
-  },
-  "sim/launcher/drone_views.py": {
-    "mtime": 1791211338.6747751,
-    "seen": 1791241840.1398063,
-    "ast_hash": "f99fa84ea29ee6c5306b805c3fa90d04",
-    "semantic_hash": "f99fa84ea29ee6c5306b805c3fa90d04"
+    "mtime": 1791404227.6628883,
+    "seen": 1791405315.4454122,
+    "ast_hash": "23d0d092a7d1dab0fb9e3ca6788e509f",
+    "semantic_hash": "23d0d092a7d1dab0fb9e3ca6788e509f"
   },
   "sim/launcher/follow_cam.py": {
     "mtime": 1791211338.6748219,
@@ -425,41 +413,29 @@
     "ast_hash": "2495d8c870d28caf0090bce8faf88f80",
     "semantic_hash": "2495d8c870d28caf0090bce8faf88f80"
   },
-  "sim/launcher/third_eye.py": {
-    "mtime": 1791206952.5488925,
-    "seen": 1791241840.139811,
-    "ast_hash": "263c521d679a763a57b6101d69bee6a1",
-    "semantic_hash": "263c521d679a763a57b6101d69bee6a1"
-  },
-  "sim/launcher/zed_depth.py": {
-    "mtime": 1791211338.6751895,
-    "seen": 1791241840.1398125,
-    "ast_hash": "905523dd45ec38eb95f659c2be2e0b77",
-    "semantic_hash": "905523dd45ec38eb95f659c2be2e0b77"
-  },
   "sim/launcher/zed_features.py": {
-    "mtime": 1791211338.6752546,
-    "seen": 1791241840.1398134,
-    "ast_hash": "5ca2db8db2d413b86ea0389842b76ef9",
-    "semantic_hash": "5ca2db8db2d413b86ea0389842b76ef9"
+    "mtime": 1791380587.9883971,
+    "seen": 1791405315.4454837,
+    "ast_hash": "7cc18ea4f21fecdc2aa867c5d3fe963d",
+    "semantic_hash": "7cc18ea4f21fecdc2aa867c5d3fe963d"
   },
   "sim/launcher/zed_sdk_cfg.py": {
-    "mtime": 1791211338.6753962,
-    "seen": 1791241840.1398156,
-    "ast_hash": "a16cfa7e4d61c7d2a446681e139ae88a",
-    "semantic_hash": "a16cfa7e4d61c7d2a446681e139ae88a"
+    "mtime": 1791380818.4088786,
+    "seen": 1791405315.4454844,
+    "ast_hash": "6faec6a33c1f5f3bf29eee80aa4ea24f",
+    "semantic_hash": "6faec6a33c1f5f3bf29eee80aa4ea24f"
   },
   "sim/launcher/zed_sdk_rig.py": {
-    "mtime": 1791206952.5491867,
-    "seen": 1791241840.1398168,
-    "ast_hash": "71f2c7f124b68f2a92ef774f0fbae315",
-    "semantic_hash": "71f2c7f124b68f2a92ef774f0fbae315"
+    "mtime": 1791380587.9825585,
+    "seen": 1791405315.445485,
+    "ast_hash": "75c7c436950d2b3d5d3bc2531c9a335c",
+    "semantic_hash": "75c7c436950d2b3d5d3bc2531c9a335c"
   },
   "tests/collision_prevention.py": {
-    "mtime": 1791211338.675444,
-    "seen": 1791241840.1398175,
-    "ast_hash": "f4b2b0eb88da00cedb2e1dd4c0ec47e1",
-    "semantic_hash": "f4b2b0eb88da00cedb2e1dd4c0ec47e1"
+    "mtime": 1791397585.884979,
+    "seen": 1791405315.4454858,
+    "ast_hash": "e4f6c0482681f58fc7a9c62636cae486",
+    "semantic_hash": "e4f6c0482681f58fc7a9c62636cae486"
   },
   "tests/hold_position.py": {
     "mtime": 1791206952.549226,
@@ -480,10 +456,10 @@
     "semantic_hash": "87e69e1c7e33cb858f8195d37f148184"
   },
   "tests/vio_flight.py": {
-    "mtime": 1791206864.5250793,
-    "seen": 1791241840.1398244,
-    "ast_hash": "0c7723f31ac3941db632b6eb71eba037",
-    "semantic_hash": "0c7723f31ac3941db632b6eb71eba037"
+    "mtime": 1791380658.1147077,
+    "seen": 1791405315.445596,
+    "ast_hash": "05d766a3319255644df0f4e0d626c189",
+    "semantic_hash": "05d766a3319255644df0f4e0d626c189"
   },
   "tests/zed_bridge_fake.py": {
     "mtime": 1791211338.675752,
@@ -498,130 +474,124 @@
     "semantic_hash": "139d26df974bd99dacfa12128afd0c56"
   },
   "tests/zed_sdk_check.py": {
-    "mtime": 1791206952.5493815,
-    "seen": 1791241840.1398294,
-    "ast_hash": "c56b01500ad1de83789273a7b04abb27",
-    "semantic_hash": "c56b01500ad1de83789273a7b04abb27"
+    "mtime": 1791380658.1145916,
+    "seen": 1791405315.4456832,
+    "ast_hash": "7e97e6466e41ce6500e2ac86a20a5713",
+    "semantic_hash": "7e97e6466e41ce6500e2ac86a20a5713"
   },
   ".claude/skills/zed-sdk/SKILL.md": {
-    "mtime": 1791153552.6248605,
-    "seen": 1791154179.0613244,
-    "ast_hash": "1264c040957b8bc290f1b6a13a8f4d14",
-    "semantic_hash": "1264c040957b8bc290f1b6a13a8f4d14"
-  },
-  "config/px4/README.md": {
-    "mtime": 1791152835.591405,
-    "seen": 1791154179.0613258,
-    "ast_hash": "75cec8acc53594174e6f58d182a58d71",
-    "semantic_hash": "75cec8acc53594174e6f58d182a58d71"
+    "mtime": 1791397585.8857644,
+    "seen": 1791405315.4456887,
+    "ast_hash": "1c3a1eeb4b2ddc8577646b169a4ae25f",
+    "semantic_hash": "1c3a1eeb4b2ddc8577646b169a4ae25f"
   },
   "docker/ros/mavros_lean.yaml": {
-    "mtime": 1791152835.5923605,
-    "seen": 1791154179.0613284,
+    "mtime": 1791211338.6623986,
+    "seen": 1791405315.4456916,
     "ast_hash": "2cf303c588575d272c2f9372ff1035e6",
     "semantic_hash": "2cf303c588575d272c2f9372ff1035e6"
   },
   "docker/ros/ros2_ws/src/README.md": {
-    "mtime": 1789997305.8718796,
-    "seen": 1791154179.0613286,
+    "mtime": 1791211338.6624393,
+    "seen": 1791405315.445692,
     "ast_hash": "0b3d49814c37ff291e2de0b35698ddad",
     "semantic_hash": "0b3d49814c37ff291e2de0b35698ddad"
   },
   "docker/sim/configs/eight_iris_nozed.yaml": {
-    "mtime": 1791152027.2437835,
-    "seen": 1791154179.0613291,
+    "mtime": 1791211338.662842,
+    "seen": 1791405315.4456935,
     "ast_hash": "a31f375536a628e3160fed7afbdb4a86",
     "semantic_hash": "a31f375536a628e3160fed7afbdb4a86"
   },
   "docker/sim/configs/four_iris_nozed.yaml": {
-    "mtime": 1791152027.2432795,
-    "seen": 1791154179.0613294,
+    "mtime": 1791211338.662877,
+    "seen": 1791405315.4456942,
     "ast_hash": "34e31e777c3852cee08e966d07498540",
     "semantic_hash": "34e31e777c3852cee08e966d07498540"
   },
   "docker/sim/configs/headless_fast.yaml": {
-    "mtime": 1791151796.0363448,
-    "seen": 1791154179.0613296,
-    "ast_hash": "c8648d53dbecba55c12cd15999cbe1ef",
-    "semantic_hash": "c8648d53dbecba55c12cd15999cbe1ef"
+    "mtime": 1791397569.5841508,
+    "seen": 1791405315.4456947,
+    "ast_hash": "94edf0c0387a462334213febd46bdabc",
+    "semantic_hash": "94edf0c0387a462334213febd46bdabc"
   },
   "docker/sim/configs/single_iris.yaml": {
-    "mtime": 1791153552.6262896,
-    "seen": 1791154179.06133,
-    "ast_hash": "c6d1891ee81e7494ce6db75eeb341245",
-    "semantic_hash": "c6d1891ee81e7494ce6db75eeb341245"
+    "mtime": 1791397569.5839272,
+    "seen": 1791405315.4456952,
+    "ast_hash": "effafe26898c015a8c379551822ea178",
+    "semantic_hash": "effafe26898c015a8c379551822ea178"
   },
   "docker/sim/configs/single_iris_vio.yaml": {
-    "mtime": 1791153018.2391248,
-    "seen": 1791154179.0613303,
-    "ast_hash": "a0ec0e77185fd161167216b38ce5cb68",
-    "semantic_hash": "a0ec0e77185fd161167216b38ce5cb68"
+    "mtime": 1791397585.8772576,
+    "seen": 1791405315.445696,
+    "ast_hash": "a41a21dc6b6645e857434d4ac32059fc",
+    "semantic_hash": "a41a21dc6b6645e857434d4ac32059fc"
   },
   "docker/sim/configs/single_iris_vio_lowres.yaml": {
-    "mtime": 1791153552.6276324,
-    "seen": 1791154179.0613308,
-    "ast_hash": "b7b95530b2fcfcadfb4b84396c0bc823",
-    "semantic_hash": "b7b95530b2fcfcadfb4b84396c0bc823"
+    "mtime": 1791380666.8663087,
+    "seen": 1791405315.4456966,
+    "ast_hash": "8515f4cc7db83166dcf4c68fc2c1718e",
+    "semantic_hash": "8515f4cc7db83166dcf4c68fc2c1718e"
   },
   "docker/sim/configs/two_iris_nozed.yaml": {
-    "mtime": 1791152027.2433379,
-    "seen": 1791154179.061331,
+    "mtime": 1791211338.663158,
+    "seen": 1791405315.4456973,
     "ast_hash": "8f869fee1f3dd88e5b9c0f80819411b8",
     "semantic_hash": "8f869fee1f3dd88e5b9c0f80819411b8"
   },
   "docker/sim/configs/two_iris_vio_lowres.yaml": {
-    "mtime": 1791153552.6261916,
-    "seen": 1791154179.0613315,
-    "ast_hash": "23906b70ad4279521e81bcb391cbf9e8",
-    "semantic_hash": "23906b70ad4279521e81bcb391cbf9e8"
+    "mtime": 1791380666.8664947,
+    "seen": 1791405315.4456978,
+    "ast_hash": "f349dca6a86ceaee5a4d8d0631752d29",
+    "semantic_hash": "f349dca6a86ceaee5a4d8d0631752d29"
   },
   "docker/zed/zed.yaml": {
-    "mtime": 1791153552.627772,
-    "seen": 1791154179.061332,
-    "ast_hash": "eec967f77a9792762eb707452705ed9a",
-    "semantic_hash": "eec967f77a9792762eb707452705ed9a"
+    "mtime": 1791383013.9622138,
+    "seen": 1791405315.4457,
+    "ast_hash": "3a51724726a9c7d3c4fb479f70e749f5",
+    "semantic_hash": "3a51724726a9c7d3c4fb479f70e749f5"
   },
   "docs/bugs.md": {
-    "mtime": 1791211338.6643665,
-    "seen": 1791241840.1398392,
-    "ast_hash": "61ea48411ae2251ab4526a25774985c8",
-    "semantic_hash": "61ea48411ae2251ab4526a25774985c8"
+    "mtime": 1791397585.8821316,
+    "seen": 1791405315.4457004,
+    "ast_hash": "8c9a67bc6045dd2aa3cd3b231d13da6d",
+    "semantic_hash": "8c9a67bc6045dd2aa3cd3b231d13da6d"
   },
   "docs/decisions/ADR-007-zed-sdk-in-sim.md": {
-    "mtime": 1791153018.2268834,
-    "seen": 1791154179.0613356,
+    "mtime": 1791211338.6648002,
+    "seen": 1791405315.4457333,
     "ast_hash": "3d2a819230e8ce225813a68fedb06b56",
     "semantic_hash": "3d2a819230e8ce225813a68fedb06b56"
   },
   "docs/decisions/ADR-008-zed-stack.md": {
-    "mtime": 1791153038.4876454,
-    "seen": 1791154179.0613358,
+    "mtime": 1791211338.6648352,
+    "seen": 1791405315.4457343,
     "ast_hash": "165534da6d6f4b5ecafe32b1838efbd9",
     "semantic_hash": "165534da6d6f4b5ecafe32b1838efbd9"
   },
   "docs/migration-errors.md": {
-    "mtime": 1791153552.6256845,
-    "seen": 1791154179.0613368,
+    "mtime": 1791397585.8830569,
+    "seen": 1791405315.4457371,
     "ast_hash": "3e937bf1730c65585b9710322054d672",
     "semantic_hash": "3e937bf1730c65585b9710322054d672"
   },
   "docs/sources.md": {
-    "mtime": 1791153560.2059824,
-    "seen": 1791154179.0613399,
+    "mtime": 1791397585.884326,
+    "seen": 1791405315.445744,
     "ast_hash": "203932eda5d168b670953e926d2778bc",
     "semantic_hash": "203932eda5d168b670953e926d2778bc"
   },
   "docs/zed-sdk-sim.md": {
-    "mtime": 1791153552.6250389,
-    "seen": 1791154179.0613406,
-    "ast_hash": "e99571f4a3f18490d24d60784da3ea21",
-    "semantic_hash": "e99571f4a3f18490d24d60784da3ea21"
+    "mtime": 1791397585.8847225,
+    "seen": 1791405315.445746,
+    "ast_hash": "c009886c84afeafdf37818f009ff503f",
+    "semantic_hash": "c009886c84afeafdf37818f009ff503f"
   },
   "docs/zed-stack.md": {
-    "mtime": 1791211338.6659887,
-    "seen": 1791241840.1398516,
-    "ast_hash": "c1a14d63dcd6312ea74288235f2413a9",
-    "semantic_hash": "c1a14d63dcd6312ea74288235f2413a9"
+    "mtime": 1791397585.8848577,
+    "seen": 1791405315.4457464,
+    "ast_hash": "2d8c118d4f3098c67ae4d72b544744ac",
+    "semantic_hash": "2d8c118d4f3098c67ae4d72b544744ac"
   },
   "docker/px4-bridge/entrypoint.sh": {
     "mtime": 1791211338.6622388,
@@ -636,16 +606,10 @@
     "semantic_hash": "4c08f49473b6e7b3066f0e72c433dad4"
   },
   "scripts/px4-bridge.sh": {
-    "mtime": 1791211338.674512,
-    "seen": 1791241840.1398015,
-    "ast_hash": "2f58a70cab860c47563452dd97e76d25",
-    "semantic_hash": "2f58a70cab860c47563452dd97e76d25"
-  },
-  "scripts/vpn.sh": {
-    "mtime": 1791241618.7141664,
-    "seen": 1791241840.1398036,
-    "ast_hash": "e79231758740c2e8ffc453bd60849f1a",
-    "semantic_hash": "e79231758740c2e8ffc453bd60849f1a"
+    "mtime": 1791380658.1148038,
+    "seen": 1791405315.4453895,
+    "ast_hash": "5a694328ae2363a444174bcab6617459",
+    "semantic_hash": "5a694328ae2363a444174bcab6617459"
   },
   "tests/unit/test_px4_bridge_cli.py": {
     "mtime": 1791211338.675522,
@@ -669,24 +633,54 @@
     "mtime": 1791211338.663004,
     "seen": 1791241840.1398382,
     "ast_hash": "4e5c73e914207c14906eaa4f9eda6cfa",
-    "semantic_hash": "4e5c73e914207c14906eaa4f9eda6cfa"
-  },
-  "docs/decisions/ADR-009-remote-access-vpn.md": {
-    "mtime": 1791241623.9379892,
-    "seen": 1791241840.139842,
-    "ast_hash": "6ffbd135273808760a6286f4cf5aa5a2",
-    "semantic_hash": "6ffbd135273808760a6286f4cf5aa5a2"
+    "semantic_hash": ""
   },
   "docs/px4-bridge.md": {
-    "mtime": 1791211338.6654267,
-    "seen": 1791241840.139846,
+    "mtime": 1791397585.8836107,
+    "seen": 1791405315.4457397,
     "ast_hash": "34a2e03b8170a7444398be3934c40daf",
     "semantic_hash": "34a2e03b8170a7444398be3934c40daf"
   },
   "docs/zed-benchmark.md": {
-    "mtime": 1791211338.6658216,
-    "seen": 1791241840.1398504,
-    "ast_hash": "f5aab00a09412b6fd58570f18c10d330",
-    "semantic_hash": "f5aab00a09412b6fd58570f18c10d330"
+    "mtime": 1791397585.88457,
+    "seen": 1791405315.4457455,
+    "ast_hash": "78a89baa23fd8c5a464fba388c507a5d",
+    "semantic_hash": "78a89baa23fd8c5a464fba388c507a5d"
+  },
+  "docs/data/zed_bench_2026-10-07_ict-em018kc6.json": {
+    "mtime": 1791386080.9790804,
+    "seen": 1791405315.4453018,
+    "ast_hash": "1c77e39e31eef9d0f1723affc934bf08",
+    "semantic_hash": "1c77e39e31eef9d0f1723affc934bf08"
+  },
+  "scripts/ros_tools.py": {
+    "mtime": 1791383581.31622,
+    "seen": 1791405315.4453902,
+    "ast_hash": "3bceacc88ca39a11e9077b68b7f9f79f",
+    "semantic_hash": "3bceacc88ca39a11e9077b68b7f9f79f"
+  },
+  "scripts/tailscale.sh": {
+    "mtime": 1791294120.9191923,
+    "seen": 1791405315.445411,
+    "ast_hash": "e1794ec3f2c969155b76c0c7d49ec96b",
+    "semantic_hash": "e1794ec3f2c969155b76c0c7d49ec96b"
+  },
+  "docker/ros/tools.yaml": {
+    "mtime": 1791383581.4491384,
+    "seen": 1791405315.445693,
+    "ast_hash": "7558f9b7934190b210962a5bbdfcdaa2",
+    "semantic_hash": "7558f9b7934190b210962a5bbdfcdaa2"
+  },
+  "docker/sim/px4/README.md": {
+    "mtime": 1791397585.8705156,
+    "seen": 1791405315.4456985,
+    "ast_hash": "5d8cbbed78295d7e5ffc89b546aae60c",
+    "semantic_hash": "5d8cbbed78295d7e5ffc89b546aae60c"
+  },
+  "docs/decisions/ADR-009-remote-access-tailscale.md": {
+    "mtime": 1791294120.9112525,
+    "seen": 1791405315.445735,
+    "ast_hash": "3143bbd3fd8fa66aadb8578f7d71c797",
+    "semantic_hash": "3143bbd3fd8fa66aadb8578f7d71c797"
   }
 }
