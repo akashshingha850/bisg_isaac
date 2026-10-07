@@ -1,6 +1,6 @@
 ---
 name: zed-sdk
-description: Run, check and debug the REAL ZED SDK + zed_wrapper against the sim's ZED Mini twin (ZED_SOURCE=sdk), build the Stereolabs Isaac extension, and port the same setup to the Jetson. Use when the user asks about the ZED SDK in Isaac Sim, depth/point cloud/odometry from the real SDK, "SDK vs emulated", ZED extension builds, or sim-to-hardware parity for the ZED Mini.
+description: Run, check and debug the REAL ZED SDK + zed_wrapper against the sim's ZED Mini twin , build the Stereolabs Isaac extension, and port the same setup to the Jetson. Use when the user asks about the ZED SDK in Isaac Sim, depth/point cloud/odometry from the real SDK, "SDK vs emulated", ZED extension builds, or sim-to-hardware parity for the ZED Mini.
 ---
 
 # zed-sdk
@@ -10,13 +10,13 @@ Full docs: `docs/zed-stack.md` (**what the ZED does and how it is configured: `d
 **Every ZED feature is switched in `docker/zed/zed.yaml`** — never edit wrapper params anywhere else. `./bisg zed plan` shows what is on and the topics; `./bisg zed set object_detection.enabled=true` edits one key (validated against the wrapper's own config); `./bisg zed up` starts the wrapper + the services the YAML enables (`services.px4_bridge`, `services.qgc_video`); `./bisg zed enable <module> on|off` toggles AI/mapping in the running wrapper.
 
 ## What it is
-`ZED_SOURCE=emulated` (default): Isaac cameras publish the ZED topics, `vio_mock` is odometry, no SDK. `ZED_SOURCE=sdk`: Stereolabs'
+Stereolabs'
 `zed-isaac-sim` extension (v5.2.x, **Isaac Sim 6.0 only**; the 5.1 line has ZED X only) streams a `ZED_M` twin into the unmodified
 `zed_wrapper` (image `bisg/zed:desktop`, the Jetson's recipe), which publishes `/drone_<n>/zed/zed_node/*`.
 
 ## Run
 1. Once: `scripts/fetch_sources.sh`, `./bisg zed ext-build`, `./bisg zed image`. The sim image needs the extension's runtime libs (`docker/sim/Dockerfile`).
-2. `ZED_SOURCE=sdk ./bisg up headless && ./bisg wait`
+2. `./bisg up headless && ./bisg wait`
 3. `./bisg zed up` (after the sim, never before; it waits for frames and retries a missed first connect once; then it starts the bridge/video services). In a GPS-denied scenario with `sim.services.px4_bridge.odometry.enabled: true`, start it while `./bisg all` is still waiting for PX4 — PX4 is only ready once the SDK odometry reaches EKF2.
 4. `./bisg zed check` (`--seconds N`, flags in `tests/zed_sdk_check.py`). To check motion: fly `tests/vio_flight.py` in `bisg-ros` while it samples (`--seconds` longer than the flight).
 5. Restart rule: the SDK connects once per sim run (B18). Restart the sim whenever the wrapper restarts.

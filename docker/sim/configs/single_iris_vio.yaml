@@ -1,7 +1,7 @@
-# Scenario: single_iris, GPS-denied — PX4 EKF2 fuses vision (vio_mock -> mavros/odometry/out)
+# Scenario: single_iris, GPS-denied — PX4 EKF2 fuses vision (ZED SDK odom -> zed-bridge -> mavros/odometry/out)
 # for position, velocity, yaw and height; GPS and magnetometer are off (config/px4).
-# Needs the vehicle service running (`./bisg all`, or `./bisg vehicle up`): without vio_mock
-# there is no position source and PX4 will not arm.
+# Needs the ZED stack with services.px4_bridge.odometry.enabled: true (docker/zed/zed.yaml `sim:`) and `./bisg zed up`
+# while `./bisg all` waits: without it there is no position source and PX4 will not arm (docs/bugs.md B17).
 #   SIM_SCENARIO=single_iris_vio ./bisg all headless
 extends: single_iris.yaml
 

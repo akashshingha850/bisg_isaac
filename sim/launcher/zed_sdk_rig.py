@@ -1,7 +1,7 @@
 """
-ZED Mini twin streamed into the REAL ZED SDK (scenario `sensors.zed.source: sdk`, docs/zed-sdk-sim.md).
+ZED Mini twin streamed into the REAL ZED SDK (scenario `sensors.zed.enabled`, docs/zed-sdk-sim.md).
 
-Instead of publishing ROS topics itself (zed_rig.py, the emulated rig), the sim mounts Stereolabs' ZED_M
+The sim does not publish camera topics itself: it mounts Stereolabs' ZED_M
 asset on the vehicle and streams stereo + IMU through the `sl.sensor.camera` extension (OmniGraph node
 `ZED_Camera`). The unmodified zed_wrapper (`./bisg zed up`, compose service `zed`, the same image and
 params as on the Jetson) connects with `sim_mode:=true` and publishes the contract's `zed/zed_node/*`
@@ -12,7 +12,7 @@ top-level rigid body held by a FixedJoint to the vehicle body. A plain nested re
 physics-driven parent (the camera stays at the spawn pose: black frames, odometry stuck at 0).
 
 Needs the extension on Kit's ext path before SimulationApp starts: launch.py adds `--ext-folder` and
-`--enable sl.sensor.camera` when any vehicle uses source `sdk` (see zed_source()).
+`--enable sl.sensor.camera` when any vehicle has `sensors.zed.enabled`.
 """
 import logging
 
@@ -20,6 +20,7 @@ import numpy as np
 import omni.graph.core as og
 import omni.usd
 from isaacsim.core.utils.extensions import enable_extension
+from isaacsim.core.utils import stage as _stage_utils
 from isaacsim.core.utils.prims import set_targets
 from pxr import Gf, PhysxSchema, Sdf, UsdGeom, UsdPhysics
 from scipy.spatial.transform import Rotation
@@ -41,7 +42,7 @@ def _set_world_pose(prim, pos, rot: Rotation):
 def attach_zed_sdk(vehicle, vehicle_id: int, ns: str, cfg: dict, spawn_pos, spawn_rot: Rotation):
     """Mount the ZED Mini twin on `vehicle` (Pegasus Multirotor) and start streaming it.
 
-    cfg keys (`sensors.zed`, shared with the emulated rig where they overlap):
+    cfg keys (`sensors.zed`):
       mount_xyz_rpy: [x,y,z,roll_deg,pitch_deg,yaw_deg] of the camera on the vehicle body (FLU)
       resolution:    [w, h] -> SDK resolution token (HD720 = [1280, 720], also HD2K/HD1080/VGA)
       fps:           stream frame rate
@@ -109,3 +110,63 @@ def attach_zed_sdk(vehicle, vehicle_id: int, ns: str, cfg: dict, spawn_pos, spaw
     LOG.info("zed sdk rig: ZED_M %s %d fps at %s on %s, streaming %s on port %d (wrapper: ./bisg zed up)",
              token, fps, mount_xyz.tolist(), body_path, transport, port)
     return {"prim": zed_path, "port": port}
+
+
+def publish_imu(body_path: str, ns: str, imu_local, imu_rate: float = 200.0, publish: bool = True):
+    """Physically-simulated IMU on `{body_path}/zed_imu_link`, published on `{ns}/zed/zed_node/imu/data`.
+
+    The sim-side stand-in for the wrapper's own `imu/data` (the streamed ZED has no usable sensor channel,
+    docs/zed-sdk-sim.md). Returns the IMUSensor.
+    """
+    enable_extension("isaacsim.ros2.bridge")
+    enable_extension("isaacsim.sensors.experimental.physics")   # the old isaacsim.sensors.physics does not load
+    from isaacsim.sensors.experimental.physics import IMU, IMUSensor  # noqa: WPS433
+
+    fp = ns.lstrip("/") + "/"
+    imu_local = np.array(imu_local)
+    imu_prim_path = f"{body_path}/zed_imu_link"
+    # The experimental sensor has no `frequency`: it samples every physics step, which is what the graph
+    # below reads (OnPhysicsStep); `imu_rate` is only logged now.
+    imu_sensor = IMUSensor(IMU.create(imu_prim_path, translations=[imu_local.tolist()]))
+
+    keys = og.Controller.Keys
+    if publish:  # sensors.publish_imu
+        imu_graph_path = f"{body_path}/zed_imu_pub"
+        # Driven by OnPhysicsStep in an on-demand graph, not OnTick: action graphs only evaluate on
+        # rendered frames (1 in 4 physics steps with the launcher's render cadence), which capped the
+        # IMU at ~62 Hz sim time (43 Hz measured at rtf 0.66) against the contract's 200 Hz. Now one
+        # sample per physics step: 250 Hz sim time at the default physics_dt.
+        (imu_graph, _, _, _) = og.Controller.edit(
+            {"graph_path": imu_graph_path, "evaluator_name": "execution",
+             "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND},
+            {
+                keys.CREATE_NODES: [
+                    ("on_tick", "isaacsim.core.nodes.OnPhysicsStep"),
+                    ("sim_time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                    ("read_imu", "isaacsim.sensors.physics.IsaacReadIMU"),
+                    ("pub_imu", "isaacsim.ros2.bridge.ROS2PublishImu"),
+                ],
+                keys.CONNECT: [
+                    ("on_tick.outputs:step", "read_imu.inputs:execIn"),
+                    ("read_imu.outputs:execOut", "pub_imu.inputs:execIn"),
+                    ("read_imu.outputs:angVel", "pub_imu.inputs:angularVelocity"),
+                    ("read_imu.outputs:linAcc", "pub_imu.inputs:linearAcceleration"),
+                    ("read_imu.outputs:orientation", "pub_imu.inputs:orientation"),
+                    ("sim_time.outputs:simulationTime", "pub_imu.inputs:timeStamp"),
+                ],
+                keys.SET_VALUES: [
+                    ("pub_imu.inputs:topicName", "zed/zed_node/imu/data"),
+                    ("pub_imu.inputs:nodeNamespace", ns),
+                    ("pub_imu.inputs:frameId", f"{fp}zed_imu_link"),
+                ],
+            },
+        )
+        set_targets(
+            prim=_stage_utils.get_current_stage().GetPrimAtPath(f"{imu_graph_path}/read_imu"),
+            attribute="inputs:imuPrim",
+            target_prim_paths=[imu_prim_path],
+        )
+        og.Controller.evaluate_sync(imu_graph)
+        LOG.info("zed sdk rig: imu at %s -> %s/zed/zed_node/imu/data (every physics step; sensor %d Hz)",
+                 imu_local, ns, int(imu_rate))
+    return imu_sensor

@@ -15,6 +15,7 @@ any omni/isaacsim module is imported earlier).
 """
 import argparse
 import logging
+import math
 import os
 import signal
 import sys
@@ -139,9 +140,8 @@ if STREAMING:
         # Clients outside this machine need the address they should send media to (LAN/public IP).
         _extra.append(f"--/exts/omni.kit.livestream.app/primaryStream.publicIp={STREAM_ADDR}")
 # ZED SDK mode (docs/zed-sdk-sim.md): the zed-isaac-sim extension must be on Kit's path before Kit starts.
-from zed_sdk_cfg import EXT_ID as ZED_EXT_ID, ext_folder as zed_ext_folder, zed_source  # noqa: E402 (stdlib only)
-ZED_SDK_RIG = any(((v.get("sensors") or {}).get("zed") or {}).get("enabled", False)
-                  and zed_source((v.get("sensors") or {}).get("zed") or {}) == "sdk" for v in CFG.get("vehicles", []))
+from zed_sdk_cfg import EXT_ID as ZED_EXT_ID, ext_folder as zed_ext_folder  # noqa: E402 (stdlib only)
+ZED_SDK_RIG = any(((v.get("sensors") or {}).get("zed") or {}).get("enabled", False) for v in CFG.get("vehicles", []))
 if ZED_SDK_RIG:
     _extra += ["--ext-folder", zed_ext_folder(), "--enable", ZED_EXT_ID]
     LOG.info("ZED SDK mode: extension %s from %s", ZED_EXT_ID, zed_ext_folder())
@@ -420,7 +420,6 @@ class App:
         self.pg.initialize_world()
         RenderingManager.set_dt(float(self.pg._world_settings.get("rendering_dt", 1.0 / 60.0)))
         self.vehicles = []
-        self.previews = []  # drone-view windows (ZED left|depth + third eye) + depth products (drone_views.py, zed_depth.py)
         self.stop = False
         self.web = WebView(WEB_PORT, WEB_INTERVAL) if WEB_VIEW else None
 
@@ -513,43 +512,17 @@ class App:
         self.vehicles.append(veh)
         LOG.info("vehicle %d spawned at %s as %s", vid, pos, prim)
 
-        third_eye_cfg = (self.cfg.get("app", {}).get("third_eye") or {})
-        third_eye = None
-        if third_eye_cfg.get("enabled", False) and (not HEADLESS or STREAMING):
-            from third_eye import attach_third_eye  # noqa: WPS433
-            third_eye = attach_third_eye(veh, third_eye_cfg)
-
         zed = v.get("sensors", {}).get("zed", {})
-        if zed.get("enabled", False) and zed_source(zed) == "sdk":
-            from zed_sdk_rig import attach_zed_sdk  # noqa: WPS433
-            from zed_rig import publish_imu  # noqa: WPS433
+        if zed.get("enabled", False):
+            from zed_sdk_rig import attach_zed_sdk, publish_imu  # noqa: WPS433
             from zed_features import load_features  # noqa: WPS433
             attach_zed_sdk(veh, vid, f"/drone_{vid + 1}", zed, pos, Rotation.from_quat(quat))
             # The streamed ZED has no usable sensor channel (docs/zed-sdk-sim.md): the sim publishes the contract's
-            # imu/data itself, from a physics IMU on the vehicle body, unless the params file switches it off.
+            # imu/data itself, from a physics IMU on the vehicle body, unless zed.yaml switches it off.
             if load_features(zed).on("sensors.publish_imu", True):
                 mount = [float(x) for x in zed.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])][:3]
                 publish_imu(f"{veh.prim_path}/body", f"/drone_{vid + 1}", mount, float(zed.get("imu_rate", 200.0)))
             LOG.info("vehicle %d: ZED SDK twin attached; start the wrapper with ./bisg zed up", vid)
-        elif zed.get("enabled", False):
-            from zed_rig import attach_zed_mini  # noqa: WPS433
-            from zed_features import load_features  # noqa: WPS433
-            features = load_features(zed)  # zed_wrapper switches: docker/zed/zed.yaml + overrides
-            cams = attach_zed_mini(veh, f"/drone_{vid + 1}", zed, features)
-            LOG.info("vehicle %d: ZED Mini rig attached on /drone_%d/zed/zed_node/...", vid, vid + 1)
-            # A UI exists with a window (not headless) or a WebRTC stream (which shows the full UI).
-            has_ui = not HEADLESS or STREAMING
-            if zed.get("preview", False) and has_ui:
-                from drone_views import DroneViews  # noqa: WPS433
-                self.previews.append(DroneViews(cams, f"/drone_{vid + 1}", zed, third_eye,
-                                                third_eye_cfg.get("preview_hz", 8.0)))
-            view = zed.get("view", {}) or {}
-            if (features.on("depth.publish_point_cloud") or features.on("depth.publish_disparity")
-                    or features.on("mapping.mapping_enabled") or (has_ui and (view.get("point_cloud", False) or view.get("accumulate", view.get("fused_cloud", True))
-                                    or view.get("fov_grid", True)))):
-                from zed_depth import ZedDepthProducts  # noqa: WPS433
-                self.previews.append(ZedDepthProducts(cams, f"/drone_{vid + 1}", zed, features,
-                                                      sim_time=SimulationManager.get_simulation_time, has_ui=has_ui))
 
     def run(self):
         app_cfg = self.cfg.get("app", {})
@@ -605,8 +578,6 @@ class App:
                 self.web.maybe_capture()
             if self.follow:
                 self.follow.update()
-            for p in self.previews:
-                p.maybe_update()
             if hb and step - step_hb >= hb:
                 # Real-time factor: >= 1.0 means the sim keeps up with wall clock.
                 # `./bisg debug perf` reads these lines; see docs/performance.md.

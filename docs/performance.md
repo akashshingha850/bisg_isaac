@@ -161,7 +161,7 @@ so `cpupower frequency-set -g performance` is not needed here.
 So: Pegasus Python was ~1/4 of the gap (fixed, hover stays PASS: `tests/hover_stability.py`); the rest is GUI-only cost
 (extra camera renders + overlays). Render rate is not a lever (20 -> 10 Hz: no change), and 100 Hz physics is stable
 (roll std 0.06 deg) but gives the same RTF as 120. For tests use `./bisg up headless` (0.85); for a GUI run closer to
-real time turn off `zed.view.accumulate`, `zed.view.fov_grid`, `zed.preview` and `app.third_eye.enabled` (already off by default now that `app.follow_cam` replaces it: RTF ~0.7).
+real time turn off `zed.view.fov_grid`, `zed.preview` and `app.third_eye.enabled` (the chase pane in the ZED window costs one extra camera render; `zed.view.accumulate`, the 3D map over the main viewport, is off by default).
 
 ### Render cadence (fixed 2026-09-13)
 

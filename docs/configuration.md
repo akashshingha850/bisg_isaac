@@ -125,25 +125,13 @@ SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in docker/sim/config
 path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
-`single_iris` defaults to Isaac Sim's built-in Simple Room (including its table) and opens a trailing
-third-eye camera image in the same preview panel as the ZED left image and depth in GUI mode. The
-environment loads from Isaac Sim's asset library, so no USD download or project-local asset copy is
-needed. The camera follows the drone from farther behind and above; adjust `app.third_eye.position`,
-`pitch_deg`, or `preview_hz` in the scenario if needed. To switch worlds, edit `world.preset` in
-`docker/sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`, `"Hospital"`, or
-`"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.
+`single_iris` defaults to Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
+is the real SDK on a streamed ZED Mini twin (`docs/zed-sdk-sim.md`); what it publishes is `docker/zed/zed.yaml`. To switch
+worlds, edit `world.preset` in `docker/sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`,
+`"Hospital"` or `"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.
 
-## ZED source: `ZED_SOURCE`
-
-```
-ZED_SOURCE=emulated   # config/bisg.conf: emulated | sdk
-```
-
-`emulated` = Isaac cameras publish the ZED topics, `vio_mock` is the odometry source (no ZED SDK). `sdk` = the sim streams a ZED Mini twin
-into the real SDK and the unmodified `zed_wrapper` (`./bisg zed up`) publishes them. A scenario's `sensors.zed.source` wins over the key.
-`ZED_SOURCE=sdk ./bisg up headless` sets it for one run. In `sdk` mode `./bisg vehicle up` refuses to start `vio_mock`, and `./bisg all`
-leaves it out: two publishers on `zed/zed_node/odom` would be a second vision source. `ZED_RMW` (default `rmw_cyclonedds_cpp`) picks the
-wrapper container's RMW; `rmw_fastrtps_cpp` is the no-sudo fallback while `net.core.rmem_max` is small. See `docs/zed-sdk-sim.md`.
+`ZED_RMW` (default `rmw_cyclonedds_cpp`) picks the wrapper container's RMW; `rmw_fastrtps_cpp` is the no-sudo fallback
+while `net.core.rmem_max` is small.
 
 ## Endpoints
 

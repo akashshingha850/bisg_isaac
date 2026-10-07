@@ -19,7 +19,7 @@ be a velocity setpoint: PX4's land detector only accepts ground contact while a 
 is commanded (MulticopterLandDetector, trajectory_setpoint.velocity[2] >= 1.1 * LNDMC_Z_VEL_MAX);
 a position setpoint below the ground just sits there, armed. `--land auto` keeps the AUTO.LAND path for reproducing the fly-away.
 
-Needs the GPS-denied scenario and the vehicle service (vio_mock):
+Needs the GPS-denied scenario and the ZED stack feeding PX4 (`./bisg zed up`, zed.yaml odometry.enabled):
     SIM_SCENARIO=single_iris_vio ./bisg all headless
     docker exec bisg-ros python3 /workspace/tests/vio_flight.py --drone 1
 Reading ground truth is test-only; vehicle nodes must not (parity rule, plan.md §8).

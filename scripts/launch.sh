@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch / operate the sim stack. Usually called through ./bisg.
 #
-#   launch.sh up [gui|headless|web|webrtc|both] [-c SCENARIO] [--attach] [--no-wait]
+#   launch.sh up [gui|headless|web|webrtc|both] [-c SCENARIO] [--attach] [--no-wait] [--no-bridge]
 #                                      start the sim (view defaults to SIM_VIEW in config/bisg.conf)
 #   launch.sh view [--addr IP]         how to watch the running sim (browser URL / WebRTC client)
 #   launch.sh wait [TIMEOUT_S]         block until "[launch] sim ready" + PX4 "Ready for takeoff"
@@ -11,12 +11,11 @@
 #   launch.sh shell [sim|ros]          interactive shell (sim: running container or a fresh one)
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
-#   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
 #   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
 #   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
-#   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
+#   launch.sh all [gui|headless]       sim + mavros + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
@@ -24,12 +23,12 @@ set -euo pipefail
 usage(){ sed -n 2,21p "$0"; }
 
 cmd_up(){
-  local cfg="" attach=0 wait=1 win="" str=""
+  local cfg="" attach=0 wait=1 win="" str="" bridge=1
   # A window word and a stream word are both accepted, in either order; each one replaces only
   # its half of SIM_VIEW, so `./bisg up headless` keeps the configured stream.
   while [[ $# -gt 0 ]]; do case "$1" in
     gui|headless|auto) win=$1;; web|webrtc|both) str=$1;; *+*) win=""; str=""; export SIM_VIEW=$1;;
-    -c|--config) cfg=$2; shift;; --attach) attach=1;; --no-wait) wait=0;;
+    -c|--config) cfg=$2; shift;; --attach) attach=1;; --no-wait) wait=0;; --no-bridge) bridge=0;;
     --stream) str=webrtc;; --web) str=web;; --both) str=both;; --no-stream) str=off;;
     *) die "up: unknown arg $1";; esac; shift; done
   [[ "$BISG_ARCH" == x86_64 ]] || die "the sim (Isaac Sim) is x86_64 only; this is ${BISG_ARCH}. On the Jetson use ./bisg drone"
@@ -56,6 +55,8 @@ cmd_up(){
   info "starting sim (view=$SIM_VIEW) config=${SIM_CONFIG:-default}"
   compose --profile "$profile" up -d --remove-orphans "$profile"
   ok "container $SIM_NAME started"
+  # the PX4 bridge(s) PX4_BRIDGE names (MAVROS by default) come up with the sim; it reconnects until PX4 is ready
+  [[ $bridge == 1 ]] && "$(dirname "$0")/px4-bridge.sh" up
   if [[ $attach == 1 ]]; then exec docker logs -f "$SIM_NAME"; fi
   [[ $wait == 1 ]] && cmd_wait "$SIM_WAIT_TIMEOUT"
   view_on && cmd_view
@@ -135,19 +136,6 @@ cmd_mavros(){
     *) die "mavros: up|down|restart|logs|state [--drone N]";; esac
 }
 
-cmd_vehicle(){
-  local sub="${1:-up}"; shift || true
-  while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; *) die "vehicle: unknown arg $1";; esac; shift; done
-  local name="bisg-vehicle-${DRONE_ID}"
-  case $sub in
-    up) [[ "${ZED_SOURCE:-emulated}" == sdk ]] && die "ZED_SOURCE=sdk: the real ZED SDK publishes zed/zed_node/odom, vio_mock would be a second publisher on it (docs/zed-sdk-sim.md, B17). Use ZED_SOURCE=emulated for vio_mock."
-        info "vio_mock for drone ${DRONE_ID} (ns /drone_${DRONE_ID})"; compose --profile ros up -d vehicle; ok "$name started";;
-    down) compose --profile ros stop vehicle; compose --profile ros rm -f vehicle >/dev/null; ok "$name stopped";;
-    restart) compose --profile ros restart vehicle;;
-    logs) exec docker logs -f --tail 100 "$name";;
-    *) die "vehicle: up|down|restart|logs [--drone N]";; esac
-}
-
 cmd_ros(){
   case "${1:-shell}" in
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
@@ -216,7 +204,7 @@ cmd_config(){
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
   show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS
-  show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT ZED_SOURCE
+  show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
   show "ros 2"      ROS_DOMAIN_ID
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
@@ -235,11 +223,8 @@ cmd_config(){
 }
 
 cmd_all(){
-  cmd_up "${1:-headless}" --no-wait
-  "$(dirname "$0")/px4-bridge.sh" up                  # the bridge(s) PX4_BRIDGE names (MAVROS by default)
-  if [[ ",$PX4_BRIDGE," == *,mavros,* && "${ZED_SOURCE:-emulated}" != sdk ]]; then   # sdk: the SDK is the odometry source, no vio_mock (one publisher on zed/zed_node/odom)
-    compose --profile ros up -d vehicle ros >/dev/null; ok "vehicle (vio_mock) + ros started"
-  else compose --profile ros up -d ros >/dev/null; ok "ros started (no vio_mock: ZED_SOURCE=sdk, or the bridge is not MAVROS)"; fi
+  cmd_up "${1:-headless}" --no-wait                    # starts the bridge(s) PX4_BRIDGE names (MAVROS by default) too
+  compose --profile ros up -d ros >/dev/null; ok "ros started"   # odometry comes from the ZED SDK (./bisg zed up)
   cmd_wait "$SIM_WAIT_TIMEOUT"
   if [[ ",$PX4_BRIDGE," == *,mavros,* ]]; then cmd_mavros state; else "$(dirname "$0")/px4-bridge.sh" status; fi
 }
@@ -249,7 +234,7 @@ cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f 
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
-  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; ros) shift; cmd_ros "$@";;
+  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; ros) shift; cmd_ros "$@";;
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
   drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;

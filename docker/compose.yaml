@@ -8,7 +8,7 @@
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
 # Profiles (one file for the workstation AND the Jetson; ./bisg picks images by CPU architecture, scripts/_common.sh):
 #   sim | sim-headless   Isaac Sim + PX4 SITL                    x86_64 only
-#   ros | tools          vio_mock / dev shell                    x86_64 and arm64
+#   ros | tools          dev shell                    x86_64 and arm64
 #   px4-bridge           the one PX4 bridge service: mavros | mavsdk | xrce, chosen by PX4_BRIDGE (config/bisg.conf)   x86_64 and arm64
 #   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
 #   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
@@ -80,7 +80,7 @@ x-ros-base: &ros-base
 services:
   # ================= PX4 BRIDGE: ONE service, the bridge it runs is PX4_BRIDGE =================
   #   PX4_BRIDGE=mavros | mavsdk | xrce | none          <- set it in config/bisg.conf (docker/.env for this machine, or in the shell for one run)
-  # mavros: MAVLink -> ROS 2 /drone_N/mavros/* (default; the ZED bridge, vio_mock and the tests need it)   mavsdk: gRPC server for MAVSDK clients
+  # mavros: MAVLink -> ROS 2 /drone_N/mavros/* (default; the ZED bridge and the tests need it)   mavsdk: gRPC server for MAVSDK clients
   # xrce: uXRCE-DDS agent, PX4's uORB as ROS 2 /fmu/*. One image (bisg/px4-bridge = bisg/ros + the MAVSDK server + the agent), one entrypoint
   # (docker/px4-bridge/entrypoint.sh) that starts the chosen one from env: no `command:`. `./bisg px4-bridge plan|up|status` operates it and starts
   # one container per drone and bridge (own compose project each), so several drones, or mavros next to xrce, run side by side.
@@ -128,7 +128,6 @@ services:
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
-      ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "0"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
@@ -146,25 +145,12 @@ services:
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
-      ZED_SOURCE: ${ZED_SOURCE:-emulated}            # emulated | sdk (docs/zed-sdk-sim.md)
       SIM_HEADLESS: "1"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
       SIM_WEB_PORT: ${SIM_WEB_PORT:-8899}
       SIM_WEB_INTERVAL: ${SIM_WEB_INTERVAL:-1.0}
     command: ["launch"]
-
-  # vio_mock: sim-only mock VIO source (docker/ros/ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
-  vehicle:
-    <<: *ros-base
-    container_name: bisg-vehicle-${DRONE_ID:-1}
-    profiles: ["ros"]
-    environment:
-      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      DRONE_ID: ${DRONE_ID:-1}
-      USE_SIM_TIME: "true"           # stamps must be on PX4's clock, see vio_mock.py
-    command: ["vio_mock"]
-    restart: unless-stopped
 
   # The ZED stack: three services on ONE image (bisg/zed:${ZED_VARIANT:-desktop}), all configured by docker/zed/zed.yaml (docs/zed-stack.md).
   # `./bisg zed up` starts the wrapper plus exactly the services the YAML enables. ZED_STACK_SIM=1 = apply the YAML's `sim:` deltas.

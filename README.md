@@ -20,7 +20,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 | [docs/interface-contract.md](docs/interface-contract.md) | The ROS 2 topic / frame / namespace contract sim and hardware must both obey |
 | [docs/px4-bridge.md](docs/px4-bridge.md) | the PX4 bridge: one service whose `PX4_BRIDGE` picks MAVROS (default), MAVSDK or uXRCE-DDS, `./bisg px4-bridge` |
 | [docs/zed-stack.md](docs/zed-stack.md) | **the ZED Mini stack**: every SDK module switched in `docker/zed/zed.yaml`, the PX4 bridge, QGC video |
-| [docs/zed-sdk-sim.md](docs/zed-sdk-sim.md) | the real ZED SDK + `zed_wrapper` running against the sim's ZED Mini twin (`ZED_SOURCE=sdk`) |
+| [docs/zed-sdk-sim.md](docs/zed-sdk-sim.md) | the real ZED SDK + `zed_wrapper` running against the sim's ZED Mini twin  |
 | [docs/hardware.md](docs/hardware.md) | Jetson + Pixracer + ZED wiring, PX4 params, bench checklist |
 | [docs/setup.md](docs/setup.md) | Host prerequisites and `./bisg setup` |
 | [docs/runbook-sim.md](docs/runbook-sim.md) | Run, test and operate the sim stack (`./bisg` cheat sheet) |
@@ -36,7 +36,7 @@ bisg_isaac/
 ├── config/               # bisg.conf (project settings) · px4/ (PX4 parameter files, SITL and Pixracer)
 ├── docker/               # compose.yaml + one folder per image with its config and code: sim/ (configs/ scenarios, PegasusSimulator submodule), ros/ (mavros_lean.yaml, ros2_ws/), px4-bridge/ (one entrypoint + the image with MAVROS, MAVSDK server and the XRCE agent), zed/ (zed.yaml + zed_stack/: YAML compiler, PX4 bridge, QGC video)
 ├── sim/                  # Pegasus launcher code, worlds, assets (scenario YAMLs: docker/sim/configs/)
-├── docker/ros/ros2_ws/src/          # ROS 2 packages shared by sim and hardware (bisg_vehicle: vio_mock)
+├── docker/ros/ros2_ws/src/          # ROS 2 packages shared by sim and hardware 
 ├── tests/                # smoke / flight / ZED tests (+ unit/ for host-side tests)
 ├── docs/                 # plan, roadmap, todo, contract, ADRs, runbooks
 ├── archive/              # finished experiments and superseded docs (PX4-link study, 5.1->6.0 migration)
@@ -54,7 +54,7 @@ bisg_isaac/
 ./bisg px4-bridge plan | up xrce | status    # the PX4 bridge: one service, PX4_BRIDGE in config/bisg.conf picks MAVROS / MAVSDK / uXRCE-DDS
 ./bisg down
 
-ZED_SOURCE=sdk ./bisg all headless && ./bisg zed up && ./bisg zed status   # the real ZED SDK + wrapper + PX4 bridge on the sim's ZED Mini twin
+./bisg all headless && ./bisg zed up && ./bisg zed status   # the real ZED SDK + wrapper + PX4 bridge on the sim's ZED Mini twin
 ./bisg zed plan              # what the ZED does, from docker/zed/zed.yaml;  ./bisg zed set object_detection.enabled=true
 ```
 `./bisg help` lists everything (status, logs, shell, debug report/px4/topics, …).

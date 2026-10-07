@@ -3,13 +3,10 @@
 Goal: the code that runs on the Jetson (`zed_wrapper` + ZED SDK 5.4.1, ZED Mini) runs **unchanged** against the
 simulator, so a node written and tested in sim ports to the drone by changing a compose file, not the code.
 
-Two sources feed the contract's `zed/zed_node/*` topics; `ZED_SOURCE` in `config/bisg.conf` (or a scenario's
-`sensors.zed.source`) picks one:
-
-| `ZED_SOURCE` | Who publishes the ZED topics | ZED SDK in the loop | Odometry source | Needs |
-|---|---|---|---|---|
-| `emulated` (default) | Isaac cameras straight to ROS (`sim/launcher/zed_rig.py`) | no | `vio_mock` (ground truth + noise) | nothing extra |
-| `sdk` | the **real `zed_wrapper`**, fed by Isaac through Stereolabs' extension | **yes** | SDK positional tracking | Isaac Sim 6.0, `./bisg zed ext-build`, `bisg/zed:desktop` |
+The sim has one ZED source: the **real `zed_wrapper`**, fed by Isaac through Stereolabs' extension. Depth, point cloud,
+odometry and every other SDK module come from the SDK and are switched in `docker/zed/zed.yaml`; the sim publishes no
+ZED topics itself except `imu/data`. Needs Isaac Sim 6.0, `./bisg zed ext-build`, `bisg/zed:desktop`. (The old
+`ZED_SOURCE=emulated` rig and `vio_mock` were removed 2026-10-07.)
 
 Isaac Sim 5.1 cannot do `sdk`: Stereolabs' 5.1 line (`isaac-sim/5.1`, Kit 107.3) only ships ZED X cameras; the ZED Mini twin
 (`ZED_M`) exists from extension v5.2 on, which targets Isaac Sim 6.0. That is why this lives on the 6.0 branch.
@@ -19,7 +16,7 @@ Isaac Sim 5.1 cannot do `sdk`: Stereolabs' 5.1 line (`isaac-sim/5.1`, Kit 107.3)
 ```bash
 ./bisg zed ext-build                  # once: builds the Stereolabs extension into docker/zed/zed-isaac-sim (~1-4 min)
 ./bisg zed image                      # once: bisg/zed:desktop = Stereolabs' ZED SDK + wrapper image + CycloneDDS overlay (~15 GB)
-ZED_SOURCE=sdk ./bisg up headless     # sim with the ZED Mini twin streaming (or set ZED_SOURCE=sdk in config/bisg.conf)
+./bisg up headless                    # sim with the ZED Mini twin streaming
 ./bisg zed up                         # zed_wrapper for drone 1 against the stream; waits for frames
 ./bisg zed check                      # contract + SDK checks, exit 0 = PASS (tests/zed_sdk_check.py)
 ./bisg zed status | logs | down

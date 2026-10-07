@@ -53,7 +53,7 @@ case "$sub" in
       info "$b: $(endpoint "$b")"
       PX4_BRIDGE=$b pcompose "$b" up -d --force-recreate px4-bridge >/dev/null; ok "$(cname "$b") started"
     done
-    [[ " ${run[*]} " == *" mavros "* ]] || warn "no MAVROS: vio_mock, the ZED PX4 bridge (zed-bridge) and tests/vio_flight.py talk to /drone_${DRONE_ID}/mavros";;
+    [[ " ${run[*]} " == *" mavros "* ]] || warn "no MAVROS: the ZED PX4 bridge (zed-bridge) and tests/vio_flight.py talk to /drone_${DRONE_ID}/mavros";;
 
   down)
     if ((all)); then ids=$(docker ps -aq --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$'); [[ -z "$ids" ]] || docker rm -f $ids >/dev/null; ok "stopped every PX4 bridge"; exit 0; fi

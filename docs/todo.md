@@ -18,6 +18,11 @@ the real SDK (wrapper 21-25 Hz, bridge all modules `ok`, PX4 receives `OBSTACLE_
 - [ ] B18 — the SDK connects once per sim run (never `zed up` twice against one sim run); retry on Isaac Sim 6.0.1
 - [ ] Switch `GEN_3` IMU-fused tracking on for the bench (`positional_tracking.imu_fusion` is already true outside the `sim:` block)
 
+## Now — GUI views (2026-10-07)
+**ZED is SDK-only (2026-10-07):** removed the emulated rig (`zed_rig.py`, `zed_depth.py`, `drone_views.py`, `third_eye.py`), `ZED_SOURCE`, `./bisg vehicle` and the `vio_mock` compose service. Depth/point cloud/mapping/odometry come from the real SDK via `docker/zed/zed.yaml`. Not yet run in Isaac (py_compile / bash -n only). `docker/ros/ros2_ws/src/bisg_vehicle` (vio_mock) is still on disk, to delete by hand. GPS-denied scenarios now need `services.px4_bridge.odometry.enabled` in zed.yaml.
+- [x] `./bisg up` now also starts the PX4 bridge (`PX4_BRIDGE`, MAVROS by default); `--no-bridge` skips it. Syntax-checked only, not run
+- [ ] **Not yet run in Isaac** (py_compile only): `SIM_SCENARIO=single_iris ./bisg up gui`, check the window opens floating, chase pane renders, RTF with the chase camera on
+
 ## Now — PX4 bridge ([px4-bridge.md](px4-bridge.md))
 Built 2026-10-05: **one compose service, `px4-bridge`** (a container per drone and bridge) (image `bisg/px4-bridge` = `bisg/ros` + MAVSDK server + uXRCE-DDS agent, entrypoint `docker/px4-bridge/entrypoint.sh`, env only, no `command:`); the variable `PX4_BRIDGE=mavros|mavsdk|xrce|none` in `config/bisg.conf` picks which bridge the entrypoint runs; `./bisg px4-bridge plan|up|down|status|logs|params|build`; `./bisg all` and `./bisg drone up` start it (sim and drone differ only by env: `BRIDGE_DEVICE`, `FCU_URL`).
 - [x] Verified on a standalone PX4 v1.17 SITL: all three values start through the one entrypoint (MAVROS connected, MAVSDK listening and discovering PX4, the agent exposing 65 `/fmu` topics), `none` exits 0 and stays down, `./bisg mavros up|state|down`; 10 unit tests (`python3 -m unittest tests.unit.test_px4_bridge_cli`). Not re-run on the full Isaac stack (`./bisg all`) since the refactor

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ZED SDK contract + health check — the same script for the sim (ZED_SOURCE=sdk) and the real Jetson.
+ZED SDK contract + health check — the same script for the sim and the real Jetson.
 
 Run inside the ZED container (it has rclpy and zed_msgs):
     ./bisg zed check                         # sim: also compares the SDK's odometry with Pegasus ground truth

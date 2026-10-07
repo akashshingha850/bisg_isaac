@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The ZED Mini stack: real ZED SDK wrapper + the services around it, all configured by docker/zed/zed.yaml
-# (docs/zed-stack.md). In the sim it reads the Isaac ZED Mini twin (ZED_SOURCE=sdk, docs/zed-sdk-sim.md). Usually called through ./bisg.
+# (docs/zed-stack.md). In the sim it reads the Isaac ZED Mini twin (docs/zed-sdk-sim.md). Usually called through ./bisg.
 #
 #   zed.sh plan [--hw]                what is on: SDK modules, topics, services (default: with the sim deltas)
 #   zed.sh set KEY=VALUE [...]        edit docker/zed/zed.yaml in place, validated:  set object_detection.enabled=true
@@ -17,7 +17,7 @@
 #   zed.sh bench [--quick] [--streaming] [--window S]   test + benchmark every SDK module on a FRESH sim (restarts it), table -> out/zed_bench.*
 #   zed.sh ext-build | image          build the Isaac Sim extension / the bisg/zed image (once)
 #
-# Typical run:   ZED_SOURCE=sdk ./bisg all headless && ./bisg zed up && ./bisg zed status
+# Typical run:   ./bisg all headless && ./bisg zed up && ./bisg zed status
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
@@ -73,9 +73,7 @@ case "$sub" in
   up)
     zs plan --sim >/dev/null || die "docker/zed/zed.yaml is invalid (fix it: ./bisg zed plan)"
     docker image inspect bisg/zed:${ZED_VARIANT} >/dev/null 2>&1 || die "bisg/zed:${ZED_VARIANT} is not built: ./bisg zed image"
-    container_running "$SIM_NAME" || die "the sim is not running: ZED_SOURCE=sdk ./bisg up headless"
-    docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q '^ZED_SOURCE=sdk$' \
-      || warn "the running sim was started with ZED_SOURCE != sdk: it publishes the emulated rig, there is no stream to read"
+    container_running "$SIM_NAME" || die "the sim is not running: ./bisg up headless"
     [[ -e "/dev/shm/sl_local_video_${ZED_SIM_PORT}" ]] \
       || warn "no ZED stream segment /dev/shm/sl_local_video_${ZED_SIM_PORT} yet: the sim opens it once the timeline plays (./bisg wait)"
     for attempt in 1 2; do
@@ -105,9 +103,9 @@ case "$sub" in
     # One wrapper, every module in turn (tests/zed_bench.py). The SDK connects once per sim run (B18), so this restarts the sim.
     window=20; extra=()
     for a in "${passthru[@]:-}"; do case "$a" in --quick) extra+=(--skip-ai --window 8);; --streaming) extra+=(--streaming);; --window) ;; "") ;; [0-9]*) window=$a;; *) die "bench: [--quick] [--streaming] [--window S]";; esac; done
-    info "fresh SDK sim for the benchmark (./bisg down; ZED_SOURCE=sdk ./bisg all headless)"
+    info "fresh SDK sim for the benchmark (./bisg down; ./bisg all headless)"
     "$ROOT/bisg" zed down >/dev/null 2>&1 || true; "$ROOT/bisg" down >/dev/null 2>&1 || true
-    ZED_SOURCE=sdk "$ROOT/bisg" all headless >/dev/null 2>&1 || die "sim did not come up (./bisg logs)"
+    "$ROOT/bisg" all headless >/dev/null 2>&1 || die "sim did not come up (./bisg logs)"
     zs derive -o "$ROOT/docker/zed/.bench.yaml" \
       video.publish_rgb=true video.publish_raw=true video.publish_gray=true video.publish_stereo=true \
       sensors.publish_imu_raw=true sensors.publish_cam_imu_transf=true \

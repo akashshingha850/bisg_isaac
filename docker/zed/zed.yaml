@@ -179,7 +179,7 @@ services:
     encoder: auto                   # auto | x264 | nvenc (Jetson hardware encoder)
 
 # ====================================================================================================================
-# Sim-only deltas (ZED_SOURCE=sdk: the real SDK reads the Isaac ZED Mini twin). Same nesting as above; NOT used on the Jetson.
+# Sim-only deltas (the real SDK reads the Isaac ZED Mini twin). Same nesting as above; NOT used on the Jetson.
 # ====================================================================================================================
 sim:
   positional_tracking:
@@ -193,7 +193,7 @@ sim:
   services:
     px4_bridge:
       odometry:
-        enabled: false              # sim default: the drone flies on GPS / vio_mock and the SDK is only observed. true = closed loop on the
+        enabled: false              # sim default: the drone flies on GPS and the SDK is only observed. true = closed loop on the
                                     # SDK's VIO (GPS-denied scenario, start `zed up` while `./bisg all` waits): works, accuracy 0.5 m, docs/bugs.md B17
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low
