@@ -178,7 +178,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: drone_1/odom
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -208,7 +208,7 @@ Visualization Manager:
       Name: Current View
       Near Clip Distance: 0.009999999776482582
       Pitch: 0.6000000238418579
-      Target Frame: drone_1/base_link
+      Target Frame: zed_camera_link
       Value: Orbit (rviz_default_plugins)
       Yaw: 3.299999952316284
     Saved: ~

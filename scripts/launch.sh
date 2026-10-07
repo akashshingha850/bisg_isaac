@@ -68,7 +68,8 @@ cmd_up(){
 # The wrapper connects once per sim run (B18) and must start after the stream is live, so this runs from cmd_wait, not from cmd_up.
 zed_autostart(){
   [[ "${ZED_AUTOSTART:-1}" == 1 ]] || return 0
-  docker logs "$SIM_NAME" 2>&1 | grep -aq "ZED SDK twin attached" || return 0          # the scenario has no ZED
+  local log; log=$(docker logs "$SIM_NAME" 2>&1)
+  [[ "$log" == *"ZED SDK twin attached"* ]] || return 0                                  # the scenario has no ZED
   container_running "bisg-zed-${DRONE_ID}" && return 0
   info "starting the ZED wrapper (ZED_AUTOSTART=1; first start optimises the depth model, ~6 min)"
   "$(dirname "$0")/zed.sh" up -d >/dev/null 2>&1 && ok "bisg-zed-${DRONE_ID} started in the background (./bisg zed status)" \
@@ -178,7 +179,9 @@ ros_tool_start(){
 }
 ros_tool_stop(){
   [[ -n "${1:-}" ]] || die "ros stop NAME"
-  docker exec "$ROS_NAME" bash -c "kill \$(cat /tmp/bisg-tool-$1.pid 2>/dev/null) 2>/dev/null" && ok "$1 stopped" || info "$1 is not running"
+  # kill, then wait for the process to be gone (a restart right after must not see the old pid)
+  docker exec "$ROS_NAME" bash -c "p=\$(cat /tmp/bisg-tool-$1.pid 2>/dev/null); kill -0 \$p 2>/dev/null || exit 1; kill \$p; for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 \$p 2>/dev/null || exit 0; sleep 0.5; done; kill -9 \$p" \
+    && ok "$1 stopped" || info "$1 is not running"
 }
 # ROS_TOOLS_AUTOSTART=1: the tools enabled in docker/ros/tools.yaml start when the sim is ready (display tools need a desktop).
 ros_tools_autostart(){
