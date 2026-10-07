@@ -19,7 +19,7 @@ Runtime (Phase 5, `docker/compose.yaml` profile `drone` = `./bisg drone up`; the
 result `bisg/zed:<variant>-base` and builds `Dockerfile.overlay` (one `apt install ros-jazzy-rmw-cyclonedds-cpp`) on top as `bisg/zed:<variant>`.
 
 **Same image in the sim.** `docker/compose.yaml` service `zed` (`./bisg zed up`, profile `zed`) runs this image against the sim's streamed
-ZED Mini twin; see `docs/zed-sdk-sim.md`. `build_isaac_ext.sh` builds Stereolabs' Isaac Sim extension for it (`./bisg zed ext-build`).
+ZED Mini twin; see `docs/zed-sdk-sim.md`. `build_isaac_ext.sh` builds Stereolabs' Isaac Sim extension for it (`./bisg zed build`).
 
 ZED Mini is a USB camera, so no GMSL capture card and no `zed_x` kernel drivers are needed.
 

@@ -15,7 +15,7 @@ Stereolabs'
 `zed_wrapper` (image `bisg/zed:desktop`, the Jetson's recipe), which publishes `/drone_<n>/zed/zed_node/*`.
 
 ## Run
-1. Once: `scripts/fetch_sources.sh`, `./bisg zed ext-build`, `./bisg zed image`. The sim image needs the extension's runtime libs (`docker/sim/Dockerfile`).
+1. Once: `scripts/fetch_sources.sh`, `./bisg zed build`, `./bisg zed image`. The sim image needs the extension's runtime libs (`docker/sim/Dockerfile`).
 2. `./bisg up headless && ./bisg wait`
 3. `./bisg zed up` (after the sim, never before; it waits for frames and retries a missed first connect once; then it starts the bridge/video services). In a GPS-denied scenario with `sim.services.px4_bridge.odometry.enabled: true`, start it while `./bisg all` is still waiting for PX4 — PX4 is only ready once the SDK odometry reaches EKF2.
 4. `./bisg zed check` (`--seconds N`, flags in `tests/zed_sdk_check.py`). To check motion: fly `tests/vio_flight.py` in `bisg-ros` while it samples (`--seconds` longer than the flight).

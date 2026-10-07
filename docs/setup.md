@@ -36,7 +36,7 @@ echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && s
 
 ```
 scripts/fetch_sources.sh      # clones docker/zed/zed-isaac-sim (and the other pins if missing)
-./bisg zed ext-build              # builds the extension in the sim image; packman needs ~12 GB (cache: ~/.cache/packman, PACKMAN_CACHE=...)
+./bisg zed build              # builds the extension in the sim image; packman needs ~12 GB (cache: ~/.cache/packman, PACKMAN_CACHE=...)
 ./bisg zed image                  # bisg/zed:desktop (~15 GB, ~15 min): Stereolabs' image + CycloneDDS overlay
 ```
 The sim image also needs `libpng16-16t64 libjpeg-turbo8 libturbojpeg libusb-1.0-0` (added to `docker/sim/Dockerfile`; `./bisg setup --rebuild`
@@ -61,7 +61,7 @@ Timing on this workstation: pull ~3 min, sim build ~4 min, ros build ~2 min, arm
 
 ```
 ./bisg config             # check the resolved settings first (mode, scenario, view, endpoints)
-./bisg up                 # view from SIM_VIEW; force with ./bisg up gui | headless (boot ~4–5 min)
+./bisg up                 # view from SIM_VIEW; force with ./bisg up gui | headless (warm boot ~1 min, first boot ~3 min)
 ./bisg up web             # headless + a browser view on :8899 (docs/remote-access.md)
 ./bisg smoke              # arm → 2 m → land, exit 0
 ./bisg mavros up && ./bisg mavros state     # connected: true

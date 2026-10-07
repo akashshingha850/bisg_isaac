@@ -8,7 +8,7 @@
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
 #   ./bisg stop | down | restart
-#   ./bisg zed plan|set|up|video|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
+#   ./bisg zed plan|set|up|video|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack, configured by docker/zed/zed.yaml (docs/zed-stack.md)
 #   ./bisg px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge: one service, PX4_BRIDGE picks MAVROS / MAVSDK / uXRCE-DDS (docs/px4-bridge.md)
 #   ./bisg drone up|down|status|logs|check|build   the real drone (Jetson, or a USB ZED Mini on the workstation): MAVROS on the Pixracer + the ZED stack
 #   ./bisg tailscale up|login [--qr]|status|ip|logs|down|logout  reach this host from another network (Tailscale node, docs/remote-access.md)

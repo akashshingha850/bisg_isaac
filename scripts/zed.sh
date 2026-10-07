@@ -15,7 +15,7 @@
 #   zed.sh video-test                 host GStreamer player on the video port (close QGC's video first)
 #   zed.sh test                       unit tests + the bridge against fake topics (no camera, no sim)
 #   zed.sh bench [--quick] [--streaming] [--window S]   test + benchmark every SDK module on a FRESH sim (restarts it), table -> out/zed_bench.*
-#   zed.sh ext-build | image          build the Isaac Sim extension / the bisg/zed image (once)
+#   zed.sh build | image              build the Isaac Sim extension / the bisg/zed image (once)
 #
 # Typical run:   ./bisg all headless && ./bisg zed up && ./bisg zed status
 set -euo pipefail
@@ -67,7 +67,7 @@ video_hint(){ info "QGC on ${VIDEO_HOST:-the host in services.qgc_video}: Applic
 case "$sub" in
   plan) zs plan $([[ $hw == 1 ]] || echo --sim);;
   set)  zs set "${passthru[@]}";;
-  ext-build) exec "$ROOT/docker/zed/build_isaac_ext.sh";;
+  build|ext-build) exec "$ROOT/docker/zed/build_isaac_ext.sh";;
   image)     exec "$ROOT/docker/zed/build.sh";;           # variant by CPU architecture
 
   up)

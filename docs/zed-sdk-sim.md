@@ -5,7 +5,7 @@ simulator, so a node written and tested in sim ports to the drone by changing a 
 
 The sim has one ZED source: the **real `zed_wrapper`**, fed by Isaac through Stereolabs' extension. Depth, point cloud,
 odometry and every other SDK module come from the SDK and are switched in `docker/zed/zed.yaml`; the sim publishes no
-ZED topics itself except `imu/data`. Needs Isaac Sim 6.0, `./bisg zed ext-build`, `bisg/zed:desktop`. (The old
+ZED topics itself except `imu/data`. Needs Isaac Sim 6.0, `./bisg zed build`, `bisg/zed:desktop`. (The old
 `ZED_SOURCE=emulated` rig and `vio_mock` were removed 2026-10-07.)
 
 Isaac Sim 5.1 cannot do `sdk`: Stereolabs' 5.1 line (`isaac-sim/5.1`, Kit 107.3) only ships ZED X cameras; the ZED Mini twin
@@ -14,7 +14,7 @@ Isaac Sim 5.1 cannot do `sdk`: Stereolabs' 5.1 line (`isaac-sim/5.1`, Kit 107.3)
 ## Run it
 
 ```bash
-./bisg zed ext-build                  # once: builds the Stereolabs extension into docker/zed/zed-isaac-sim (~1-4 min)
+./bisg zed build                  # once: builds the Stereolabs extension into docker/zed/zed-isaac-sim (~1-4 min)
 ./bisg zed image                      # once: bisg/zed:desktop = Stereolabs' ZED SDK + wrapper image + CycloneDDS overlay (~15 GB)
 ./bisg up headless                    # sim with the ZED Mini twin streaming
 ./bisg zed up                         # zed_wrapper for drone 1 against the stream; waits for frames
@@ -109,7 +109,7 @@ with sensor noise and an IMU, achieves. The real-camera number comes from the be
 
 | Symptom | Cause / fix |
 |---|---|
-| `./bisg up` aborts with `ZED SDK mode needs the zed-isaac-sim extension` | build it: `./bisg zed ext-build` |
+| `./bisg up` aborts with `ZED SDK mode needs the zed-isaac-sim extension` | build it: `./bisg zed build` |
 | Extension build: `Not enough free space ... /tmp/.cache/packman` | packman unpacks ~12 GB (CUDA, Kit SDK). The script mounts a host cache (`~/.cache/packman`, override `PACKMAN_CACHE`) so it is fetched once |
 | Extension build: `ERROR: cannot verify ... certificate` (wget) | the sim image's `LD_LIBRARY_PATH` pulls Isaac's libcrypto into wget; the script clears it |
 | Wrapper log stops after `Streaming ... receiving port 30000 is not available ... switching to port 30002` and no topics | the wrapper started before the stream was live, or a previous wrapper already used the stream. The SDK connects once per sim run: restart the sim, then `./bisg zed up` |

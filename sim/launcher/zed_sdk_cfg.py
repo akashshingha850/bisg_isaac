@@ -14,7 +14,7 @@ def ext_folder() -> str:
     plugin = os.path.join(path, EXT_ID, "bin", "libsl.sensor.camera.plugin.so")
     if not os.path.isfile(plugin):
         raise SystemExit(f"[launch] ZED SDK mode needs the zed-isaac-sim extension, not found at {plugin}\n"
-                         f"        build it once with:  ./bisg zed ext-build")
+                         f"        build it once with:  ./bisg zed build")
     return path
 
 

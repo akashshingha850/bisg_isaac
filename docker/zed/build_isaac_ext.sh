@@ -8,13 +8,16 @@
 # Built inside the bisg/sim image (has the toolchain, nothing is installed on the host; LD_LIBRARY_PATH is cleared because
 # the image points it at Isaac's bundled ROS libs, whose libcrypto breaks wget/openssl); output stays in
 # docker/zed/zed-isaac-sim/exts/sl.sensor.camera/bin and is picked up by the sim launcher via --ext-folder.
-# Needs `./bisg setup` (bisg/sim image) and `scripts/fetch_sources.sh` first.
+# Needs `./bisg setup` (bisg/sim image); clones the extension source itself if it is missing.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$ROOT/scripts/_common.sh"
 EXT="$ROOT/docker/zed/zed-isaac-sim"
 IMG="bisg/sim:${ISAAC_TAG}"
-[[ -f "$EXT/build.sh" ]] || die "missing $EXT — run scripts/fetch_sources.sh first"
+if [[ ! -f "$EXT/build.sh" ]]; then   # source not cloned yet: fetch just this repo (pinned tag)
+  info "cloning $ZED_ISAAC_EXT_REPO @ $ZED_ISAAC_EXT_TAG"
+  git clone --depth 1 --branch "$ZED_ISAAC_EXT_TAG" "$ZED_ISAAC_EXT_REPO" "$EXT" || die "clone of $ZED_ISAAC_EXT_REPO failed"
+fi
 docker image inspect "$IMG" >/dev/null 2>&1 || die "image $IMG not built — run ./bisg setup"
 
 # The v5.2.x extension declares Kit 110.1.2 (Isaac Sim 6.0.1); the 6.0.0 image is Kit 110.1.1. The code is the same,

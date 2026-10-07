@@ -53,7 +53,7 @@ it. Either forces rendering on, so do not use them for timing runs. Set the defa
 Details: [remote-access.md](remote-access.md).
 
 Ready markers: launcher prints `[launch] sim ready`; PX4 prints `INFO  [commander] Ready for takeoff!`.
-Boot ~4–5 min headless or GUI (measured; see below). QGroundControl on the host connects on UDP 14550 automatically.
+Boot ~1 min warm, ~3 min on the first boot (shader cache). QGroundControl on the host connects on UDP 14550 automatically.
 
 ## Smoke test (sim running)
 ```
@@ -90,7 +90,7 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 ## Real ZED SDK in the sim (`ZED_SOURCE=sdk`)
 
 ```
-./bisg zed ext-build && ./bisg zed image          # once (docs/setup.md)
+./bisg zed build && ./bisg zed image          # once (docs/setup.md)
 ZED_SOURCE=sdk ./bisg up headless && ./bisg wait  # the sim streams the ZED Mini twin
 ./bisg zed up && ./bisg zed check                 # real zed_wrapper + SDK checks; ./bisg zed status | logs | down
 ```

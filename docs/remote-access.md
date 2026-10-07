@@ -139,7 +139,7 @@ Per-run overrides: `./bisg up web`, `webrtc`, `both`, `gui+webrtc`, or the flags
 
 | Symptom | Cause |
 |---|---|
-| "waiting for the first frame" forever | the world is still loading (~4–5 min cold), or `./bisg logs` shows `web view: capture failed` — the viewport was not available |
+| "waiting for the first frame" forever | the world is still loading (~3 min cold), or `./bisg logs` shows `web view: capture failed` — the viewport was not available |
 | `ERR_CONNECTION_REFUSED` on `http://127.0.0.1:8899/` | nothing is listening: the sim is not running (`./bisg status`), still booting, or was started with no web view. `./bisg view` says which. A GPU/driver problem stops the container before any port opens — `./bisg up` reports that case directly |
 | Page does not load at all | port not forwarded, or the sim was started with no web view: `./bisg view` says which |
 | WebRTC client connects, black window | no UDP path, or `SIM_VIEW_ADDR` unset/wrong |

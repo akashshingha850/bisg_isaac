@@ -11,8 +11,9 @@
 #   launch.sh shell [sim|ros]          interactive shell (sim: running container or a fresh one)
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
-#   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
-#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|ext-build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
+#   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache]   build the images (default: all) and the ZED Isaac extension
+#   launch.sh ros up|down|shell|rviz|rqt         dev container with ROS 2 Jazzy tools
+#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
 #   launch.sh all [gui|headless]       sim + mavros + ros, then wait
@@ -66,7 +67,7 @@ cmd_up(){
 cmd_wait(){
   local timeout="${1:-${SIM_WAIT_TIMEOUT:-600}}" t0=$(date +%s) shown_ready=0
   container_running "$SIM_NAME" || die "$SIM_NAME is not running (./bisg up)"
-  info "waiting for sim ready + PX4 ready (timeout ${timeout}s; boot is ~4–5 min)"
+  info "waiting for sim ready + PX4 ready (timeout ${timeout}s; warm boot ~1 min, first boot ~3 min)"
   while true; do
     local el=$(( $(date +%s) - t0 ))
     if sim_failed; then fail "launcher error after ${el}s:"; docker logs "$SIM_NAME" 2>&1 | grep -E -A3 "Traceback|Failed to create any GPU" | tail -12; return 1; fi
@@ -136,13 +137,38 @@ cmd_mavros(){
     *) die "mavros: up|down|restart|logs|state [--drone N]";; esac
 }
 
+cmd_build(){
+  local nc=() targets=()
+  for a in "$@"; do case "$a" in --no-cache) nc=(--no-cache);; sim|ros|px4-bridge|zed|all) targets+=("$a");; *) die "build: [sim|ros|px4-bridge|zed|all] [--no-cache]";; esac; done
+  [[ ${#targets[@]} -eq 0 || " ${targets[*]} " == *" all "* ]] && targets=(ros px4-bridge); [[ "$BISG_ARCH" == x86_64 ]] && targets=(sim "${targets[@]}" zed)
+  for t in "${targets[@]}"; do case $t in
+    sim) info "building bisg/sim:${ISAAC_TAG}"; compose build "${nc[@]}" sim;;
+    ros) info "building bisg/ros:jazzy"; compose --profile ros build "${nc[@]}" ros;;
+    px4-bridge) info "building bisg/px4-bridge:jazzy (the agent compile takes ~10 min)"; compose --profile px4-bridge build "${nc[@]}" px4-bridge;;
+    zed) "$(dirname "$0")/zed.sh" image && "$(dirname "$0")/zed.sh" build;;     # bisg/zed image + the Stereolabs Isaac extension
+  esac; done
+  ok "build done: ${targets[*]}"
+}
+
 cmd_ros(){
   case "${1:-shell}" in
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
     down) compose --profile tools stop ros; compose --profile tools rm -f ros >/dev/null;;
     shell) cmd_shell ros;;
+    rviz|rqt) local app=$1 bin; shift; bin=${app/rviz/rviz2}
+        if [[ ${1:-} == stop ]]; then docker exec "$ROS_NAME" pkill -x "$bin" 2>/dev/null && ok "$bin stopped" || info "$bin is not running"; return; fi
+        container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
+        if ! docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; command -v $bin" >/dev/null 2>&1; then
+          info "${app} is not in the bisg/ros image yet: rebuilding it (one time, a few minutes)"
+          compose --profile tools build ros && compose --profile tools up -d --force-recreate ros >/dev/null || die "ros image build failed"
+        fi
+        if docker exec "$ROS_NAME" pgrep -x "$bin" >/dev/null 2>&1; then ok "$bin is already running"; return; fi
+        command -v xhost >/dev/null && xhost +local: >/dev/null 2>&1 || true   # let the container draw on the host display
+        [[ $app == rviz && $# -eq 0 ]] && set -- -d /workspace/docker/ros/rviz/drone.rviz   # default layout: the drone + ZED topics
+        docker exec -d -e DISPLAY="${DISPLAY:-:0}" "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; exec $bin \"\$@\" >/tmp/$bin.log 2>&1" _ "$@"
+        ok "$bin started in the background (log: docker exec $ROS_NAME cat /tmp/$bin.log; stop: ./bisg ros $app stop)";;
     build) compose --profile tools run --rm ros build;;
-    *) die "ros: up|down|shell|build";; esac
+    *) die "ros: up|down|shell|rviz|rqt|build";; esac
 }
 
 # How to watch a run. Two very different transports (docs/remote-access.md):
@@ -234,7 +260,7 @@ cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f 
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
-  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; ros) shift; cmd_ros "$@";;
+  build) shift; cmd_build "$@";; shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; ros) shift; cmd_ros "$@";; rviz|rqt) cmd_ros "$@";;
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
   drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;

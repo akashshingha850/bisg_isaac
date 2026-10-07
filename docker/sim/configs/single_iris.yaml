@@ -44,7 +44,7 @@ world:
   # Select the active world here. Use any key from pegasus.simulator.params.SIMULATION_ENVIRONMENTS:
   #   "Default Environment", "Curved Gridroom", "Warehouse", "Warehouse with Shelves",
   #   "Full Warehouse", "Simple Room", "Office", "Hospital", "Flat Plane", ...
-  preset: "Simple Room"
+  preset: "Full Warehouse"
   usd_path: null             # absolute /workspace/sim/worlds/... path wins over preset (Phase 4)
   add_ground_plane: false    # only for render-only worlds without collision (3DGS)
   # 120 Hz physics (= PX4 IMU rate), 6 steps per 20 Hz rendered frame. Do not go lower: at 60 Hz PX4's rate loop
@@ -80,7 +80,7 @@ vehicles:
                                        # nose and saw only fuselage. 0.18 clears it; props stay outside the
                                        # 84-90 deg HFOV. Re-check the view if this or the airframe changes.
         baseline: 0.063                # metres, ZED Mini
-        resolution: [1280, 720]        # HD720
+        resolution: [1920, 1080]        # FHD 1080p 
         fps: 30.0
         imu_rate: 200.0
         depth_range: [0.1, 15.0]

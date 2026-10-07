@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-mavros ros-jazzy-mavros-extras ros-jazzy-mavros-msgs \
         ros-jazzy-rmw-cyclonedds-cpp \
         ros-jazzy-tf2-tools ros-jazzy-rqt-graph ros-jazzy-foxglove-bridge \
+        ros-jazzy-rviz2 ros-jazzy-rqt ros-jazzy-rqt-image-view ros-jazzy-rqt-topic \
         python3-pip python3-colcon-common-extensions python3-rosdep python3-vcstool \
         python3-numpy python3-scipy python3-yaml \
         udev usbutils iproute2 net-tools less nano \

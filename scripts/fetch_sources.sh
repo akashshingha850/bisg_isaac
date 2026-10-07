@@ -19,7 +19,7 @@ else
   clone "$PEGASUS_REPO" "$PEGASUS_TAG" "$SIM/PegasusSimulator"
 fi
 clone "$ZED_WRAPPER_REPO" "v${ZED_SDK}" "$ZED/zed-ros2-wrapper"
-clone "$ZED_ISAAC_EXT_REPO" "$ZED_ISAAC_EXT_TAG" "$ZED/zed-isaac-sim"   # built by docker/zed/build_isaac_ext.sh (./bisg zed ext-build)
+clone "$ZED_ISAAC_EXT_REPO" "$ZED_ISAAC_EXT_TAG" "$ZED/zed-isaac-sim"   # built by docker/zed/build_isaac_ext.sh (./bisg zed build)
 if [[ "${WITH_PX4:-0}" == "1" ]]; then   # ~1 GB even shallow; only for reading/patching firmware
   clone "$PX4_REPO" "$PX4_TAG" "$SIM/PX4-Autopilot" --recursive --shallow-submodules
 fi
