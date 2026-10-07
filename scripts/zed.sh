@@ -4,7 +4,7 @@
 #
 #   zed.sh plan [--hw]                what is on: SDK modules, topics, services (default: with the sim deltas)
 #   zed.sh set KEY=VALUE [...]        edit docker/zed/zed.yaml in place, validated:  set object_detection.enabled=true
-#   zed.sh up [--drone N] [--video-host H] [--video-port P]
+#   zed.sh up [-d] [--drone N] [--video-host H] [--video-port P]   -d = start in the background and return at once (no wait for frames)
 #                                     start the wrapper, then every service the YAML enables (px4 bridge, QGC video;
 #                                     --video-host also turns the video on). H = an IP or a tailnet device name (./bisg tailscale status)
 #   zed.sh services                   restart only the side services after a `set` (the wrapper keeps running)
@@ -22,10 +22,11 @@ set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
 sub="${1:-status}"; shift || true
-passthru=(); hw=0; video_host=""; video_port=""
+passthru=(); hw=0; detach=0; video_host=""; video_port=""
 while [[ $# -gt 0 ]]; do case "$1" in
   --drone) export DRONE_ID=$2; shift;;
   --hw) hw=1;;
+  -d|--detach) detach=1;;
   --video-host) video_host=$2; shift;;
   --video-port) video_port=$2; shift;;
   *) passthru+=("$1");; esac; shift; done
@@ -79,6 +80,7 @@ case "$sub" in
     for attempt in 1 2; do
       info "zed_wrapper for drone ${DRONE_ID} (stream port ${ZED_SIM_PORT}, attempt ${attempt}/2)"
       compose --profile zed up -d --force-recreate zed >/dev/null
+      if (( detach )); then ok "$ZNAME started in the background (frames in ~1 min, first start ~3 min: ./bisg zed status | logs)"; start_services; exit 0; fi
       for _ in $(seq 1 45); do   # first start also compiles the depth model: allow it
         container_running "$ZNAME" && have_frames && { ok "$ZNAME publishing /drone_${DRONE_ID}/zed/zed_node/*"; break 2; }
         sleep 4

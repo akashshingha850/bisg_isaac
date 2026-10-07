@@ -12,7 +12,7 @@
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
 #   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache]   build the images (default: all) and the ZED Isaac extension
-#   launch.sh ros up|down|shell|rviz|rqt         dev container with ROS 2 Jazzy tools
+#   launch.sh ros up|down|shell|tools|enable N|disable N|start N|stop N   dev container + the GUI tools in docker/ros/tools.yaml (rviz, rqt, ...)
 #   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
@@ -64,6 +64,17 @@ cmd_up(){
   echo "  follow logs: ./bisg logs -f     stop: ./bisg down"
 }
 
+# ZED_AUTOSTART=1: once the sim streams the ZED twin, start the wrapper (+ the services zed.yaml enables) in the background.
+# The wrapper connects once per sim run (B18) and must start after the stream is live, so this runs from cmd_wait, not from cmd_up.
+zed_autostart(){
+  [[ "${ZED_AUTOSTART:-1}" == 1 ]] || return 0
+  docker logs "$SIM_NAME" 2>&1 | grep -aq "ZED SDK twin attached" || return 0          # the scenario has no ZED
+  container_running "bisg-zed-${DRONE_ID}" && return 0
+  info "starting the ZED wrapper (ZED_AUTOSTART=1; first start optimises the depth model, ~6 min)"
+  "$(dirname "$0")/zed.sh" up -d >/dev/null 2>&1 && ok "bisg-zed-${DRONE_ID} started in the background (./bisg zed status)" \
+    || warn "ZED wrapper did not start: ./bisg zed up"
+}
+
 cmd_wait(){
   local timeout="${1:-${SIM_WAIT_TIMEOUT:-600}}" t0=$(date +%s) shown_ready=0
   container_running "$SIM_NAME" || die "$SIM_NAME is not running (./bisg up)"
@@ -72,7 +83,7 @@ cmd_wait(){
     local el=$(( $(date +%s) - t0 ))
     if sim_failed; then fail "launcher error after ${el}s:"; docker logs "$SIM_NAME" 2>&1 | grep -E -A3 "Traceback|Failed to create any GPU" | tail -12; return 1; fi
     if ! container_running "$SIM_NAME"; then fail "container exited (code $(docker inspect -f '{{.State.ExitCode}}' "$SIM_NAME")) — ./bisg logs"; return 1; fi
-    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; fi
+    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; zed_autostart; ros_tools_autostart; fi
     if px4_ready; then ok "PX4 'Ready for takeoff' after ${el}s"; return 0; fi
     (( el > timeout )) && { fail "timeout after ${el}s (last lines below)"; docker logs --tail 5 "$SIM_NAME" 2>&1 | cut -c1-140; return 1; }
     sleep 3
@@ -150,25 +161,44 @@ cmd_build(){
   ok "build done: ${targets[*]}"
 }
 
+# ROS 2 tools from docker/ros/tools.yaml, detached in bisg-ros on the host display. Extra args replace the yaml ones.
+ros_tool_start(){
+  local name=$1; shift || true; [[ -n "$name" ]] || die "ros start NAME  (./bisg ros tools lists them)"
+  local tp="$ROOT/scripts/ros_tools.py" exe line
+  exe=$("$tp" exe "$name") || exit 1; line=$("$tp" cmd "$name" "$@")
+  container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
+  if [[ $exe == rviz2 || $exe == rqt* ]] && ! docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; command -v $exe" >/dev/null 2>&1; then
+    info "$exe is not in the bisg/ros image yet: rebuilding it (one time, a few minutes)"
+    compose --profile tools build ros && compose --profile tools up -d --force-recreate ros >/dev/null || die "ros image build failed"
+  fi
+  if docker exec "$ROS_NAME" bash -c "kill -0 \$(cat /tmp/bisg-tool-$name.pid 2>/dev/null) 2>/dev/null"; then ok "$name is already running"; return 0; fi
+  command -v xhost >/dev/null && xhost +local: >/dev/null 2>&1 || true   # let the container draw on the host display
+  docker exec -d -e DISPLAY="${DISPLAY:-:0}" "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; echo \$\$ >/tmp/bisg-tool-$name.pid; exec $line >/tmp/$name.log 2>&1"
+  ok "$name started in the background (log: docker exec $ROS_NAME cat /tmp/$name.log; stop: ./bisg ros stop $name)"
+}
+ros_tool_stop(){
+  [[ -n "${1:-}" ]] || die "ros stop NAME"
+  docker exec "$ROS_NAME" bash -c "kill \$(cat /tmp/bisg-tool-$1.pid 2>/dev/null) 2>/dev/null" && ok "$1 stopped" || info "$1 is not running"
+}
+# ROS_TOOLS_AUTOSTART=1: the tools enabled in docker/ros/tools.yaml start when the sim is ready (display tools need a desktop).
+ros_tools_autostart(){
+  [[ "${ROS_TOOLS_AUTOSTART:-1}" == 1 ]] || return 0
+  local n; for n in $("$ROOT/scripts/ros_tools.py" enabled); do ros_tool_start "$n" || warn "ros tool $n did not start"; done
+}
+
 cmd_ros(){
   case "${1:-shell}" in
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
     down) compose --profile tools stop ros; compose --profile tools rm -f ros >/dev/null;;
     shell) cmd_shell ros;;
-    rviz|rqt) local app=$1 bin; shift; bin=${app/rviz/rviz2}
-        if [[ ${1:-} == stop ]]; then docker exec "$ROS_NAME" pkill -x "$bin" 2>/dev/null && ok "$bin stopped" || info "$bin is not running"; return; fi
-        container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
-        if ! docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; command -v $bin" >/dev/null 2>&1; then
-          info "${app} is not in the bisg/ros image yet: rebuilding it (one time, a few minutes)"
-          compose --profile tools build ros && compose --profile tools up -d --force-recreate ros >/dev/null || die "ros image build failed"
-        fi
-        if docker exec "$ROS_NAME" pgrep -x "$bin" >/dev/null 2>&1; then ok "$bin is already running"; return; fi
-        command -v xhost >/dev/null && xhost +local: >/dev/null 2>&1 || true   # let the container draw on the host display
-        [[ $app == rviz && $# -eq 0 ]] && set -- -d /workspace/docker/ros/rviz/drone.rviz   # default layout: the drone + ZED topics
-        docker exec -d -e DISPLAY="${DISPLAY:-:0}" "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; exec $bin \"\$@\" >/tmp/$bin.log 2>&1" _ "$@"
-        ok "$bin started in the background (log: docker exec $ROS_NAME cat /tmp/$bin.log; stop: ./bisg ros $app stop)";;
+    tools|list) "$ROOT/scripts/ros_tools.py" list;;
+    enable|disable) [[ -n "${2:-}" ]] || die "ros $1 NAME  (./bisg ros tools lists them)"
+        "$ROOT/scripts/ros_tools.py" set "$2" "$([[ $1 == enable ]] && echo on || echo off)" && ok "$2 ${1}d in docker/ros/tools.yaml";;
+    start) shift; ros_tool_start "${1:-}" "${@:2}";;
+    stop) shift; ros_tool_stop "${1:-}";;
+    rviz|rqt) local n=$1; shift; if [[ ${1:-} == stop ]]; then ros_tool_stop "$n"; else ros_tool_start "$n" "$@"; fi;;   # shortcuts
     build) compose --profile tools run --rm ros build;;
-    *) die "ros: up|down|shell|rviz|rqt|build";; esac
+    *) die "ros: up|down|shell|tools|enable|disable|start|stop|build";; esac
 }
 
 # How to watch a run. Two very different transports (docs/remote-access.md):
