@@ -34,8 +34,7 @@ def cmd_plan(args):
         state = "ON " if m in bridge else "off"
         print(f"         {state} {m:<18} {topics.BRIDGE[m][0]}  ->  {topics.BRIDGE[m][1]}")
     v = svc["qgc_video"]
-    print(f"  {'ON ' if v['enabled'] else 'off'}  qgc_video   (compose: zed-video)"
-          + (f"  -> udp://{v['host']}:{v['port']}" if v["enabled"] else ""))
+    print(f"  {'ON ' if v['enabled'] else 'off'}  qgc_video   (compose: zed-video)  -> udp://{v['host']}:{v['port']}")
     print(f"\nstart: wrapper{''.join(', ' + s for s in cfg.plan_services())}")
 
 

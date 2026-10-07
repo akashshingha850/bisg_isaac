@@ -56,7 +56,7 @@ conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5
-conf_default VPN_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"
+conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""
 conf_default PX4_BRIDGE mavros
 conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
@@ -89,19 +89,20 @@ done
 
 STREAM_SIGNAL_PORT=49100      # TCP, hardcoded in the Isaac Sim WebRTC Streaming Client
 STREAM_MEDIA_PORT=47998       # UDP, likewise
-VPN_NAME=bisg-vpn
-# This host's tailnet IPv4 from the `vpn` service (./bisg vpn up); empty when it is not up or not logged in.
-vpn_ip(){ container_running "$VPN_NAME" && docker exec "$VPN_NAME" tailscale ip -4 2>/dev/null | head -1 || true; }
-# SIM_VIEW_ADDR=vpn means "this host's tailnet IP". Resolve it to an address before anything uses it.
+TAILSCALE_NAME=bisg-tailscale
+# This host's tailnet IPv4 from the `tailscale` service (./bisg tailscale up); empty when it is not up or not logged in.
+tailscale_ip(){ container_running "$TAILSCALE_NAME" && docker exec "$TAILSCALE_NAME" tailscale ip -4 2>/dev/null | head -1 || true; }
+# SIM_VIEW_ADDR=tailscale means "this host's tailnet IP". Resolve it to an address before anything uses it.
 resolve_view_addr(){
-  [[ "${SIM_VIEW_ADDR:-}" == vpn ]] || return 0
-  local ip; ip="$(vpn_ip)"
-  [[ -n "$ip" ]] || die "SIM_VIEW_ADDR=vpn but the vpn service has no address: ./bisg vpn up (then ./bisg vpn status)"
+  [[ "${SIM_VIEW_ADDR:-}" == vpn ]] && die "SIM_VIEW_ADDR=vpn was renamed: set SIM_VIEW_ADDR=tailscale in docker/.env"
+  [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] || return 0
+  local ip; ip="$(tailscale_ip)"
+  [[ -n "$ip" ]] || die "SIM_VIEW_ADDR=tailscale but the tailscale service has no address: ./bisg tailscale up (then ./bisg tailscale status)"
   export SIM_VIEW_ADDR="$ip"
 }
 # Where a viewer should connect: SIM_VIEW_ADDR, else this host's LAN IP, else loopback.
 stream_addr(){
-  [[ "${SIM_VIEW_ADDR:-}" == vpn ]] && { local v; v="$(vpn_ip)"; echo "${v:-<vpn not up>}"; return; }
+  [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] && { local v; v="$(tailscale_ip)"; echo "${v:-<tailscale not up>}"; return; }
   if [[ -n "${SIM_VIEW_ADDR:-}" ]]; then echo "$SIM_VIEW_ADDR"; return; fi
   local ip; ip=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
   echo "${ip:-127.0.0.1}"
@@ -123,7 +124,7 @@ view_parse(){
       web|browser)          web=1;;
       webrtc|stream|livestream) rtc=1;;
       both)                 web=1; rtc=1;;
-      remote) die "SIM_VIEW=remote is ambiguous: 'web' survives a VS Code/SSH tunnel, 'webrtc' is interactive but needs UDP on a LAN or VPN (docs/remote-access.md)";;
+      remote) die "SIM_VIEW=remote is ambiguous: 'web' survives a VS Code/SSH tunnel, 'webrtc' is interactive but needs UDP on a LAN or Tailscale (docs/remote-access.md)";;
       *) die "SIM_VIEW: unknown value '$tok' (gui|headless|web|webrtc|both|auto, combined with '+'; got '$raw')";;
     esac
   done

@@ -75,6 +75,43 @@ The bottleneck is Pegasus's per-step Python, not rendering (`migration-errors.md
 First boot (or after `./bisg debug clean-cache`) takes ~190 s while RTX shaders compile into the `isaac-cache-kit` volume (M6). `app.render: false` no longer
 skips the app update (M9). Full comparison with 5.1: `archive/docs/migration-report.md` §7.
 
+## Workstation B (2x RTX 6000 Ada 48 GB, Threadripper PRO 7975WX 32c, measured 2026-10-06)
+
+Headless, warm caches, Isaac Sim 6.0 / PX4 v1.17.0, 75 s steady state per run. "Legacy" = the settings of the RTX 4500 table above
+(250 Hz physics, `pegasus_fast` off), so those rows compare the two machines directly.
+
+| Scenario | RTX 4500 Ada (above) | **2x RTX 6000 Ada** | GPU0 / GPU1 util | sim CPU |
+|---|---:|---:|---|---:|
+| `single_iris_nozed`, legacy | 119 Hz, rtf 0.48 | 119 Hz, rtf 0.48 | | |
+| 2 drones, legacy | 73 Hz, 0.29 | 66 Hz, 0.27 | | |
+| 4 drones, legacy | 41 Hz, 0.17 | 36 Hz, 0.14 | | |
+| 8 drones, legacy | 23 Hz, 0.09 | 19 Hz, 0.08 | 3 % / 0 % | 11 cores |
+| `single_iris_nozed` (current: 120 Hz, `pegasus_fast`) | — | 218 Hz, **rtf 1.82** | 33 % / 5 % | 12 cores |
+| `single_iris` (ZED HD720) | rtf 0.85 (2026-10-04) | 126 Hz, **rtf 1.05** | 35 % / 15 % | 12 cores |
+| `headless_fast` | — | 234 Hz, rtf 0.94 | 42 % / 5 % | 13 cores |
+| 2 / 4 / 8 drones (current) | — | rtf 1.12 / 0.70 / 0.40 | 28 / 17 / 9 % on GPU0 | 8 / 6 / 4 cores |
+| `single_iris`, Kit limited to 1 GPU | | rtf 0.99 (vs 1.05 with 2) | | |
+| 8 drones, Kit limited to 1 GPU | | rtf 0.40 (vs 0.40 with 2) | | |
+| **8 drones as two sims, one per GPU (4 + 4)** | — | **rtf 0.67 each** | 18 % / 19 % | 6 + 6 cores |
+
+Boot to PX4 ready: 40–55 s (30–39 s on the 4500). The extra time is NVIDIA's online asset-root lookup at Pegasus import. On this network it
+sometimes takes ~200 s or times out (`get_assets_root_path` traceback: rerun).
+
+What it means:
+- **One sim is no faster on the bigger machine.** The loop is one Python thread (M8), so per-sim speed follows single-core CPU speed, not GPU. With
+  several drones the RTX 4500 box is ~10-15 % faster. The second GPU does nothing for one sim: Kit uses it a little, and limiting Kit to one GPU
+  changes nothing measurable.
+- **The swarm gain is from running sims in parallel.** Each sim takes one GPU and its own CPU thread, so 8 drones as 4 + 4 run at
+  rtf 0.67 instead of 0.40 (1.7x). All 8 flew at once (`tests/smoke_takeoff.py` on PX4 instances 0-7: armed, ~1.5 m, landed, PASS).
+  The two sims are **separate worlds**: drones in one cannot see or collide with drones in the other. MAVLink and ROS 2 see one fleet
+  (`/drone_1..8`, PX4 instances 0-7, distinct ports).
+- **VRAM:** 48 GB per GPU vs 24 GB. With a ZED HD720 rig per drone (~1-3 GB each) this machine holds 2-4x more camera drones.
+- **Boot the sims one at a time.** Two Kit instances starting at the same moment (shared `ipc: host` + shader-cache volume)
+  ended in one segfault (`acquireNextFrameBufferNoWait: Failed to begin frame command list`) and one hang. Starting the second
+  after the first reached PX4-ready worked.
+- How this was run: sim B is `docker compose run --name bisg-sim-b -e NVIDIA_VISIBLE_DEVICES=1 -e SIM_CONFIG=<drones 4-7> sim-headless`
+  next to the normal `./bisg up`. It is a probe only. Proper multi-sim tooling is Phase 6 (swarm-spawn).
+
 ## Measurements on this workstation (RTX 2080 Ti, 12 cores, driver 580.178.04)
 
 Measured 2026-09-13 after the render-cadence fix (see below). Boot times are with warm asset and shader

@@ -4,9 +4,12 @@
 #
 #   zed.sh plan [--hw]                what is on: SDK modules, topics, services (default: with the sim deltas)
 #   zed.sh set KEY=VALUE [...]        edit docker/zed/zed.yaml in place, validated:  set object_detection.enabled=true
-#   zed.sh up [--drone N] [--video-host IP] [--video-port P]
-#                                     start the wrapper, then every service the YAML enables (px4 bridge, QGC video)
+#   zed.sh up [--drone N] [--video-host H] [--video-port P]
+#                                     start the wrapper, then every service the YAML enables (px4 bridge, QGC video;
+#                                     --video-host also turns the video on). H = an IP or a tailnet device name (./bisg tailscale status)
 #   zed.sh services                   restart only the side services after a `set` (the wrapper keeps running)
+#   zed.sh video [--video-host H] [--video-port P]   only the QGC video sender (services.qgc_video), whatever services.qgc_video.enabled
+#                                     says; reads left/color/rect/image, so it also works on the emulated rig (no zed_wrapper)
 #   zed.sh enable MODULE [on|off]     switch object_detection|body_tracking|spatial_mapping|streaming|depth in the running wrapper
 #   zed.sh down | status | logs [wrapper|bridge|video] [-f] | check [args]
 #   zed.sh video-test                 host GStreamer player on the video port (close QGC's video first)
@@ -29,7 +32,16 @@ while [[ $# -gt 0 ]]; do case "$1" in
 ZNAME="bisg-zed-${DRONE_ID}"
 # Port math lives with the launcher (sim/launcher/zed_sdk_cfg.py): drone N = vehicle id N-1 -> 30000 + 2*(N-1).
 export ZED_SIM_PORT=$((30000 + 2 * (DRONE_ID - 1)))
-[[ -n "$video_host" ]] && export VIDEO_HOST=$video_host
+# --video-host: an IPv4, or a device name on the tailnet (resolved through the tailscale service) / in DNS
+video_ip(){
+  [[ "$1" =~ ^[0-9]+(\.[0-9]+){3}$ ]] && { echo "$1"; return; }
+  local ip=""
+  container_running "$TAILSCALE_NAME" && ip="$(docker exec "$TAILSCALE_NAME" tailscale ip -4 "$1" 2>/dev/null | head -1 || true)"
+  [[ -n "$ip" ]] || ip="$(getent ahostsv4 "$1" | awk '{print $1; exit}')"
+  [[ -n "$ip" ]] || die "--video-host $1: not an IP, not a device on the tailnet (./bisg tailscale status), not in DNS"
+  echo "$ip"
+}
+[[ -n "$video_host" ]] && export VIDEO_HOST="$(video_ip "$video_host")"
 [[ -n "$video_port" ]] && export VIDEO_PORT=$video_port
 
 zexec(){ docker exec "$ZNAME" bash -lc "source /sbin/ros_entrypoint.sh >/dev/null 2>&1; $*"; }
@@ -40,15 +52,17 @@ svc_name(){ case $1 in wrapper|zed) echo "$ZNAME";; bridge|zed-bridge) echo "bis
 # (Re)start the services the YAML enables, stop the ones it disables. The wrapper is not touched.
 start_services(){
   local wanted=" $(zs services --sim | tr '\n' ' ')" s
+  [[ -n "$video_host" ]] && wanted+=" zed-video "      # an explicit --video-host means: stream to it
   for s in zed-bridge zed-video; do
     if [[ "$wanted" == *" $s "* ]]; then
       [[ $s == zed-bridge ]] && ! container_running "bisg-mavros-${DRONE_ID}" && warn "MAVROS for drone ${DRONE_ID} is not running (./bisg mavros up): the bridge has nowhere to send"
       compose --profile zed up -d --force-recreate "$s" >/dev/null; ok "$s started"
     else compose --profile zed rm -sf "$s" >/dev/null 2>&1 || true; fi
   done
-  [[ "$wanted" == *" zed-video "* ]] && info "QGC: Application Settings > Video > Source 'UDP h.264 Video Stream', port ${VIDEO_PORT:-$(zs plan --sim | sed -n 's/.*udp:\/\/[^:]*:\([0-9]*\).*/\1/p' | head -1)}"
+  [[ "$wanted" == *" zed-video "* ]] && video_hint
   return 0
 }
+video_hint(){ info "QGC on ${VIDEO_HOST:-the host in services.qgc_video}: Application Settings > Video > Source 'UDP h.264 Video Stream', port ${VIDEO_PORT:-$(zs plan --sim | sed -n 's/.*udp:\/\/[^:]*:\([0-9]*\).*/\1/p' | head -1)}"; }
 
 case "$sub" in
   plan) zs plan $([[ $hw == 1 ]] || echo --sim);;
@@ -76,6 +90,14 @@ case "$sub" in
                               die "zed_wrapper never received frames — see docs/zed-sdk-sim.md 'Troubleshooting'"; }
     done
     start_services; exit 0;;
+
+  video)    # only the video sender; any source of left/color/rect/image will do (zed_wrapper, or the sim's emulated rig)
+    container_running "$SIM_NAME" || container_running "$ZNAME" || die "nothing publishes the ZED image: start the sim (./bisg up) or ./bisg zed up"
+    docker image inspect bisg/zed:${ZED_VARIANT} >/dev/null 2>&1 || die "bisg/zed:${ZED_VARIANT} is not built: ./bisg zed image"
+    rmem=$(sysctl -n net.core.rmem_max 2>/dev/null || echo 0)
+    (( rmem >= 10485760 )) || warn "net.core.rmem_max=${rmem}: CycloneDDS cannot reassemble a camera image, the video will stay black (camera_info flows, images don't). Fix: echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system, then ./bisg zed video again (no sudo: ZED_RMW=rmw_fastrtps_cpp ./bisg zed video)"
+    compose --profile zed up -d --force-recreate zed-video >/dev/null; ok "zed-video started"; video_hint
+    info "check it: ./bisg zed logs video  ('streaming: N frames' every 5 s)";;
 
   services) container_running "$ZNAME" || die "$ZNAME is not running (./bisg zed up)"; start_services;;   # restart only the side services (after `zed set`), wrapper untouched
 
@@ -128,7 +150,8 @@ for l in sys.stdin:
     for k,v in d["components"].items(): print("   %-18s %-9s %s" % (k, v["state"], {a:b for a,b in v.items() if a!="state"}))' \
         || warn "no zed_stack/status yet (is the health module on?)"
     else info "px4 bridge not running (services.px4_bridge in docker/zed/zed.yaml)"; fi
-    container_running "$(svc_name video)" && ok "$(svc_name video) running";;
+    container_running "$(svc_name video)" && ok "$(svc_name video) running"
+    true;;
 
   logs)
     which=wrapper; follow=""
@@ -152,5 +175,5 @@ for l in sys.stdin:
     docker run --rm --network host --ipc host -e ROS_DOMAIN_ID=77 -v "$ROOT":/workspace:ro --entrypoint bash bisg/zed:${ZED_VARIANT} \
       -lc 'source /opt/ros/jazzy/setup.bash; cd /workspace && python3 tests/zed_bridge_fake.py' 2>&1 | grep -E "PASS|FAIL|^[a-z]" ;;
 
-  *) sed -n 2,22p "$0"; exit 2;;
+  *) sed -n 2,20p "$0"; exit 2;;
 esac

@@ -56,7 +56,7 @@ HEADLESS = bool(APP_CFG.get("headless", False)) or ARGS.headless or os.environ.g
 RENDER = bool(APP_CFG.get("render", True))
 # Seeing a headless run (docs/remote-access.md). SIM_STREAM is what ./bisg derives from
 # SIM_VIEW (config/bisg.conf or `./bisg up web|webrtc`); it wins over `app.stream:` here.
-#   webrtc  interactive, Isaac Sim WebRTC Streaming Client, TCP 49100 + UDP 47998 (needs UDP: LAN/VPN)
+#   webrtc  interactive, Isaac Sim WebRTC Streaming Client, TCP 49100 + UDP 47998 (needs UDP: LAN/Tailscale)
 #   web     still frames over one TCP port, so it survives a VS Code / SSH tunnel
 #   both    run the two together
 STREAM = str(os.environ.get("SIM_STREAM") or APP_CFG.get("stream") or "off").strip().lower()

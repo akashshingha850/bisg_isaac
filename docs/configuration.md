@@ -58,7 +58,7 @@ SIM_VIEW=webrtc      # config/bisg.conf
 | `gui` | Isaac window on `$DISPLAY` | — | the machine itself |
 | `headless` | none | — | nothing — fastest, use it for tests, CI and timing |
 | `web` | none | still frames on `SIM_WEB_PORT` | one TCP port, so a VS Code / SSH forward works |
-| `webrtc` | none | interactive WebRTC | TCP 49100 + UDP 47998 — LAN or VPN only |
+| `webrtc` | none | interactive WebRTC | TCP 49100 + UDP 47998 — LAN or Tailscale only |
 | `both` | none | `web` + `webrtc` together | both of the above |
 | `auto` | `gui` if an X server is reachable, else `headless` | — | — |
 
@@ -88,7 +88,7 @@ SIM_VIEW=headless ./bisg up   # same, for one shell
 `./bisg view` prints the URLs and addresses for whatever is running.
 
 Two supporting keys: `SIM_VIEW_ADDR` (the address a remote viewer connects to — this host's LAN,
-Tailscale or public IP; `vpn` = this host's tailnet IP from the `vpn` service; empty means local
+Tailscale or public IP; `tailscale` = this host's tailnet IP from the `tailscale` service; empty means local
 clients only, and WebRTC media never arrives without it from another machine; it is machine-specific,
 so set it in `docker/.env`) and `SIM_WEB_PORT` / `SIM_WEB_INTERVAL` for the browser view.
 
@@ -109,11 +109,11 @@ put `SIM_STREAM` in `docker/.env`: `./bisg` rejects the old keys there rather th
 instead of being silently ignored. `SIM_MODE=gui` + `SIM_STREAM=webrtc` becomes `SIM_VIEW=gui+webrtc`;
 `SIM_MODE=headless` + `SIM_STREAM=web` becomes `SIM_VIEW=web`.
 
-## Remote access: `VPN_HOSTNAME`, `TS_AUTHKEY`
+## Remote access: `TAILSCALE_HOSTNAME`, `TAILSCALE_EXTRA_ARGS`
 
-The `vpn` service (Tailscale, ADR-009) puts this host on your tailnet so another network can reach the sim
-(`./bisg vpn up|status|down`, `docs/remote-access.md`). `VPN_HOSTNAME` (default `bisg-<hostname>`) names the
-node; `TS_AUTHKEY` is a secret and lives in `docker/.env` only. Without it, `./bisg vpn up` prints a login URL once.
+The `tailscale` service (Tailscale, ADR-009) puts this host on your tailnet so another network can reach the sim
+(`./bisg tailscale up|status|down`, `docs/remote-access.md`). `TAILSCALE_HOSTNAME` (default `bisg-<hostname>`) names the
+node. Login is in a browser, started from the terminal with `./bisg tailscale login` (URL or `--qr`); there is no auth-key path (ADR-009). `TAILSCALE_EXTRA_ARGS` adds `tailscale up` flags (e.g. `--ssh`).
 
 ## Scenario
 

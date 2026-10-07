@@ -172,7 +172,7 @@ services:
   qgc_video:
     enabled: false
     topic: ''                       # empty = left/color/rect/image of this drone
-    host: 127.0.0.1                 # where QGC runs (LAN/VPN IP for a remote QGC)
+    host: 127.0.0.1                 # where QGC runs: 127.0.0.1 = this machine; a LAN or tailnet IP for a remote QGC (or ./bisg zed video --video-host)
     port: 5600
     bitrate: 2000                   # kbit/s
     fps: 0                          # cap, 0 = every frame

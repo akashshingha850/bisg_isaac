@@ -42,7 +42,7 @@ SIM_CONFIG=/workspace/docker/sim/configs/<other>.yaml docker compose -f docker/c
 ### Watching a headless run
 ```
 ./bisg up web                   # browser view on TCP 8899 — works through a VS Code / SSH tunnel
-./bisg up webrtc                # interactive WebRTC — needs UDP 47998, so LAN or VPN only
+./bisg up webrtc                # interactive WebRTC — needs UDP 47998, so LAN or Tailscale only
 ./bisg up gui+webrtc            # local window and a remote viewer at the same time
 ./bisg view                     # URLs / client address for whatever is running
 ```

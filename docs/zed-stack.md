@@ -85,8 +85,11 @@ register it in `node.py:MODULES`, its defaults in `config.py:SERVICES`, its topi
 
 ### `qgc_video` (compose `zed-video`) — video in QGroundControl
 Left image → GStreamer → RTP/H.264 UDP (x264, or `nvv4l2h264enc` on the Jetson). Set `services.qgc_video.enabled: true`, `./bisg zed services`; in QGC:
-**Application Settings → Video → Source "UDP h.264 Video Stream", port 5600**. `./bisg zed up --video-host <QGC machine IP>` for a remote QGC (UDP: LAN/VPN,
-not an SSH tunnel). `./bisg zed video-test` plays it on the host without QGC (close QGC's video first: one receiver per port).
+**Application Settings → Video → Source "UDP h.264 Video Stream", port 5600**. `./bisg zed video` starts only this sender, whatever `enabled` says, and
+works on the emulated rig too (no `zed_wrapper`). `--video-host H` (on `zed video` or `zed up`) streams to a remote QGC; H is an IP or a tailnet device
+name (`./bisg tailscale status`). UDP: LAN or Tailscale, not an SSH tunnel. `./bisg zed video-test` plays it on the host without QGC (close QGC's video
+first: one receiver per port). Black video while `zed logs video` says "no frames": the host's `net.core.rmem_max` is too small for CycloneDDS to
+reassemble an image (`./bisg check`, `docs/setup.md`).
 
 ## Files
 
