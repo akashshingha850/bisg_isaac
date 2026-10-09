@@ -52,7 +52,13 @@ while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_f
 # Fallbacks so the scripts still work with no config file at all; keep in sync with config/bisg.conf.
 conf_default SIM_VIEW gui+webrtc;        conf_default SIM_SCENARIO single_iris;  conf_default SIM_WAIT_TIMEOUT 600
 conf_default SIM_GPU all;         conf_default ZED_GPU all;         conf_default ZED_AUTOSTART 1;     conf_default ROS_TOOLS_AUTOSTART 1;     conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
-conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
+conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
+# ROS_DOMAIN_ID=auto: one stable domain per machine (1..99, from the hostname), so two workstations on one LAN never see each other's
+# /drone_N topics (CycloneDDS multicast discovery crosses the LAN). A number set in docker/.env or the environment wins.
+if [[ "$ROS_DOMAIN_ID" == auto ]]; then
+  ROS_DOMAIN_ID=$(( 1 + $(printf '%s' "$(hostname -s 2>/dev/null || echo sim)" | cksum | cut -d' ' -f1) % 99 )); export ROS_DOMAIN_ID
+  BISG_SRC[ROS_DOMAIN_ID]="${BISG_SRC[ROS_DOMAIN_ID]:-built-in} (auto from hostname)"
+fi
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5

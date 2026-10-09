@@ -22,6 +22,7 @@ a position setpoint below the ground just sits there, armed. `--land auto` keeps
 Needs the GPS-denied scenario and the ZED stack feeding PX4 (`./bisg zed up`, zed.yaml odometry.enabled):
     SIM_SCENARIO=single_iris_vio ./bisg all headless
     docker exec bisg-ros python3 /workspace/tests/vio_flight.py --drone 1
+Also runs unchanged on `SIM_SCENARIO=single_iris_flow` (ToF + optical flow instead of the ZED, docs/range-flow.md).
 Reading ground truth is test-only; vehicle nodes must not (parity rule, plan.md §8).
 Exit code 0 = PASS. --csv writes every sample for plotting.
 """

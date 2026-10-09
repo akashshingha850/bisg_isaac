@@ -45,7 +45,7 @@ video_ip(){
 [[ -n "$video_host" ]] && export VIDEO_HOST="$(video_ip "$video_host")"
 [[ -n "$video_port" ]] && export VIDEO_PORT=$video_port
 
-zexec(){ docker exec "$ZNAME" bash -lc "source /sbin/ros_entrypoint.sh >/dev/null 2>&1; $*"; }
+zexec(){ docker exec "$ZNAME" bash -lc "source /workspace/docker/zed/ros_env.sh >/dev/null 2>&1; $*"; }
 # best_effort: the wrapper publishes sensor-data QoS; a default (reliable) subscriber would never match it
 have_frames(){ zexec "timeout 15 ros2 topic echo --once --qos-reliability best_effort --field header.stamp /drone_${DRONE_ID}/zed/zed_node/left/color/rect/image" >/dev/null 2>&1; }
 svc_name(){ case $1 in wrapper|zed) echo "$ZNAME";; bridge|zed-bridge) echo "bisg-zed-bridge-${DRONE_ID}";; video|zed-video) echo "bisg-zed-video-${DRONE_ID}";; *) die "unknown service $1 (wrapper|bridge|video)";; esac; }
@@ -142,7 +142,7 @@ case "$sub" in
     bn="$(svc_name bridge)"
     if container_running "$bn"; then
       ok "$bn running"
-      docker exec "$bn" bash -lc "source /sbin/ros_entrypoint.sh >/dev/null 2>&1; timeout 6 ros2 topic echo --once --field data /drone_${DRONE_ID}/zed_stack/status" 2>/dev/null \
+      docker exec "$bn" bash -lc "source /workspace/docker/zed/ros_env.sh >/dev/null 2>&1; timeout 6 ros2 topic echo --once --field data /drone_${DRONE_ID}/zed_stack/status" 2>/dev/null \
         | sed "s/^'//; s/'\$//; s/^data: //" | grep -m1 '^{' \
         | python3 -c 'import json,sys
 for l in sys.stdin:

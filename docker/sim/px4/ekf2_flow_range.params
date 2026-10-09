@@ -1,0 +1,11 @@
+# PX4 params for GPS-denied flight on a downward ToF rangefinder (LW20/C) + optical flow (PMW3901): the sensors fed by
+# sim/launcher/range_flow.py (docs/range-flow.md). Scenario: `px4.params: [ekf2_flow_range]`. Same values on the Pixracer
+# via scripts/push_px4_params.py or QGC (the real sensors need their own driver params on top: SENS_EN_* / flow SPI or MAVLink input).
+# Names/semantics verified against /opt/PX4-Autopilot/src/modules/ekf2/{params_optical_flow,params_range_finder,module}.yaml (PX4 v1.17.0).
+# Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32). Applied at SITL boot, so reboot_required params (EKF2_HGT_REF) take effect.
+
+EKF2_HGT_REF   2   6   # height reference = range finder (0 Baro 1 GPS 2 Range 3 Vision), as the hardware plan (EK3_SRC1_POSZ=2)
+EKF2_RNG_CTRL  2   6   # range height aiding always on (0 off, 1 conditional, 2 enabled)
+EKF2_OF_CTRL   1   6   # optical flow fusion on
+EKF2_OF_DELAY  0   9   # ms. The twin stamps the sample at the end of the integration window with no latency
+EKF2_GPS_CTRL  0   6   # GPS fusion fully disabled (GPS-denied)

@@ -141,7 +141,7 @@ while `net.core.rmem_max` is small.
 | `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/px4-bridge/entrypoint.sh`) |
 | `GCS_URL` | empty → no second link | MAVROS `gcs_url:=` (QGroundControl, logger) |
 | `MAVLINK_GCS_PORT` | `14550` | `./bisg debug mavlink` probe |
-| `ROS_DOMAIN_ID` | `0` | every container |
+| `ROS_DOMAIN_ID` | `auto` = 1 + cksum(hostname) % 99 (stallman2 → 91, ict-em018kc6 → 5) | every container; a number overrides; the same number on machines that must share topics. The ZED image's `/sbin/ros_entrypoint.sh` forces domain 0, so ZED containers source `docker/zed/ros_env.sh` instead |
 | `PX4_BRIDGE` | `mavros` | which bridge the one `px4-bridge` service runs: `mavros \| mavsdk \| xrce \| none` (`./bisg px4-bridge up`, `all`, `drone up`): `docs/px4-bridge.md` |
 | `MAVROS_PLUGINS` | `lean` | MAVROS plugin set: `lean` (`docker/ros/mavros_lean.yaml`) or `full` (stock) |
 | `MAVSDK_PORT` | `50051` | gRPC port of the `mavsdk` link |

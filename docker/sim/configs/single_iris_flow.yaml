@@ -1,0 +1,36 @@
+# Scenario: single_iris, GPS-denied on a downward ToF rangefinder (LW20/C twin) + optical flow (PMW3901 twin), no ZED.
+# Both sensors are fed straight to PX4 SITL by sim/launcher/range_flow.py (docs/range-flow.md), like the real FC reads them.
+#   SIM_SCENARIO=single_iris_flow ./bisg up headless && docker exec bisg-sim /isaac-sim/python.sh /workspace/tests/flow_hold.py
+extends: single_iris_nozed.yaml
+
+px4:
+  params: [ekf2_flow_range]    # a list replaces, it does not add
+
+vehicles:
+  - id: 0
+    model: Iris
+    usd_path: null
+    position: [0.0, 0.0, 0.07]
+    yaw_deg: 0.0
+    ros2:
+      enabled: true
+      pub_state: true
+      pub_sensors: false
+      pub_graphical_sensors: false
+    sensors:
+      zed:
+        enabled: false
+      tof:                         # Lightware LW20/C, down-facing
+        enabled: true
+        mount_xyz: [0.0, 0.0, 0.0]     # base_link FLU, m (TBD with docs/hardware.md). Iris rests with its origin 6 cm up: a lower mount sits inside min_m on the ground
+        min_m: 0.05
+        max_m: 100.0
+        rate_hz: 50.0
+        noise_std_m: 0.01
+      optical_flow:                # PMW3901, down-facing
+        enabled: true
+        mount_xyz: [0.0, 0.0, 0.0]
+        min_m: 0.08
+        max_m: 5.0                 # beyond this the sensor reports quality 0
+        rate_hz: 50.0
+        noise_std_rad_s: 0.02

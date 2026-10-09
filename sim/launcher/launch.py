@@ -503,7 +503,8 @@ class App:
             "px4_vehicle_model": px4_cfg.get("airframe") or self.pg.px4_default_airframe,
             "enable_lockstep": bool(px4_cfg.get("enable_lockstep", False)),
         })
-        backends.append(PX4MavlinkBackend(mav))
+        px4_backend = PX4MavlinkBackend(mav)
+        backends.append(px4_backend)
         LOG.info("vehicle %d: PX4 SITL instance %d on tcp 4560+%d, MAV_SYS_ID %d, airframe %s",
                  vid, vid, vid, vid + 1, mav.px4_vehicle_model)
 
@@ -518,6 +519,11 @@ class App:
                 "sub_control": False,
             }))
             LOG.info("vehicle %d: ROS2 backend on namespace /drone_%d", vid, vid + 1)
+        import range_flow  # noqa: WPS433  (ToF + optical flow into PX4, docs/range-flow.md)
+        rf = range_flow.attach(v, px4_backend)
+        if rf is not None:
+            backends.append(rf)
+            LOG.info("vehicle %d: downward ToF=%s optical flow=%s -> PX4 (DISTANCE_SENSOR / HIL_OPTICAL_FLOW)", vid, rf.tof_on, rf.flow_on)
         mcfg.backends = backends
 
         pos = [float(x) for x in v.get("position", [0.0, 0.0, 0.07])]

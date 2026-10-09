@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do case "$1" in
 export ZED_STACK_SIM=0                       # hardware: no `sim:` deltas, real clock
 ZNAME="bisg-zed-${DRONE_ID}"; MNAME="bisg-mavros-${DRONE_ID}"
 svc_name(){ case $1 in mavros|mavsdk|xrce) echo "bisg-$1-${DRONE_ID}";; zed|wrapper) echo "$ZNAME";; bridge) echo "bisg-zed-bridge-${DRONE_ID}";; video) echo "bisg-zed-video-${DRONE_ID}";; *) die "unknown service $1 (mavros|mavsdk|xrce|zed|bridge|video)";; esac; }
-zexec(){ docker exec "$ZNAME" bash -lc "source /sbin/ros_entrypoint.sh >/dev/null 2>&1; $*"; }
+zexec(){ docker exec "$ZNAME" bash -lc "source /workspace/docker/zed/ros_env.sh >/dev/null 2>&1; $*"; }
 
 case "$sub" in
   build)

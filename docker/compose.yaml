@@ -184,7 +184,7 @@ services:
     entrypoint: ["/bin/bash", "-lc"]
     command:
       - >
-        source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed &&
+        source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed &&
         python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
         exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
         sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params.yaml
@@ -208,7 +208,7 @@ services:
     volumes:
       - ..:/workspace:ro
     entrypoint: ["/bin/bash", "-lc"]
-    command: ["source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.bridge"]
+    command: ["source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.bridge"]
     stop_grace_period: 10s
     restart: unless-stopped
 
@@ -232,7 +232,7 @@ services:
     volumes:
       - ..:/workspace:ro
     entrypoint: ["/bin/bash", "-lc"]
-    command: ["source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.video"]
+    command: ["source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.video"]
     stop_grace_period: 10s
     restart: unless-stopped
 
@@ -263,7 +263,7 @@ services:
     entrypoint: ["/bin/bash", "-lc"]
     command:
       - >
-        source /sbin/ros_entrypoint.sh >/dev/null && cd /workspace/docker/zed &&
+        source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed &&
         python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
         exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
         params:=/tmp/zed_params.yaml
