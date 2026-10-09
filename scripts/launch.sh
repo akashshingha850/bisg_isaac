@@ -12,7 +12,7 @@
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
 #   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache] [--force]   build the images (default: all) and the ZED Isaac extension
-#   launch.sh ros up|down|shell|tools|enable N|disable N|start N|stop N   dev container + the GUI tools in docker/ros/tools.yaml (rviz, rqt, ...)
+#   launch.sh ros up|down|shell|tools|enable N|disable N|start N|stop N|restart N   dev container + the GUI tools in docker/ros/tools.yaml (rviz, rqt, ...)
 #   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
 #   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
 #   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
@@ -71,6 +71,14 @@ zed_autostart(){
   local log; log=$(docker logs "$SIM_NAME" 2>&1)
   [[ "$log" == *"ZED SDK twin attached"* ]] || return 0                                  # the scenario has no ZED
   container_running "bisg-zed-${DRONE_ID}" && return 0
+  # "sim ready" comes before the streamer opens its UDP port: a wrapper that gets there first takes the port and the sim's
+  # streamer then fails ("failed to create RTP Session"), leaving no ZED topics. Wait until the sim itself holds the port.
+  local port=$(( 30000 + 2 * (DRONE_ID - 1) )) w=0
+  until ss -uan 2>/dev/null | grep -q ":${port}\b"; do
+    docker logs "$SIM_NAME" 2>&1 | grep -q "Streamer initialization failed" && { warn "the sim's ZED streamer failed: restart the sim (./bisg restart)"; return 0; }
+    (( w >= 90 )) && { warn "ZED stream port ${port} not open after ${w}s; start the wrapper later: ./bisg zed up"; return 0; }
+    sleep 2; w=$(( w + 2 ))
+  done
   info "starting the ZED wrapper (ZED_AUTOSTART=1; first start optimises the depth model, ~6 min)"
   "$(dirname "$0")/zed.sh" up -d >/dev/null 2>&1 && ok "bisg-zed-${DRONE_ID} started in the background (./bisg zed status)" \
     || warn "ZED wrapper did not start: ./bisg zed up"
@@ -202,9 +210,11 @@ cmd_ros(){
         "$ROOT/scripts/ros_tools.py" set "$2" "$([[ $1 == enable ]] && echo on || echo off)" && ok "$2 ${1}d in docker/ros/tools.yaml";;
     start) shift; ros_tool_start "${1:-}" "${@:2}";;
     stop) shift; ros_tool_stop "${1:-}";;
-    rviz|rqt) local n=$1; shift; if [[ ${1:-} == stop ]]; then ros_tool_stop "$n"; else ros_tool_start "$n" "$@"; fi;;   # shortcuts
+    restart) shift; ros_tool_stop "${1:-}" || true; ros_tool_start "${1:-}" "${@:2}";;
+    rviz|rqt) local n=$1; shift
+        case "${1:-}" in start) ros_tool_start "$n" "${@:2}";; stop) ros_tool_stop "$n";; restart) ros_tool_stop "$n" || true; ros_tool_start "$n" "${@:2}";; *) ros_tool_start "$n" "$@";; esac;;   # shortcuts
     build) compose --profile tools run --rm ros build;;
-    *) die "ros: up|down|shell|tools|enable|disable|start|stop|build";; esac
+    *) die "ros: up|down|shell|tools|enable|disable|start|stop|restart|build";; esac
 }
 
 # How to watch a run. Two very different transports (docs/remote-access.md):

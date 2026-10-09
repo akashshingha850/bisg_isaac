@@ -48,7 +48,7 @@ sensors:
 # --- SDK module: Depth sensing ----------------------------------------------------------------------------------------
 depth:
   enabled: true                     # false = depth_mode NONE: also switches OFF tracking, mapping, detection (all need depth)
-  depth_mode: NEURAL          # NEURAL_LIGHT | NEURAL | NEURAL_PLUS   (cost: LIGHT < NEURAL < PLUS)
+  depth_mode: NEURAL_PLUS          # NEURAL_LIGHT | NEURAL | NEURAL_PLUS   (cost: LIGHT < NEURAL < PLUS)
   min_depth: 0.2                    # m  (ZED Mini 0.1-0.3 min)
   max_depth: 15.0                   # m  (ZED Mini max 15)
   depth_confidence: 95              # 1-100: lower keeps more (noisier) pixels
