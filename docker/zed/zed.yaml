@@ -168,14 +168,17 @@ services:
       min_range: 0.3                # m: ignore closer returns
       max_range: 8.0                # m: farther = free
       rate_hz: 10.0
-  # ZED left image -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
+  # ZED video -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
   qgc_video:
-    enabled: false
-    topic: ''                       # empty = left/color/rect/image of this drone
+    enabled: true
+    layout: grid                    # grid = ONE 2x2 picture: left | right / depth | optical flow of the left image (flow is computed by the video
+                                    # node with OpenCV Farneback, the SDK has none). single = the one `topic` below as it comes
+    width: 1280                     # grid: width of the whole picture in px, each tile is half of it (1280 -> 4 x 640x360, as 1280x720 H.264)
+    topic: ''                       # single only; empty = left/color/rect/image of this drone
     host: 127.0.0.1                 # where QGC runs: 127.0.0.1 = this machine; a LAN or tailnet IP for a remote QGC (or ./bisg zed video --video-host)
     port: 5600
-    bitrate: 2000                   # kbit/s
-    fps: 0                          # cap, 0 = every frame
+    bitrate: 4000                   # kbit/s (grid carries four pictures: ~4000 for 1280 wide; single 720p is fine at 2000)
+    fps: 0                          # cap, 0 = every frame (grid: 15 per second)
     encoder: auto                   # auto | x264 | nvenc (Jetson hardware encoder)
 
 # ====================================================================================================================

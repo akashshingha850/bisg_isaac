@@ -84,9 +84,23 @@ and not `GPS_INPUT`.
 register it in `node.py:MODULES`, its defaults in `config.py:SERVICES`, its topics in `topics.py:BRIDGE`, a case in `tests/zed_bridge_fake.py`.
 
 ### `qgc_video` (compose `zed-video`) — video in QGroundControl
-Left image → GStreamer → RTP/H.264 UDP (x264, or `nvv4l2h264enc` on the Jetson). Set `services.qgc_video.enabled: true`, `./bisg zed services`; in QGC:
-**Application Settings → Video → Source "UDP h.264 Video Stream", port 5600**. `./bisg zed video` starts only this sender, whatever `enabled` says, and
-works on the emulated rig too (no `zed_wrapper`). `--video-host H` (on `zed video` or `zed up`) streams to a remote QGC; H is an IP or a tailnet device
+**One 2x2 picture** (`layout: grid`, default), H.264 over RTP/UDP (x264, or `nvv4l2h264enc` on the Jetson):
+
+| | | |
+|---|---|---|
+| top left | `left/color/rect/image` | rectified left camera |
+| top right | `right/color/rect/image` | rectified right camera |
+| bottom left | `depth/depth_registered` | colour map 0.3-10 m, near = red, far = blue, no data = black |
+| bottom right | optical flow of the left image | dense Farneback flow between consecutive frames: hue = direction, brightness = speed, black = still. Computed by the video node (OpenCV), **not** by the SDK and **not** the PMW3901 twin of [range-flow.md](range-flow.md) |
+
+The four sources are sampled by a timer at `fps` (15 when 0) and each tile is captioned. A source that sends nothing for 2 s turns its tile into "no signal" and
+`./bisg zed logs video` says which topic is missing. Cost (RTX 4500 box, sim): ~0.5 CPU core for the node at 15 fps, 1280x720, 4000 kbit/s; the flow runs at 320 px width (~6 ms).
+The optical-flow tile is also a ROS image, published only while something subscribes (RELIABLE, bgr8, tile size, 15 Hz): `/drone_N/zed/video/optical_flow` ([interface-contract.md](interface-contract.md)); the colour depth exists only inside the QGC picture. `docker/ros/rviz/drone.rviz` shows four images in one column: ZED left, ZED right, ZED depth (`depth/depth_registered`) and Optical flow.
+`layout: single` streams the one `topic` as it comes (the old behaviour; `bitrate: 2000` is enough). `width` is the whole picture's width, each tile half of it.
+Needs OpenCV: the `bisg/zed` overlay installs `opencv-python-headless==4.11.0.86` with pip (the apt one cannot import next to the base's numpy 2).
+
+Set `services.qgc_video.enabled: true`, `./bisg zed services`; in QGC: **Application Settings -> Video -> Source "UDP h.264 Video Stream", port 5600**.
+`./bisg zed video` starts only this sender, whatever `enabled` says. `--video-host H` (on `zed video` or `zed up`) streams to a remote QGC; H is an IP or a tailnet device
 name (`./bisg tailscale status`). UDP: LAN or Tailscale, not an SSH tunnel. `./bisg zed video-test` plays it on the host without QGC (close QGC's video
 first: one receiver per port). Black video while `zed logs video` says "no frames": the host's `net.core.rmem_max` is too small for CycloneDDS to
 reassemble an image (`./bisg check`, `docs/setup.md`).
@@ -97,7 +111,7 @@ reassemble an image (`./bisg check`, `docs/setup.md`).
 |---|---|
 | `docker/zed/zed.yaml` | the one config |
 | `docker/zed/zed_stack/config.py`, `__main__.py`, `topics.py` | load · validate · compile to wrapper params · `plan` / `compile` / `set` (pure Python + PyYAML; also imported by the sim launcher for the emulated rig) |
-| `docker/zed/zed_stack/bridge/`, `docker/zed/zed_stack/video.py` | the two services |
+| `docker/zed/zed_stack/bridge/`, `docker/zed/zed_stack/video.py` (+ `mosaic.py`: tiles, depth colour map, flow) | the two services |
 | `docker/zed/` | `bisg/zed` = Stereolabs' image + CycloneDDS + `mavros_msgs` + GStreamer (`Dockerfile.overlay`); `build.sh desktop\|jetson`; `build_isaac_ext.sh` |
 | `docker/zed/zed_drone.launch.py` | wrapper launch with the contract's topic names — shared by sim and Jetson |
 | `docker/compose.yaml` | `zed` (sim twin) / `drone-zed` (real camera), `zed-bridge`, `zed-video`, `px4-bridge` (serial, via `./bisg px4-bridge up --hw`); profiles `zed` and `drone` |

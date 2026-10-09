@@ -34,6 +34,7 @@ the checks Claude runs; they are filled with real commands as phases land.
 | `swarm-spawn` | add drone N, generate compose, fleet manager tasks | update scenario YAML, regenerate compose, port/namespace checks, VRAM budget update | Phase 6 |
 | `jetson-deploy` | deploy to the Orin NX, flash Pixracer, bench checklist, serial issues | arm64 image pull, compose profile, params push, preflight and post-flight log pull | Phase 5 |
 | `sim-regression` | run tests, add a scenario, CI failures | headless scenario runner, JUnit interpretation, flake triage | Phase 8 (basic version from Phase 1) |
+| `ros2-engineering-skills` | ROS 2 code/launch/QoS/tf2/lifecycle questions, reviews and debugging; third-party, [dbwls99706/ros2-engineering-skills](https://github.com/dbwls99706/ros2-engineering-skills) v1.6.2 (Apache-2.0) | router `SKILL.md` + 27 `references/*.md` and static checkers (`scripts/qos_checker.py`, `launch_validator.py`, ...). Installed 2026-10-10 as the **knowledge-only** bundle (`scripts/install_skill.py --client claude --project .`): no Claude plugin hooks, no settings changes. Generic ROS 2: where it differs from this project (Jazzy only, MAVROS, `docs/interface-contract.md`), the project docs win | n/a |
 
 Global skills already available that fit this project: `ros2-engineering` (ROS 2 code review,
 launch/QoS), `graphify` (codebase questions once code exists), `humanizer` (docs prose).

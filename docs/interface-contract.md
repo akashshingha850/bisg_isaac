@@ -32,6 +32,7 @@ in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on t
 | `mavros/state` | `mavros_msgs/State` | 1–10 Hz | MAVROS / MAVROS | connected, armed, mode |
 | `mavros/local_position/pose` | `geometry_msgs/PoseStamped` | 30 Hz | MAVROS | EKF2 pose, ENU, frame `map` |
 | `mavros/local_position/odom` | `nav_msgs/Odometry` | 30 Hz | MAVROS | |
+| `mavros/hrlv_ez4_pub` | `sensor_msgs/Range` | 10 Hz | MAVROS (`distance_sensor` plugin) | down-facing ToF (PX4 `distance_sensor` instance 0, LW20/C on the drone), frame `hrlv_ez4_sonar` (MAVROS' stock config name; rename = override the plugin's `config`). `range >= max_range` means no valid reading. BEST_EFFORT |
 | `mavros/imu/data` | `sensor_msgs/Imu` | 50 Hz | MAVROS | FC IMU (not ZED IMU) |
 | `mavros/battery` | `sensor_msgs/BatteryState` | 1 Hz | MAVROS | sim: SITL battery model |
 | `mavros/global_position/global` | `sensor_msgs/NavSatFix` | 5 Hz | MAVROS | may be empty when GPS disabled |
@@ -40,6 +41,7 @@ in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on t
 | `zed/zed_node/left/color/rect/camera_info` | `sensor_msgs/CameraInfo` | same | Isaac cam / ZED wrapper | intrinsics of the camera in use — read them, never hard-code `K` (sim `sdk`: the extension's `ZED_M` lens, HD720 `fx` 529.8 px; a real unit has its own factory calibration) |
 | `zed/zed_node/right/color/rect/camera_info` | `sensor_msgs/CameraInfo` | same | Isaac cam / ZED wrapper | stereo baseline = `-P[0,3] / P[0,0]` (ZED Mini 63 mm); stereo consumers read it from here |
 | `zed/zed_node/depth/depth_registered` | `sensor_msgs/Image` (`32FC1`, metres) | same | Isaac depth / ZED | |
+| `zed/video/optical_flow` | `sensor_msgs/Image` (`bgr8`, same size) | ≤ 15 Hz | `zed-video` node | dense Farneback flow of the **left** image between consecutive frames: hue = direction, brightness = speed, black = still. Visualisation only (no metric flow); header of the left frame. Only while subscribed; RELIABLE; needs `services.qgc_video` on with `layout: grid` |
 | `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | heavy: sim publishes only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd); sim samples every 4th pixel |
 | `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
 | `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | sim `zed_depth.py` / ZED wrapper | optional, `mapping.mapping_enabled`; sim frame `odom`, wrapper `map` |

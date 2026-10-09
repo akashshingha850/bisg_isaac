@@ -70,8 +70,8 @@ SERVICES = {
         "odometry": {"enabled": False, "restamp": False, "min_rate_hz": 5.0},
         "obstacle_distance": {"enabled": False, "band": 0.6, "min_range": 0.3, "max_range": 8.0, "rate_hz": 10.0},
     }),
-    "qgc_video": ({"enabled": False, "topic": "", "host": "127.0.0.1", "port": 5600, "bitrate": 2000, "fps": 0,
-                   "encoder": "auto"}, {}),
+    "qgc_video": ({"enabled": False, "layout": "grid", "width": 1280, "topic": "", "host": "127.0.0.1", "port": 5600, "bitrate": 4000,
+                   "fps": 0, "encoder": "auto"}, {}),
 }
 
 
@@ -229,6 +229,13 @@ class StackConfig:
             for key, default in defaults.items():
                 if not _type_ok(default, merged[key]):
                     raise ConfigError(f"{self.path}: services.{name}.{key} = {merged[key]!r}: expected {type(default).__name__}")
+            if name == "qgc_video":
+                if merged["layout"] not in ("grid", "single"):
+                    raise ConfigError(f"{self.path}: services.qgc_video.layout = {merged['layout']!r}: expected grid | single")
+                if merged["encoder"] not in ("auto", "x264", "nvenc"):
+                    raise ConfigError(f"{self.path}: services.qgc_video.encoder = {merged['encoder']!r}: expected auto | x264 | nvenc")
+                if merged["width"] < 64:
+                    raise ConfigError(f"{self.path}: services.qgc_video.width = {merged['width']}: expected >= 64")
             out[name] = merged
         return out
 

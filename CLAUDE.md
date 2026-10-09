@@ -41,4 +41,4 @@ The project must run unchanged on both; anything machine-specific goes in `docke
 - Use `timeout` and `PYTHONUNBUFFERED=1` when driving the sim from scripts; prefer headless for tests.
 
 ## Skills
-Finished experiments and superseded docs live in `archive/` (PX4-link study, 5.1→6.0 migration report/plan); raw run logs are in `~/bisg-archive/` (outside the repo). Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, zed-sdk, swarm-spawn, jetson-deploy, sim-regression). See `docs/skills.md`.
+Finished experiments and superseded docs live in `archive/` (PX4-link study, 5.1→6.0 migration report/plan); raw run logs are in `~/bisg-archive/` (outside the repo). Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, zed-sdk, swarm-spawn, jetson-deploy, sim-regression, plus the third-party `ros2-engineering-skills`). See `docs/skills.md`.

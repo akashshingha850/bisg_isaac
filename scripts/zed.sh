@@ -171,6 +171,9 @@ for l in sys.stdin:
 
   test)
     info "unit tests (host)"; PYTHONPATH="$ROOT/docker/zed" python3 -m unittest discover -s "$ROOT/tests/unit" 2>&1 | tail -4
+    info "video mosaic unit tests (bisg/zed:${ZED_VARIANT}: OpenCV lives in the image)"
+    docker run --rm -v "$ROOT":/workspace:ro -e PYTHONPATH=/workspace/docker/zed --entrypoint bash bisg/zed:${ZED_VARIANT} \
+      -lc 'cd /workspace && python3 -m unittest tests.unit.test_mosaic 2>&1 | tail -3'
     info "bridge against fake ZED + MAVROS topics (bisg/zed:${ZED_VARIANT}, ROS_DOMAIN_ID=77)"
     docker run --rm --network host --ipc host -e ROS_DOMAIN_ID=77 -v "$ROOT":/workspace:ro --entrypoint bash bisg/zed:${ZED_VARIANT} \
       -lc 'source /opt/ros/jazzy/setup.bash; cd /workspace && python3 tests/zed_bridge_fake.py' 2>&1 | grep -E "PASS|FAIL|^[a-z]" ;;

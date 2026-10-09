@@ -22,7 +22,7 @@ class CompileTests(unittest.TestCase):
     def test_default_file_is_valid_and_compiles(self):
         p = config.load().wrapper_params()
         self.assertEqual(p["pos_tracking"]["pos_tracking_enabled"], True)
-        self.assertEqual(p["depth"]["depth_mode"], "NEURAL_LIGHT")
+        self.assertEqual(p["depth"]["depth_mode"], "NEURAL_PLUS")
         self.assertEqual(p["object_detection"]["od_enabled"], False)
         self.assertEqual(p["object_detection"]["class"]["people"]["enabled"], True)
 
@@ -69,7 +69,7 @@ class CompileTests(unittest.TestCase):
     def test_services_plan(self):
         c = cfg_with(services={"px4_bridge": {"enabled": False}, "qgc_video": {"enabled": True}})
         self.assertEqual(c.plan_services(), ["zed-video"])
-        self.assertEqual(config.load().plan_services(), ["zed-bridge"])
+        self.assertEqual(config.load().plan_services()[:1], ["zed-bridge"])      # zed-video follows when qgc_video is enabled in zed.yaml
         with self.assertRaisesRegex(config.ConfigError, "services.px4_bridge.odometry.restmp"):
             cfg_with(services={"px4_bridge": {"odometry": {"restmp": True}}}).services()
 

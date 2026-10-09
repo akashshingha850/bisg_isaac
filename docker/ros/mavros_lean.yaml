@@ -17,6 +17,7 @@
       - odometry
       - vision_pose
       - obstacle_distance
+      - distance_sensor
       - landing_target
       - onboard_computer_status
       - debug_value
