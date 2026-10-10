@@ -18,6 +18,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 | [docs/todo.md](docs/todo.md) | The live checklist. Start here when you sit down to work |
 | [docs/skills.md](docs/skills.md) | Competencies you need per phase + the Claude Code skills in `.claude/skills/` |
 | [docs/interface-contract.md](docs/interface-contract.md) | The ROS 2 topic / frame / namespace contract sim and hardware must both obey |
+| [docs/ros-graph.md](docs/ros-graph.md) | **the live ROS 2 graph explained**: every node, what it is for, how data flows, measured load, TF tree, redundancies (R1–R10) |
 | [docs/px4-bridge.md](docs/px4-bridge.md) | the PX4 bridge: one service whose `PX4_BRIDGE` picks MAVROS (default), MAVSDK or uXRCE-DDS, `./bisg px4-bridge` |
 | [docs/zed-stack.md](docs/zed-stack.md) | **the ZED Mini stack**: every SDK module switched in `docker/zed/zed.yaml`, the PX4 bridge, QGC video |
 | [docs/zed-sdk-sim.md](docs/zed-sdk-sim.md) | the real ZED SDK + `zed_wrapper` running against the sim's ZED Mini twin  |

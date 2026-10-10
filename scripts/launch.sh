@@ -79,6 +79,10 @@ zed_autostart(){
     (( w >= 90 )) && { warn "ZED stream port ${port} not open after ${w}s; start the wrapper later: ./bisg zed up"; return 0; }
     sleep 2; w=$(( w + 2 ))
   done
+  # The open port is not enough either: a wrapper started ~3 s after it logged "receiving port 30000 is not available ...
+  # switching to port 30002" and never connected (2 of 3 autostarts on 2026-10-10); started 60 s later it always did. The SDK
+  # connects once per sim run (B18), so there is no retry: wait before the first start.
+  sleep 30
   info "starting the ZED wrapper (ZED_AUTOSTART=1; first start optimises the depth model, ~6 min)"
   "$(dirname "$0")/zed.sh" up -d >/dev/null 2>&1 && ok "bisg-zed-${DRONE_ID} started in the background (./bisg zed status)" \
     || warn "ZED wrapper did not start: ./bisg zed up"

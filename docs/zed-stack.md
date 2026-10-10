@@ -18,6 +18,7 @@ docker/zed/zed.yaml ──► python3 -m zed_stack compile ──► zed_wrapper
 ./bisg zed up                                # wrapper + every enabled service        (sim: ZED_SOURCE=sdk ./bisg all headless first)
 ./bisg zed services                          # after a `set` on a `services.*` key: restart only the side services
 ./bisg zed status | logs [wrapper|bridge|video] | check | down
+./bisg zed record start [NAME] [lossless|h264|h265] / record stop   # SVO of the running wrapper -> $ARCHIVE_DIR/svo/
 ./bisg zed test                              # unit tests + the bridge against fake topics — no camera, no sim
 ```
 
@@ -36,7 +37,7 @@ wrapper's shipped YAML, so they follow the pinned wrapper version. A module that
 | `camera` | Camera | – | resolution, fps, flip, timeouts | verified |
 | `video` | Camera / video + controls | `publish_*` | `left\|right/color/rect/image`, `…/camera_info`, `rgb/`, `*/raw/`, `*/gray/`, `stereo/` | verified (left/right) |
 | `sensors` | Sensors | `publish_*` | `imu/data`, `imu/data_raw` (ZED Mini: IMU only, no mag/baro/temp) | `imu/data` published by the sim itself (the stream has no sensor channel) |
-| `depth` | Depth sensing | `enabled` (false → `depth_mode: NONE`) | `depth/depth_registered`, `point_cloud/cloud_registered`, `disparity/…`, `confidence/…`, `depth/depth_info` | verified (all five; disparity = f·T/depth exactly) |
+| `depth` | Depth sensing | `enabled` (false → `depth_mode: NONE`) | `depth/depth_registered`, `point_cloud/cloud_registered`, `disparity/…`, `confidence/…`, `depth/depth_info` | verified (all five; disparity = f·T/depth exactly). `confidence/confidence_map` is advertised by default since 2026-10-10 (0–100, higher = less confident, interface-contract.md); depth on teleported views: [zed-sdk-sim.md](zed-sdk-sim.md#pool-depth-probe-sdk-depth-for-teleported-views-2026-10-10) |
 | `region_of_interest` | Region of interest | `enabled` | `roi_mask/image` | runs, publishes no mask (nothing of the robot is in the sim view); test on hardware |
 | `positional_tracking` | Positional tracking | `enabled` | `odom`, `pose`, `pose/status`, `pose_with_covariance`, `path_*`, `pose/landmarks` | verified: all topics; RMSE 0.088 m over a takeoff + 4 m square + landing |
 | `global_localization` | Global localization (GNSS fusion) | `enabled` | `geo_pose`, `pose/filtered`, `pose/fused_fix` | no (we fly GPS-denied) |
@@ -45,7 +46,7 @@ wrapper's shipped YAML, so they follow the pinned wrapper version. A module that
 | `object_detection` | Object detection + tracking (AI) | `enabled` | `obj_det/objects`; per-class switches under `classes:` | runs at the camera rate (model: 278 s first start, +4 GB RAM); accuracy untested: no people/vehicles in the scene |
 | `body_tracking` | Body tracking (AI) | `enabled` | `body_trk/skeletons` | runs at the camera rate (80 s first start, **+7 GB RAM**); accuracy untested |
 | `streaming` | Streaming | `enabled` | – (open the stream with the SDK elsewhere) | **crashes the wrapper in the sim** (B19); real camera only |
-| `recording` | SVO recording | – | services `start_svo_rec` / `stop_svo_rec` | not meaningful in sim: record a rosbag |
+| `recording` | SVO recording | `svo_encoding_preset` | services `start_svo_rec` / `stop_svo_rec`; `./bisg zed record start [NAME] [lossless\|h264\|h265]` / `record stop` (copies to `$ARCHIVE_DIR/svo/`) | verified in the sim 2026-10-10: 10 s lossless → 7.7 MB `.svo2`, 168 frames HD720, replays offline through the SDK (pyzed in `bisg/zed`) with depth recomputed (NEURAL, 95 % valid). The sim twin streams at the sim's frame rate (~17 fps here), so a sim SVO has fewer frames than a real one |
 
 `publish_*` keys only **advertise** a topic; the wrapper computes it while something subscribes, so leaving one on costs nothing.
 Frame ids and rates follow [interface-contract.md](interface-contract.md). Heavy AI models and `NEURAL*` depth modes must be
@@ -89,13 +90,13 @@ register it in `node.py:MODULES`, its defaults in `config.py:SERVICES`, its topi
 | | | |
 |---|---|---|
 | top left | `left/color/rect/image` | rectified left camera |
-| top right | `right/color/rect/image` | rectified right camera |
+| top right | `/drone_N/chase/image` | **third-person chase view** of the drone (sim only, `sensors.chase_cam`, [interface-contract.md](interface-contract.md)); "no signal" on the real drone. Replaced the ZED right image on 2026-10-10: the left image is enough |
 | bottom left | `depth/depth_registered` | colour map 0.3-10 m, near = red, far = blue, no data = black |
 | bottom right | optical flow of the left image | dense Farneback flow between consecutive frames: hue = direction, brightness = speed, black = still. Computed by the video node (OpenCV), **not** by the SDK and **not** the PMW3901 twin of [range-flow.md](range-flow.md) |
 
 The four sources are sampled by a timer at `fps` (15 when 0) and each tile is captioned. A source that sends nothing for 2 s turns its tile into "no signal" and
 `./bisg zed logs video` says which topic is missing. Cost (RTX 4500 box, sim): ~0.5 CPU core for the node at 15 fps, 1280x720, 4000 kbit/s; the flow runs at 320 px width (~6 ms).
-The optical-flow tile is also a ROS image, published only while something subscribes (RELIABLE, bgr8, tile size, 15 Hz): `/drone_N/zed/video/optical_flow` ([interface-contract.md](interface-contract.md)); the colour depth exists only inside the QGC picture. `docker/ros/rviz/drone.rviz` shows four images in one column: ZED left, ZED right, ZED depth (`depth/depth_registered`) and Optical flow.
+The optical-flow tile is also a ROS image, published only while something subscribes (RELIABLE, bgr8, tile size, 15 Hz): `/drone_N/zed/video/optical_flow` ([interface-contract.md](interface-contract.md)); the colour depth exists only inside the QGC picture. `docker/ros/rviz/drone.rviz` shows four images in one column: ZED left, Chase view, ZED depth (`depth/depth_registered`) and Optical flow.
 `layout: single` streams the one `topic` as it comes (the old behaviour; `bitrate: 2000` is enough). `width` is the whole picture's width, each tile half of it.
 Needs OpenCV: the `bisg/zed` overlay installs `opencv-python-headless==4.11.0.86` with pip (the apt one cannot import next to the base's numpy 2).
 

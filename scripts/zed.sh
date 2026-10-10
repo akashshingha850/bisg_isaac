@@ -11,6 +11,7 @@
 #   zed.sh video [--video-host H] [--video-port P]   only the QGC video sender (services.qgc_video), whatever services.qgc_video.enabled
 #                                     says; reads left/color/rect/image, so it also works on the emulated rig (no zed_wrapper)
 #   zed.sh enable MODULE [on|off]     switch object_detection|body_tracking|spatial_mapping|streaming|depth in the running wrapper
+#   zed.sh record start [NAME] [lossless|h264|h265] | stop   SVO recording in the running wrapper; stop copies it to $ARCHIVE_DIR/svo/
 #   zed.sh down | status | logs [wrapper|bridge|video] [-f] | check [args]
 #   zed.sh video-test                 host GStreamer player on the video port (close QGC's video first)
 #   zed.sh test                       unit tests + the bridge against fake topics (no camera, no sim)
@@ -130,6 +131,22 @@ case "$sub" in
     case "$state" in on|true) v=true;; off|false) v=false;; *) die "enable: state is on|off";; esac
     container_running "$ZNAME" || die "$ZNAME is not running (./bisg zed up)"
     zexec "ros2 service call /drone_${DRONE_ID}/zed/zed_node/$srv std_srvs/srv/SetBool '{data: $v}'" | grep -E "success|message" | sed 's/^/  /';;
+
+  record)   # SVO recording in the RUNNING wrapper (services start_svo_rec / stop_svo_rec); lossless by default (photogrammetry)
+    container_running "$ZNAME" || die "$ZNAME is not running (./bisg zed up)"
+    case "${passthru[0]:-}" in
+      start)
+        name="${passthru[1]:-drone${DRONE_ID}-$(date +%Y%m%d-%H%M%S)}"
+        case "${passthru[2]:-lossless}" in lossless) cm=0;; h264) cm=1;; h265) cm=2;; *) die "record start [NAME] [lossless|h264|h265]";; esac
+        zexec "echo /tmp/${name}.svo2 > /tmp/svo_current; ros2 service call /drone_${DRONE_ID}/zed/zed_node/start_svo_rec zed_msgs/srv/StartSvoRec '{compression_mode: $cm, svo_filename: /tmp/${name}.svo2}'" \
+          | grep -E "success|message" | sed 's/^/  /';;
+      stop)
+        f=$(docker exec "$ZNAME" cat /tmp/svo_current 2>/dev/null) || die "no recording started by ./bisg zed record start"
+        zexec "ros2 service call /drone_${DRONE_ID}/zed/zed_node/stop_svo_rec std_srvs/srv/Trigger" | grep -E "success|message" | sed 's/^/  /'
+        mkdir -p "$ARCHIVE_DIR/svo" && docker cp "$ZNAME:$f" "$ARCHIVE_DIR/svo/" >/dev/null && docker exec "$ZNAME" rm -f "$f" /tmp/svo_current \
+          && ok "SVO saved: $ARCHIVE_DIR/svo/$(basename "$f") ($(du -h "$ARCHIVE_DIR/svo/$(basename "$f")" | cut -f1))";;
+      *) die "record start [NAME] [lossless|h264|h265] | stop";;
+    esac;;
 
   down) compose --profile zed rm -sf zed zed-bridge zed-video >/dev/null 2>&1 || true; ok "ZED stack of drone ${DRONE_ID} stopped";;
 

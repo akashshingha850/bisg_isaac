@@ -55,7 +55,7 @@ depth:
   depth_texture_conf: 100
   remove_saturated_areas: true
   publish_depth_map: true           # depth/depth_registered (32FC1, metres)
-  publish_depth_confidence: false   # confidence/confidence_map
+  publish_depth_confidence: true    # confidence/confidence_map (32FC1, 0-100, higher = LESS confident; depth already drops pixels above depth_confidence); computed only while subscribed. Kinetix stereo_zed reads it
   publish_disparity: false          # disparity/disparity_image
   publish_depth_info: false         # depth/depth_info
   publish_point_cloud: true         # point_cloud/cloud_registered
@@ -171,7 +171,7 @@ services:
   # ZED video -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
   qgc_video:
     enabled: true
-    layout: grid                    # grid = ONE 2x2 picture: left | right / depth | optical flow of the left image (flow is computed by the video
+    layout: grid                    # grid = ONE 2x2 picture: left | chase view (sim: /drone_N/chase/image) / depth | optical flow of the left image (flow is computed by the video
                                     # node with OpenCV Farneback, the SDK has none). single = the one `topic` below as it comes
     width: 1280                     # grid: width of the whole picture in px, each tile is half of it (1280 -> 4 x 640x360, as 1280x720 H.264)
     topic: ''                       # single only; empty = left/color/rect/image of this drone

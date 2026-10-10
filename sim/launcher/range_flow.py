@@ -10,6 +10,10 @@ link PX4 already reads HIL_SENSOR from (PX4 `SimulatorMavlink` turns them into `
   * flow -> HIL_OPTICAL_FLOW  integrated flow computed from the ground-truth body velocity and gyro at the sensor, divided
                               by the same ray length. Analytic, not image-based: it has the right scale, noise and
                               dropout behaviour, but no texture dependence (a featureless floor still "tracks").
+  * ground truth -> HIL_STATE_QUATERNION (optional, `ground_truth:`) so PX4 logs `vehicle_*_groundtruth` on the same clock
+                              as the sensors: what tests/range_flow_eval.py compares against. Pegasus has a sender for this
+                              but never calls it, and its lat/lon/alt would only change at the GPS rate. PX4 does not use these
+                              topics for estimation.
 
 Flow convention = MAVLink's, which EKF2 negates on the way in (`EKF2.cpp`, "EKF uses the reverse sign convention to the flow
 sensor"): sensor frame = body FRD, integrated flow = [-vy/d, +vx/d]*dt + the rotation about the sensor axes. EKF2 subtracts the
@@ -25,6 +29,21 @@ LOG = logging.getLogger("launch")
 
 MAV_DISTANCE_SENSOR_LASER = 0
 MAV_SENSOR_ROTATION_PITCH_270 = 25      # downward facing
+EARTH_R = 6371000.0                     # PX4 CONSTANTS_RADIUS_OF_EARTH (MapProjection)
+GT_LAT0, GT_LON0 = 47.397742, 8.545594  # ground-truth reference (PX4's default home); any value works
+GT_ALT0 = 100.0                         # m AMSL of world z = 0: ground-truth alt = GT_ALT0 + world z (tests/range_flow_eval.py)
+
+
+def ned_to_latlon(north, east, lat0=GT_LAT0, lon0=GT_LON0):
+    """Inverse of PX4's azimuthal-equidistant MapProjection, so PX4's ground-truth local x/y = world north/east."""
+    la0, lo0 = np.radians(lat0), np.radians(lon0)
+    c = np.hypot(north, east) / EARTH_R
+    if c < 1e-12:
+        return lat0, lon0
+    sc, cc = np.sin(c), np.cos(c)
+    lat = np.arcsin(cc * np.sin(la0) + north * sc * np.cos(la0) / (c * EARTH_R))
+    lon = lo0 + np.arctan2(east * sc, c * EARTH_R * np.cos(la0) * cc - north * np.sin(la0) * sc)
+    return np.degrees(lat), np.degrees(lon)
 
 
 class RangeFlowBackend(Backend):
@@ -33,8 +52,11 @@ class RangeFlowBackend(Backend):
     def __init__(self, px4, cfg):
         super().__init__(None)
         self._px4 = px4
-        tof, flow = cfg.get("tof") or {}, cfg.get("optical_flow") or {}
+        tof, flow, gt = cfg.get("tof") or {}, cfg.get("optical_flow") or {}, cfg.get("ground_truth") or {}
         self.tof_on, self.flow_on = bool(tof.get("enabled", False)), bool(flow.get("enabled", False))
+        self.gt_on = bool(gt.get("enabled", False))
+        self._gt_dt = 1.0 / float(gt.get("rate_hz", 100.0))
+        self._gt_acc = 0.0
         self._rng = np.random.default_rng(int(cfg.get("seed", 0)) or None)
 
         # ToF (LW20/C: 5 cm .. 100 m, ~1 cm resolution)
@@ -55,7 +77,7 @@ class RangeFlowBackend(Backend):
         self._flow_gyro = np.zeros(3)      # FRD gyro integrated since the last flow message, rad
         self._flow_span = 0.0
         self.last_range = None             # most recent ToF reading, m (None = no hit) - for logs and tests
-        self.sent = {"tof": 0, "flow": 0}
+        self.sent = {"tof": 0, "flow": 0, "gt": 0}
         self._query = None
         self._warned = False
         self._logged = 0
@@ -80,7 +102,7 @@ class RangeFlowBackend(Backend):
         pass
 
     def reset(self):
-        self._t = self._tof_acc = self._flow_acc = self._flow_span = 0.0
+        self._t = self._tof_acc = self._flow_acc = self._flow_span = self._gt_acc = 0.0
         self._flow_gyro[:] = 0.0
 
     def update(self, dt):
@@ -99,6 +121,11 @@ class RangeFlowBackend(Backend):
         if self.flow_on and self._flow_acc >= self._flow_dt:
             self._flow_acc -= self._flow_dt
             self._send_flow(conn)
+        if self.gt_on:
+            self._gt_acc += dt
+            if self._gt_acc >= self._gt_dt:
+                self._gt_acc -= self._gt_dt
+                self._send_ground_truth(conn)
 
     # ---- geometry -----------------------------------------------------------------------------------------------
     def _gyro_frd(self):
@@ -185,10 +212,27 @@ class RangeFlowBackend(Backend):
         except Exception:  # noqa: BLE001
             pass
 
+    def _send_ground_truth(self, conn):
+        s = self._state
+        x, y, z, w = s.get_attitude_ned_frd()            # scipy order -> MAVLink [w, x, y, z]
+        p, q, r = s.get_angular_velocity_frd()
+        vn, ve, vd = s.get_linear_velocity_ned()
+        an, ae, ad = s.get_linear_acceleration_ned()
+        lat, lon = ned_to_latlon(float(s.position[1]), float(s.position[0]))   # world ENU: north = y, east = x
+        try:
+            conn.mav.hil_state_quaternion_send(
+                int(self._t * 1e6), [float(w), float(x), float(y), float(z)], float(p), float(q), float(r),
+                int(round(lat * 1e7)), int(round(lon * 1e7)), int(round((GT_ALT0 + float(s.position[2])) * 1000)),
+                int(round(vn * 100)), int(round(ve * 100)), int(round(vd * 100)), 0, 0,
+                int(round(an * 1000)), int(round(ae * 1000)), int(round(ad * 1000)))
+            self.sent["gt"] += 1
+        except Exception:  # noqa: BLE001
+            pass
+
 
 def attach(vehicle_cfg, px4_backend):
     """Return a RangeFlowBackend for a scenario vehicle, or None when neither sensor is enabled."""
     sensors = vehicle_cfg.get("sensors") or {}
-    if not any((sensors.get(k) or {}).get("enabled", False) for k in ("tof", "optical_flow")):
+    if not any((sensors.get(k) or {}).get("enabled", False) for k in ("tof", "optical_flow", "ground_truth")):
         return None
     return RangeFlowBackend(px4_backend, sensors)

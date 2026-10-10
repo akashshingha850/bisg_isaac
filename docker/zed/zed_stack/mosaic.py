@@ -1,10 +1,11 @@
 """Image functions of the 2x2 QGC video (services.qgc_video, layout: grid). No ROS, no GStreamer: plain numpy + OpenCV, unit-tested.
 
     +--------+---------+
-    |  left  |  right  |      left/right: the wrapper's rectified colour images
-    +--------+---------+      depth:      depth_registered (metres) as a colour map, near = red, far = blue, no data = black
-    | depth  |  flow   |      flow:       dense Farneback optical flow of the left image between two frames, hue = direction,
-    +--------+---------+                  brightness = speed. Computed here, the ZED SDK has no flow module
+    |  left  |  chase  |      left:       the wrapper's rectified colour image
+    +--------+---------+      chase:      third-person view of the drone, /drone_N/chase/image (sim only; "no signal" on the real drone)
+    | depth  |  flow   |      depth:      depth_registered (metres) as a colour map, near = red, far = blue, no data = black
+    +--------+---------+      flow:       dense Farneback optical flow of the left image between two frames, hue = direction,
+                                          brightness = speed. Computed here, the ZED SDK has no flow module
 """
 import cv2
 import numpy as np
@@ -86,5 +87,5 @@ def label(img, text):
     return img
 
 
-def grid(left, right, depth, flow):
-    return np.vstack([np.hstack([left, right]), np.hstack([depth, flow])])
+def grid(left, chase, depth, flow):
+    return np.vstack([np.hstack([left, chase]), np.hstack([depth, flow])])

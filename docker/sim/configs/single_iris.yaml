@@ -85,3 +85,10 @@ vehicles:
         fps: 30.0
         imu_rate: 200.0
         depth_range: [0.1, 15.0]
+      chase_cam:                       # third-person view as a ROS image /drone_N/chase/image (sim/launcher/chase_cam.py; QGC mosaic + RViz)
+        enabled: true
+        resolution: [640, 360]         # one tile of the 1280-wide QGC mosaic
+        hfov_deg: 90.0
+        offset: [-2.0, 0.0, 1.0]       # camera position in the drone's yaw frame FLU, m
+        look_height: 0.0               # aim this far above the drone's centre, m
+        smooth_s: 0.3                  # follow smoothing, s (0 = rigid)

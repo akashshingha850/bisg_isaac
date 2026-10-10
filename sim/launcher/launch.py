@@ -458,6 +458,15 @@ class App:
             self.spawn_vehicle(v, px4_cfg)
 
         phase("vehicles spawned")
+        self.chase = []              # per-vehicle chase cameras -> /drone_N/chase/image (sim/launcher/chase_cam.py)
+        for v, veh in zip(cfg.get("vehicles", []), self.vehicles):
+            cc = (v.get("sensors") or {}).get("chase_cam") or {}
+            if cc.get("enabled", False):
+                try:
+                    from chase_cam import ChaseCam  # noqa: WPS433
+                    self.chase.append(ChaseCam(veh, int(v.get("id", 0)), cc, RenderingManager.get_dt()))
+                except Exception as exc:  # noqa: BLE001 — a view camera must never stop the sim
+                    LOG.warning("could not start the chase camera of vehicle %s: %s", v.get("id", 0), exc)
         self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
         app_cfg = cfg.get("app", {})
         eye, target = app_cfg.get("viewport_eye"), app_cfg.get("viewport_target")
@@ -599,6 +608,8 @@ class App:
                 self.web.maybe_capture()
             if self.follow:
                 self.follow.update()
+            for cc in self.chase:
+                cc.update()
             if hb and step - step_hb >= hb:
                 # Real-time factor: >= 1.0 means the sim keeps up with wall clock.
                 # `./bisg debug perf` reads these lines; see docs/performance.md.

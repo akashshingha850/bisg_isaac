@@ -95,6 +95,43 @@ Two runs on the same sim:
 That is visual-only GEN_3 on a textured warehouse with a perfect render: it bounds what the SDK adds on top of the scene, not what the real camera,
 with sensor noise and an IMU, achieves. The real-camera number comes from the bench (same script, `--no-gt`, plus a tape measure).
 
+## Pool depth probe: SDK depth for teleported views (2026-10-10)
+
+Question (from Kinetix, which pre-renders "view pools"): does the real SDK give usable depth when the camera **teleports** between
+discontinuous poses instead of flying? Tools: `sim/tools/zed_pool_probe.py` is a standalone Isaac app with no drone and no PX4. It loads the world, adds a **kinematic** ZED_M twin
+streamed exactly like the rig (same node, same port), teleports it through views and saves per view the ground-truth depth
+(`distance_to_image_plane` on the asset's own `CameraLeft`). `tests/zed_pool_probe_collect.py` records the wrapper's
+`depth/depth_registered`, and `tests/zed_pool_probe_eval.py` assigns each SDK frame to its view by wall-clock time. It compares each frame with that view's
+ground truth and with the previous view's, so stale frames are counted.
+
+```
+./bisg down; mkdir -p sim/cache/zprobe && chmod 777 sim/cache sim/cache/zprobe      # the sim container user must write there
+docker compose -f docker/compose.yaml --profile sim-headless run -d --name bisg-sim sim-headless \
+    python /workspace/sim/tools/zed_pool_probe.py --out /workspace/sim/cache/zprobe   # waits for <out>/go
+./bisg ros up && ./bisg zed up                                                       # once (B18)
+docker exec -d bisg-ros bash -lc 'source /opt/ros/jazzy/setup.bash; python3 /workspace/tests/zed_pool_probe_collect.py --out /workspace/sim/cache/zprobe'
+touch sim/cache/zprobe/go      # ... wait for "[zprobe] done" in docker logs bisg-sim, then:
+touch sim/cache/zprobe/stop; python3 tests/zed_pool_probe_eval.py sim/cache/zprobe
+docker rm -f bisg-sim; ./bisg zed down
+```
+
+Result (RTX 4500 box, Full Warehouse, 28 views: rings at 1 m and 2 m with pitch 0/15°, plus 4 revisited poses; NEURAL_PLUS, HD720; data
+`/opt/docker-archive/zed_pool_probe/20261010-114536`):
+
+| | |
+|---|---|
+| Teleport handling | the SDK accepts every jump. After each teleport, **2 stale frames** (~0.1 s pipeline lag) still show the previous pose |
+| Settle time | first fresh frame 0.13 s (median), max 0.28 s. Error at its final level after **0.22 s median, 0.54 s max** |
+| Accuracy (settled) | median relative error **0.35 %** at 0.3–2 m, **0.65 %** at 2–5 m, 1.8 % at 5–10 m, 3.9 % at 10–15 m; >99.7 % valid pixels below 10 m, 93 % at 10–15 m |
+| Repeatability | the same pose revisited later differs by 0.5–0.8 % (median relative) |
+| Throughput | render ~60 fps, wrapper depth ~19 Hz; 40 frames (0.7 s) per view, about 7 min for a 600-view pool |
+| Ground truth itself | Isaac's annotator still showed the **previous** view at frame 2 after a teleport in 24/28 views: render ≥ 3 frames (more is safer) before reading any annotator |
+
+Rule for a pool renderer: after a teleport, discard SDK depth for **0.6 s** (above the 0.54 s worst case), or wait for 3 frames whose stamp is
+later than the teleport plus 0.3 s. One wrapper per sim run (B18), so a whole pool must be one session.
+The camera intrinsics are authored by the extension only once it streams (the asset loads with a 50 mm default lens). Read them after
+streaming starts: fx = 529.8 px at HD720, the same as the wrapper's `camera_info`.
+
 ## Porting to the Jetson
 
 1. Same image recipe: `docker/zed/build.sh jetson` (on the Jetson) builds Stereolabs' L4T image and the same CycloneDDS
@@ -113,7 +150,7 @@ with sensor noise and an IMU, achieves. The real-camera number comes from the be
 | Extension build: `Not enough free space ... /tmp/.cache/packman` | packman unpacks ~12 GB (CUDA, Kit SDK). The script mounts a host cache (`~/.cache/packman`, override `PACKMAN_CACHE`) so it is fetched once |
 | Extension build: `ERROR: cannot verify ... certificate` (wget) | the sim image's `LD_LIBRARY_PATH` pulls Isaac's libcrypto into wget; the script clears it |
 | No ZED topics, wrapper dies with `Camera detection timeout`; sim log has `failed to create RTP Session (err:-74)` / `Streamer initialization failed` | the wrapper started before the sim's streamer held UDP 30000 and took the port (autostart used to fire at `sim ready`, a few seconds too early). `zed_autostart` now waits for the port; if it still happens: `./bisg restart`, then `./bisg zed up` once the stream port is open (`ss -uan | grep :30000`) |
-| Wrapper log stops after `Streaming ... receiving port 30000 is not available ... switching to port 30002` and no topics | the wrapper started before the stream was live, or a previous wrapper already used the stream. The SDK connects once per sim run: restart the sim, then `./bisg zed up` |
+| Wrapper log stops after `Streaming ... receiving port 30000 is not available ... switching to port 30002` and no topics | the wrapper started before the stream was live, or a previous wrapper already used the stream. The SDK connects once per sim run: restart the sim, then `./bisg zed up`. Seen with `ZED_AUTOSTART` starting the wrapper ~3 s after the port opened (2 of 3 restarts on 2026-10-10). `zed_autostart` now waits 30 s more (1/1 since). Manual fallback: `ZED_AUTOSTART=0 ./bisg up`, wait ~1 min, then `./bisg zed up` |
 | Wrapper prints `CORRUPTED FRAME` + `Duplicate frame detected` on every grab, `low_image_quality: true` | the camera never moved or sees black: the ZED asset is not rigidly attached to the vehicle (nested reference instead of the `FixedJoint`), or it is inside a mesh. Check `[launch] zed sdk rig:` in `./bisg logs` and the frames (the ZED image panels in RViz) |
 | Black images, odom exactly 0 | same as above |
 | `Pos. Tracking not started: HIGH FREQUENCY SENSORS DATA REQUIRED`, FATAL | IMU fusion is on with the sim's frame-rate IMU: `imu_fusion: false` (the overlay does this) |

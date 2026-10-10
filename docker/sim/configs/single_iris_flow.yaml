@@ -34,3 +34,6 @@ vehicles:
         max_m: 5.0                 # beyond this the sensor reports quality 0
         rate_hz: 50.0
         noise_std_rad_s: 0.02
+      ground_truth:                # exact pose/velocity -> PX4 (HIL_STATE_QUATERNION) -> ulog *_groundtruth; test-only, PX4 does not fuse it
+        enabled: true
+        rate_hz: 100.0

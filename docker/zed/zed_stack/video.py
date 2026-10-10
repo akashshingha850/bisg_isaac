@@ -4,7 +4,7 @@
 Minimal on purpose (docs/video-qgc.md): subscribers, one GStreamer pipeline
     appsrc ! videoconvert ! x264enc (or nvv4l2h264enc on a Jetson) ! rtph264pay ! udpsink
 Two layouts (services.qgc_video.layout):
-  grid    one 2x2 picture: left | right / depth | optical flow of the left image (zed_stack/mosaic.py). The four sources are
+  grid    one 2x2 picture: left | chase view / depth | optical flow of the left image (zed_stack/mosaic.py). The four sources are
           sampled by a timer at `fps` (15 when 0), so a slow or dead topic only blanks its own tile. The two derived tiles are also
           published, while subscribed, as /drone_N/zed/video/optical_flow (bgr8, tile size). Depth is not republished: use the ZED's own depth/depth_registered.
   single  one raw sensor_msgs/Image topic as it comes (rgb8, bgr8, rgba8, bgra8, mono8): the ZED wrapper, a USB cam.
@@ -41,7 +41,7 @@ class VideoStream(Node):
         env = os.environ.get
         self.layout = env("VIDEO_LAYOUT") or cfg["layout"]
         base = f"/drone_{drone}/zed/zed_node/"
-        self.topics = {"left": base + "left/color/rect/image", "right": base + "right/color/rect/image",
+        self.topics = {"left": base + "left/color/rect/image", "chase": f"/drone_{drone}/chase/image",
                        "depth": base + "depth/depth_registered"}
         self.topic = env("VIDEO_TOPIC") or cfg["topic"] or self.topics["left"]       # single layout only
         self.width = int(cfg["width"])
@@ -67,7 +67,7 @@ class VideoStream(Node):
             # the optical-flow tile as a ROS image too (RViz): RELIABLE, so a BEST_EFFORT or RELIABLE subscriber both match
             self.pub = {"flow": self.create_publisher(Image, f"/drone_{drone}/zed/video/optical_flow", 2)}
             self.create_timer(1.0 / self.fps, self.compose)
-            self.get_logger().info(f"2x2 {self.width}px (left|right / depth|flow of left) from {base} -> rtp/h264 udp://{self.host}:{self.port} "
+            self.get_logger().info(f"2x2 {self.width}px (left|chase / depth|flow of left) from {base} -> rtp/h264 udp://{self.host}:{self.port} "
                                    f"({self.bitrate} kbit/s, {self.fps:g} fps); QGC: Video > UDP h.264, port {self.port}")
         else:
             self.create_subscription(Image, self.topic, self.on_image, qos_profile_sensor_data)
@@ -162,12 +162,12 @@ class VideoStream(Node):
             self.tile_wh, self.tiles = size, {}
             self.flow = mosaic.Flow()
         left = self.tile("left", mosaic.to_bgr, size, now)
-        right = self.tile("right", mosaic.to_bgr, size, now)
+        chase = self.tile("chase", mosaic.to_bgr, size, now)
         depth = self.tile("depth", mosaic.depth_to_bgr, size, now)
         flow = self.flow.last if self.flow.last is not None and "left" in self.tiles else mosaic.blank(size)
-        frame = np.ascontiguousarray(mosaic.grid(left, right, depth, flow))
+        frame = np.ascontiguousarray(mosaic.grid(left, chase, depth, flow))
         tw, th = size
-        for text, x, y in (("left", 0, 0), ("right", tw, 0), (f"depth {mosaic.DEPTH_RANGE[0]:g}-{mosaic.DEPTH_RANGE[1]:g} m", 0, th), ("optical flow", tw, th)):
+        for text, x, y in (("left", 0, 0), ("chase", tw, 0), (f"depth {mosaic.DEPTH_RANGE[0]:g}-{mosaic.DEPTH_RANGE[1]:g} m", 0, th), ("optical flow", tw, th)):
             mosaic.label(frame[y:y + th, x:x + tw], text)
         if self.shape != (2 * tw, 2 * th, "bgr8"):
             self.build(2 * tw, 2 * th, "bgr8")
