@@ -18,14 +18,14 @@ map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_f
 
 - `map`: EKF2 local origin (MAVROS `local_position`), shared per drone; fleet works in `map` with a
   known per-drone offset published by the fleet manager as `map` → `drone_<n>/map` static TF.
-- `odom` → `base_link` is published by the VIO source (sim: `vio_mock`; real: ZED wrapper), never by MAVROS.
+- `odom` → `base_link` is published by the VIO source (the ZED wrapper, in the sim and on the drone), never by MAVROS.
 - Camera mount pose is a **parameter** (`sensors.zed.mount_xyz_rpy`) used by both the Isaac rig and the
   real `static_transform_publisher`. Values live in `docs/hardware.md`.
 
 ## Topics — provided by the vehicle
 
-The `zed/zed_node/*` names are the ZED wrapper 5.4.1 names (`ZED_SOURCE=sdk` is that wrapper, unmodified; `ZED_SOURCE=emulated` copies them). Pull them
-in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on the drone it is `docker/zed/zed_drone.launch.py`.
+The `zed/zed_node/*` names are the ZED wrapper 5.4.1 names: the unmodified wrapper, launched by `docker/zed/zed_drone.launch.py` in the sim (real SDK on
+the streamed ZED Mini twin, `docs/zed-sdk-sim.md`) and on the drone. The emulated rig was removed 2026-10-07.
 
 | Topic (under `/drone_<n>/`) | Type | Rate | Source sim / real | Notes |
 |---|---|---|---|---|
@@ -44,11 +44,11 @@ in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on t
 | `zed/zed_node/confidence/confidence_map` | `sensor_msgs/Image` (`32FC1`, 0–100) | same as depth | ZED wrapper (`depth.publish_depth_confidence`) | per-pixel depth confidence, same grid and stamp as `depth_registered`. **Higher = less confident**; the wrapper already removes depth above `depth.depth_confidence` (95), so valid depth has ≤ 95 (median ~0.5 in the sim). Computed only while subscribed. Consumer: Kinetix `stereo_zed` (weight = 1 − c/100) |
 | `zed/video/optical_flow` | `sensor_msgs/Image` (`bgr8`, same size) | ≤ 15 Hz | `zed-video` node | dense Farneback flow of the **left** image between consecutive frames: hue = direction, brightness = speed, black = still. Visualisation only (no metric flow); header of the left frame. Only while subscribed; RELIABLE; needs `services.qgc_video` on with `layout: grid` |
 | `chase/image` | `sensor_msgs/Image` (`rgb8`, 640x360) | render rate (≤ 20 Hz sim time) | Isaac chase camera (`sensors.chase_cam`, `sim/launcher/chase_cam.py`) / **none on the real drone** | third-person view for humans: a camera 2 m behind and 1 m above the drone that turns with its heading, looking at it. Sim only, view only (no `camera_info`, no TF). Header stamp = sim time, `frame_id` `drone_<n>/chase_cam`. Sits in the QGC mosaic and RViz in place of the ZED right image; on hardware that tile reads "no signal" |
-| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | heavy: sim publishes only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd); sim samples every 4th pixel |
-| `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | sim `zed_depth.py` / ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
-| `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | sim `zed_depth.py` / ZED wrapper | optional, `mapping.mapping_enabled`; sim frame `odom`, wrapper `map` |
-| `zed/zed_node/imu/data` | `sensor_msgs/Imu` | 200 Hz | Isaac physics IMU (both sim sources) / ZED wrapper | frame `zed_imu_link`. In sim `sdk` the streamed ZED has no usable sensor channel, so the sim publishes this topic itself (`docs/zed-sdk-sim.md`) |
-| `zed/zed_node/odom` | `nav_msgs/Odometry` | 30–60 Hz | sim `emulated`: `vio_mock`; sim `sdk` and real: ZED positional tracking | `odom` → `base_link` (wrapper default `zed_camera_link`; relay re-parents to `base_link`). Only ONE source per run: never `vio_mock` and the wrapper on the same topic |
+| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | ZED wrapper | heavy: published only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd) |
+| `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
+| `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | ZED wrapper | optional, `mapping.mapping_enabled`; frame `map` |
+| `zed/zed_node/imu/data` | `sensor_msgs/Imu` | 200 Hz | Isaac physics IMU / ZED wrapper | frame `zed_imu_link`. In sim `sdk` the streamed ZED has no usable sensor channel, so the sim publishes this topic itself (`docs/zed-sdk-sim.md`) |
+| `zed/zed_node/odom` | `nav_msgs/Odometry` | 30–60 Hz | ZED positional tracking (sim and real) | `odom` → `base_link` (wrapper default `zed_camera_link`; the bridge re-labels the frames to `odom`/`base_link`). One source per run |
 | `vehicle/state` | `bisg_msgs/VehicleState` | 2 Hz | `bisg_vehicle/health` | id, mode, armed, battery %, pose, vio_ok, last_error |
 | `tf`, `tf_static` | | | | frames above |
 
@@ -58,7 +58,7 @@ in the sim with the `emulated` rig or the real SDK (`docs/zed-sdk-sim.md`); on t
 |---|---|---|---|
 | `mavros/setpoint_position/local` | `geometry_msgs/PoseStamped` | `bisg_vehicle/offboard_controller` | ≥ 10 Hz while OFFBOARD |
 | `mavros/setpoint_raw/local` | `mavros_msgs/PositionTarget` | same | velocity/accel setpoints |
-| `mavros/odometry/out` | `nav_msgs/Odometry` | `vio_relay` (real) / `vio_mock` (sim) | ENU/FLU in; MAVROS converts to PX4 NED/FRD; frame ids `odom`/`base_link`; stamp = sample capture time on the vehicle clock (sim time in sim) — PX4 fuses the sample at that time, so a wrong clock is a wrong measurement |
+| `mavros/odometry/out` | `nav_msgs/Odometry` | `zed-bridge` odometry module (`zed_stack/bridge/odometry.py`, `services.px4_bridge.odometry` in zed.yaml), sim and real | ENU/FLU in; MAVROS converts to PX4 NED/FRD; frame ids `odom`/`base_link`; stamp = sample capture time on the vehicle clock (sim time in sim) — PX4 fuses the sample at that time, so a wrong clock is a wrong measurement |
 | `vehicle/cmd` | `bisg_msgs/VehicleCmd` | fleet manager | takeoff / goto / land / rtl / hold / task-specific |
 
 ## Services (under `/drone_<n>/`)

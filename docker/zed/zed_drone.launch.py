@@ -12,13 +12,44 @@ One catch: the stock launch loads its node into a container named `/zed/zed_cont
 pushed namespace), while the container itself now lives at `/drone_<n>/zed/zed_container`, so the load call would wait
 forever. The remap below points the container's load service at the name the launch is looking for. The loaded node
 still lands in `/drone_<n>/zed/`.
+
+Second catch: the stock launch also sets `pos_tracking.publish_tf`, `pos_tracking.publish_map_tf` and `sensors.publish_imu_tf`
+from its own launch arguments (default true), AFTER the params file, so zed.yaml's values never reached the node (ros-graph.md
+R2). They are read from the params file and forwarded as those launch arguments.
 """
+import yaml
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import PushRosNamespace, SetRemap
 from launch_ros.substitutions import FindPackageShare
+
+TF_ARGS = {"publish_tf": ("pos_tracking", "publish_tf"), "publish_map_tf": ("pos_tracking", "publish_map_tf"),
+           "publish_imu_tf": ("sensors", "publish_imu_tf")}
+
+
+def tf_args(params_path):
+    """{launch arg: "true"|"false"} for the TF switches the params file sets; absent ones keep the stock default."""
+    if not params_path:
+        return {}
+    with open(params_path) as f:
+        p = ((yaml.safe_load(f) or {}).get("/**") or {}).get("ros__parameters") or {}
+    return {arg: str(p[sec][key]).lower() for arg, (sec, key) in TF_ARGS.items() if key in (p.get(sec) or {})}
+
+
+def _zed(context):
+    return [IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([FindPackageShare("zed_wrapper"), "launch", "zed_camera.launch.py"])),
+        launch_arguments={
+            "camera_model": LaunchConfiguration("camera_model"),
+            "ros_params_override_path": LaunchConfiguration("params"),
+            "sim_mode": LaunchConfiguration("sim_mode"),
+            "sim_address": LaunchConfiguration("sim_address"),
+            "sim_port": LaunchConfiguration("sim_port"),
+            **tf_args(LaunchConfiguration("params").perform(context)),
+        }.items(),
+    )]
 
 
 def generate_launch_description():
@@ -30,20 +61,10 @@ def generate_launch_description():
         DeclareLaunchArgument("sim_address", default_value="127.0.0.1"),
         DeclareLaunchArgument("sim_port", default_value="30000"),
     ]
-    zed = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(PathJoinSubstitution([FindPackageShare("zed_wrapper"), "launch", "zed_camera.launch.py"])),
-        launch_arguments={
-            "camera_model": LaunchConfiguration("camera_model"),
-            "ros_params_override_path": LaunchConfiguration("params"),
-            "sim_mode": LaunchConfiguration("sim_mode"),
-            "sim_address": LaunchConfiguration("sim_address"),
-            "sim_port": LaunchConfiguration("sim_port"),
-        }.items(),
-    )
     ns = ["drone_", LaunchConfiguration("drone_id")]
     load_service = "/zed/zed_container/_container/load_node"
     return LaunchDescription(declared + [GroupAction([
         PushRosNamespace(ns),
         SetRemap(src=["/drone_", LaunchConfiguration("drone_id"), load_service], dst=load_service),
-        zed,
+        OpaqueFunction(function=_zed),
     ])])

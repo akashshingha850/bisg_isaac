@@ -43,7 +43,7 @@ case "$sub" in
     docker ps -a --filter "name=bisg-.*-${DRONE_ID}$" --format '  {{.Names}}\t{{.Status}}\t{{.Image}}'
     "$(dirname "$0")/px4-bridge.sh" status
     container_running "$ZNAME" && zexec "for t in left/color/rect/image depth/depth_registered odom imu/data; do
-        printf '  %-26s' \\$t; timeout 8 ros2 topic hz /drone_${DRONE_ID}/zed/zed_node/\\$t 2>&1 | grep -m1 'average rate' || echo '(none)'; done" || warn "ZED wrapper not running";;
+        printf '  %-26s' \$t; timeout 8 ros2 topic hz /drone_${DRONE_ID}/zed/zed_node/\$t 2>&1 | grep -m1 'average rate' || echo '(none)'; done" || warn "ZED wrapper not running";;
 
   logs)
     which=zed; follow=""

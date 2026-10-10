@@ -87,11 +87,11 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 - Headless boot to `[launch] sim ready`: ~4.3 min cold and warm alike (Kit startup + warehouse USD load dominate, not the shader cache); PX4 "Ready for takeoff" ~10 s later. `docker compose stop`: 1.4 s, exit 0, no stray PX4.
 - `tests/smoke_takeoff.py`: PASS. MAVROS: `connected: true`, 155 topics, pose ~14 Hz, IMU ~24 Hz (default PX4 onboard stream rates).
 
-## Real ZED SDK in the sim (`ZED_SOURCE=sdk`)
+## Real ZED SDK in the sim
 
 ```
 ./bisg zed build && ./bisg zed image          # once (docs/setup.md)
-ZED_SOURCE=sdk ./bisg up headless && ./bisg wait  # the sim streams the ZED Mini twin
+./bisg up headless && ./bisg wait  # the sim streams the ZED Mini twin
 ./bisg zed up && ./bisg zed check                 # real zed_wrapper + SDK checks; ./bisg zed status | logs | down
 ```
 Start the wrapper after the sim and keep both alive together: the SDK connects once per sim run (B18), so after restarting either, restart both.

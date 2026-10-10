@@ -8,3 +8,9 @@ docker/ros/ros2_ws/install
 docker/ros/ros2_ws/log
 logs
 graphify-out
+# Build contexts are the repo root, but the Dockerfiles only COPY from docker/: keep the rest out of the upload.
+.git
+archive
+out
+kinetix
+.claude
