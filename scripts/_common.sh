@@ -38,6 +38,7 @@ load_conf(){
     val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     [[ ${#val} -ge 2 && ${val:0:1} == '"' && ${val: -1} == '"' ]] && val="${val:1:${#val}-2}"
     [[ ${#val} -ge 2 && ${val:0:1} == "'" && ${val: -1} == "'" ]] && val="${val:1:${#val}-2}"
+    [[ "$val" == "~/"* ]] && val="$HOME/${val:2}"                    # ~/path = this user's home (portable defaults)
     if [[ -n "${!key:-}" ]]; then
       [[ -n "${BISG_SRC[$key]:-}" ]] || BISG_SRC[$key]="$([[ -n "${_BISG_ENV0[$key]:-}" ]] && echo environment || echo "$label")"
       continue
@@ -71,7 +72,7 @@ case "$(uname -m)" in
   aarch64|arm64) conf_default BISG_ARCH arm64;  conf_default ZED_VARIANT l4t-r38;;   # Jetson, JetPack 7 (docker/zed/build.sh jetson)
   *)             conf_default BISG_ARCH x86_64; conf_default ZED_VARIANT desktop;;    # workstation (docker/zed/build.sh desktop)
 esac
-conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
+conf_default ARCHIVE_DIR "$HOME/bisg-archive"
 conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
 conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git

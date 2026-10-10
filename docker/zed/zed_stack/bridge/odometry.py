@@ -5,13 +5,15 @@ NED/FRD and sends MAVLink ODOMETRY. Differences from a plain relay, all on purpo
   * silent while tracking is not OK (PosTrackStatus.odometry_status != OK) or the source is slower than min_rate_hz:
     PX4 must see silence, not stale or lost-track data, so its own vision timeout / failsafe acts (docs/zed-stack.md);
   * frame ids are the strings MAVROS' odometry plugin matches ("odom" / "base_link"), whatever the wrapper calls them;
-  * restamp: true stamps the sample with this node's clock on arrival (capture time on the vehicle clock). In the sim PX4
-    runs on /clock time while the wrapper stamps with the wall clock, so a source stamp would be a wrong measurement time.
+  * restamp: true stamps the sample with this node's clock on arrival, minus restamp_latency_ms (the camera->bridge latency), so
+    the stamp is the capture time on the vehicle clock. In the sim PX4 runs on /clock time while the wrapper stamps with the
+    wall clock, so a source stamp would be a wrong measurement time; without the latency EKF2 fuses every sample late (B17).
 Pose lever arm of the camera on the airframe: EKF2_EV_POS_X/Y/Z on the PX4 side.
 """
 import copy
 import math
 
+import rclpy.duration
 from nav_msgs.msg import Odometry
 from zed_msgs.msg import PosTrackStatus
 
@@ -26,6 +28,7 @@ class Odometry2Px4(Module):
     def __init__(self, node, ctx, settings):
         super().__init__(node, ctx, settings)
         self.restamp = settings["restamp"]
+        self.latency_ns = int(float(settings.get("restamp_latency_ms", 0.0)) * 1e6)   # restamp: arrival - camera->here latency
         self.min_rate = settings["min_rate_hz"]
         self.src, self.out = Rate(), Rate()
         self.track_ok = None            # None = no PosTrackStatus seen yet
@@ -35,7 +38,7 @@ class Odometry2Px4(Module):
         self.pub = node.create_publisher(Odometry, f"{ctx.mavros}/odometry/out", RELIABLE_QOS)
         node.create_subscription(Odometry, f"{ctx.zed}/odom", self.on_odom, SENSOR_QOS)
         node.create_subscription(PosTrackStatus, f"{ctx.zed}/pose/status", self.on_track, SENSOR_QOS)
-        self.log(f"{ctx.zed}/odom -> {ctx.mavros}/odometry/out (restamp={self.restamp}, min rate {self.min_rate} Hz)")
+        self.log(f"{ctx.zed}/odom -> {ctx.mavros}/odometry/out (restamp={self.restamp}{f' -{self.latency_ns / 1e6:g} ms' if self.restamp and self.latency_ns else ''}, min rate {self.min_rate} Hz)")
 
     def on_track(self, msg):
         ok = msg.odometry_status == PosTrackStatus.OK
@@ -63,7 +66,7 @@ class Odometry2Px4(Module):
             now = self.node.get_clock().now()
             if now.nanoseconds == 0:            # use_sim_time and no /clock yet: a 0 stamp would reach PX4
                 return
-            out.header.stamp = now.to_msg()
+            out.header.stamp = (now - rclpy.duration.Duration(nanoseconds=self.latency_ns)).to_msg()
         self.pub.publish(out)
         self.out.tick()
         self.last_pos = (p.x, p.y, p.z)

@@ -381,7 +381,6 @@ def run_phase(node, ph, args):
     node.last.clear()
     node.toggle_result = (True, "")
     topics = list(ph["topics"])
-    pids_missing = []
     t_start = time.monotonic()
     if ph.get("listen_after_setup"):
         ph["setup"]()                       # switch on first (slow for AI models), then measure

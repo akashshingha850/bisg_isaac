@@ -10,17 +10,25 @@ vehicle is `/drone_<n>` with `n` = 1-based drone number = PX4 `MAV_SYS_ID`.
 ## Frames (per drone, prefixed `drone_<n>/` on TF)
 
 ```
-map ─► odom ─► base_link ─► zed_camera_link ─► zed_left_camera_frame ─► zed_left_camera_optical_frame
-                       │                    └► zed_right_camera_frame ─► zed_right_camera_optical_frame
-                       │                    └► zed_imu_link
-                       └► (optional) lidar_link
+map ─► odom ─► zed_camera_link ─► base_link                                   (TF tree as published)
+                              └► zed_camera_center ─► zed_left_camera_frame ─► zed_left_camera_frame_optical
+                                                  │                         └► zed_imu_link
+                                                  └► zed_right_camera_frame ─► zed_right_camera_frame_optical
 ```
 
+What consumers rely on is that every lookup resolves: `map → odom → base_link → zed_camera_link → zed_left_camera_frame_optical`
+(`tests/check_contract.py` check 3). The tree is shaped by the ZED wrapper, whose base frame is hard-wired to `zed_camera_link`:
+it publishes `odom → zed_camera_link` itself, so `base_link` hangs under the camera by the inverse of the mount (R3, 2026-10-10).
+
 - `map`: EKF2 local origin (MAVROS `local_position`), shared per drone; fleet works in `map` with a
-  known per-drone offset published by the fleet manager as `map` → `drone_<n>/map` static TF.
-- `odom` → `base_link` is published by the VIO source (the ZED wrapper, in the sim and on the drone), never by MAVROS.
-- Camera mount pose is a **parameter** (`sensors.zed.mount_xyz_rpy`) used by both the Isaac rig and the
-  real `static_transform_publisher`. Values live in `docs/hardware.md`.
+  known per-drone offset published by the fleet manager as `map` → `drone_<n>/map` static TF. `map → odom` is a static
+  identity from `docker/zed/zed_drone.launch.py` (the wrapper's own map TF is off).
+- `odom` motion comes from the VIO source (the ZED wrapper, in the sim and on the drone), never from MAVROS. Tracking starts with
+  the camera at its mount pose, so `odom → base_link` is the identity at start.
+- Camera mount pose base_link → zed_camera_link is ONE key, `positional_tracking.initial_base_pose` in `docker/zed/zed.yaml`;
+  `zed_drone.launch.py` publishes its inverse `zed_camera_link → base_link` (static). The sim places its twin with the scenario's
+  `sensors.zed.mount_xyz_rpy` (keep equal); the real drone's measured value goes in `docs/hardware.md`.
+- Frame names are the wrapper's (5.4: `…_frame_optical`), unprefixed — see the B16 gap at the end.
 
 ## Topics — provided by the vehicle
 
@@ -32,19 +40,19 @@ the streamed ZED Mini twin, `docs/zed-sdk-sim.md`) and on the drone. The emulate
 | `mavros/state` | `mavros_msgs/State` | 1–10 Hz | MAVROS / MAVROS | connected, armed, mode |
 | `mavros/local_position/pose` | `geometry_msgs/PoseStamped` | 30 Hz | MAVROS | EKF2 pose, ENU, frame `map` |
 | `mavros/local_position/odom` | `nav_msgs/Odometry` | 30 Hz | MAVROS | |
-| `mavros/hrlv_ez4_pub` | `sensor_msgs/Range` | 10 Hz | MAVROS (`distance_sensor` plugin) | down-facing ToF (PX4 `distance_sensor` instance 0, LW20/C on the drone), frame `hrlv_ez4_sonar` (MAVROS' stock config name; rename = override the plugin's `config`). `range >= max_range` means no valid reading. BEST_EFFORT |
+| `mavros/hrlv_ez4_pub` | `sensor_msgs/Range` | 10 Hz | MAVROS (`distance_sensor` plugin) | may be empty: only with a ToF (sim scenario `single_iris_flow`; LW20/C on the drone). Down-facing ToF (PX4 `distance_sensor` instance 0, LW20/C on the drone), frame `hrlv_ez4_sonar` (MAVROS' stock config name; rename = override the plugin's `config`). `range >= max_range` means no valid reading. BEST_EFFORT |
 | `mavros/imu/data` | `sensor_msgs/Imu` | 50 Hz | MAVROS | FC IMU (not ZED IMU) |
-| `mavros/battery` | `sensor_msgs/BatteryState` | 1 Hz | MAVROS | sim: SITL battery model |
-| `mavros/global_position/global` | `sensor_msgs/NavSatFix` | 5 Hz | MAVROS | may be empty when GPS disabled |
+| `mavros/battery` | `sensor_msgs/BatteryState` | 0.5 Hz | MAVROS | sim: SITL battery model |
+| `mavros/global_position/global` | `sensor_msgs/NavSatFix` | 50 Hz | MAVROS | may be empty when GPS disabled |
 | `zed/zed_node/left/color/rect/image` | `sensor_msgs/Image` | 15–30 Hz | Isaac cam / ZED wrapper | `bgra8`/`rgb8` per wrapper |
 | `zed/zed_node/right/color/rect/image` | `sensor_msgs/Image` | same | Isaac cam / ZED wrapper | |
 | `zed/zed_node/left/color/rect/camera_info` | `sensor_msgs/CameraInfo` | same | Isaac cam / ZED wrapper | intrinsics of the camera in use — read them, never hard-code `K` (sim `sdk`: the extension's `ZED_M` lens, HD720 `fx` 529.8 px; a real unit has its own factory calibration) |
 | `zed/zed_node/right/color/rect/camera_info` | `sensor_msgs/CameraInfo` | same | Isaac cam / ZED wrapper | stereo baseline = `-P[0,3] / P[0,0]` (ZED Mini 63 mm); stereo consumers read it from here |
 | `zed/zed_node/depth/depth_registered` | `sensor_msgs/Image` (`32FC1`, metres) | same | Isaac depth / ZED | |
 | `zed/zed_node/confidence/confidence_map` | `sensor_msgs/Image` (`32FC1`, 0–100) | same as depth | ZED wrapper (`depth.publish_depth_confidence`) | per-pixel depth confidence, same grid and stamp as `depth_registered`. **Higher = less confident**; the wrapper already removes depth above `depth.depth_confidence` (95), so valid depth has ≤ 95 (median ~0.5 in the sim). Computed only while subscribed. Consumer: Kinetix `stereo_zed` (weight = 1 − c/100) |
-| `zed/video/optical_flow` | `sensor_msgs/Image` (`bgr8`, same size) | ≤ 15 Hz | `zed-video` node | dense Farneback flow of the **left** image between consecutive frames: hue = direction, brightness = speed, black = still. Visualisation only (no metric flow); header of the left frame. Only while subscribed; RELIABLE; needs `services.qgc_video` on with `layout: grid` |
-| `chase/image` | `sensor_msgs/Image` (`rgb8`, 640x360) | render rate (≤ 20 Hz sim time) | Isaac chase camera (`sensors.chase_cam`, `sim/launcher/chase_cam.py`) / **none on the real drone** | third-person view for humans: a camera 2 m behind and 1 m above the drone that turns with its heading, looking at it. Sim only, view only (no `camera_info`, no TF). Header stamp = sim time, `frame_id` `drone_<n>/chase_cam`. Sits in the QGC mosaic and RViz in place of the ZED right image; on hardware that tile reads "no signal" |
-| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz | ZED wrapper | heavy: published only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd) |
+| `zed/video/optical_flow` | `sensor_msgs/Image` (`bgr8`, same size) | ≤ 15 Hz wall | `zed-video` node | dense Farneback flow of the **left** image between consecutive frames: hue = direction, brightness = speed, black = still. Visualisation only (no metric flow); header of the left frame. Only while subscribed; RELIABLE; needs `services.qgc_video` on with `layout: grid` |
+| `chase/image` | `sensor_msgs/Image` (`rgb8`, 640x360) | 30 Hz (render rate) | Isaac chase camera (`sensors.chase_cam`, `sim/launcher/chase_cam.py`) / **none on the real drone** | third-person view for humans: a camera 2 m behind and 1 m above the drone that turns with its heading, looking at it. Sim only, view only (no `camera_info`, no TF). Header stamp = sim time, `frame_id` `drone_<n>/chase_cam`. Sits in the QGC mosaic and RViz in place of the ZED right image; on hardware that tile reads "no signal" |
+| `zed/zed_node/point_cloud/cloud_registered` | `sensor_msgs/PointCloud2` | ≤ 10 Hz wall | ZED wrapper | heavy: published only while subscribed. Organized, NaN = no depth; fields `x y z rgb` (float32, rgb PCL-packed); frame `zed_left_camera_frame` (x fwd) |
 | `zed/zed_node/disparity/disparity_image` | `stereo_msgs/DisparityImage` | ≤ 10 Hz | ZED wrapper | optional, `depth.publish_disparity`; left optical frame |
 | `zed/zed_node/mapping/fused_cloud` | `sensor_msgs/PointCloud2` | ~1 Hz | ZED wrapper | optional, `mapping.mapping_enabled`; frame `map` |
 | `zed/zed_node/imu/data` | `sensor_msgs/Imu` | 200 Hz | Isaac physics IMU / ZED wrapper | frame `zed_imu_link`. In sim `sdk` the streamed ZED has no usable sensor channel, so the sim publishes this topic itself (`docs/zed-sdk-sim.md`) |
@@ -84,7 +92,9 @@ the streamed ZED Mini twin, `docs/zed-sdk-sim.md`) and on the drone. The emulate
 
 1. Every "provided" topic exists with the listed type.
 2. Measured rate within ±30 % of the listed rate.
-3. TF chain `map → odom → base_link → zed_left_camera_optical_frame` resolvable.
+2a. Rates are in sim time when `/clock` is published; a rate marked `wall` comes from a wall-clock timer (the wrapper's
+    `point_cloud_freq`, the video node) and is measured in wall time.
+3. TF chain `map → odom → base_link → zed_camera_link → zed_left_camera_frame_optical` resolvable.
 4. `camera_info` width/height equal to the ZED model table in `hardware.md`; `K` is the camera's own (see the `camera_info` row), baseline `-P[0,3]/P[0,0]` = 63 mm.
 
 `tests/zed_sdk_check.py` (`./bisg zed check`) already implements the ZED half of these checks for the real SDK, in sim and on the drone (`--no-gt`).

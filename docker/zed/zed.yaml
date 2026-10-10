@@ -77,7 +77,10 @@ positional_tracking:
   pos_tracking_mode: AUTO           # AUTO (= GEN_3 on SDK 5.4) | GEN_1 | GEN_3. NOT GEN_2: the wrapper rejects it
   imu_fusion: true                  # true on the real camera (400 Hz IMU); the sim cannot supply that stream -> see `sim:`
   publish_tf: true
-  publish_map_tf: false             # MAVROS/PX4 owns `map`; the wrapper publishes odom -> base only
+  publish_map_tf: false             # MAVROS/PX4 owns `map`; the wrapper publishes odom -> zed_camera_link only (map -> odom: zed_drone.launch.py)
+  initial_base_pose: [0.18, 0.0, -0.02, 0.0, 0.0, 0.0]   # camera mount base_link -> zed_camera_link [x y z roll pitch yaw] (m, rad):
+                                    # tracking starts here, and zed_drone.launch.py publishes its inverse zed_camera_link -> base_link.
+                                    # Keep equal to the sim's sensors.zed.mount_xyz_rpy; the real drone's value goes in docs/hardware.md
   area_memory: false                # loop closure / relocalisation in a saved map of the site
   area_file_path: ''                # .area file to relocalise in a known site
   set_gravity_as_origin: true       # align the world to the IMU's gravity: z up, yaw kept
@@ -161,6 +164,7 @@ services:
     odometry:                       # M1: zed odom -> mavros/odometry/out -> EKF2 external vision. Silent while tracking is not OK
       enabled: true
       restamp: false                # true = stamp with the node clock on arrival (what the sim needs, see `sim:`)
+      restamp_latency_ms: 0.0       # restamp only: stamp = arrival - this, the camera->bridge latency on the node clock
       min_rate_hz: 5.0              # below this the source counts as lost and nothing is sent (sim: lower, it runs at ~0.4x real time)
     obstacle_distance:              # M2: depth -> 72 x 5 deg sector map -> PX4 collision prevention + QGC proximity radar
       enabled: true
@@ -199,4 +203,7 @@ sim:
         enabled: false              # sim default: the drone flies on GPS and the SDK is only observed. true = closed loop on the
                                     # SDK's VIO (GPS-denied scenario, start `zed up` while `./bisg all` waits): works, accuracy 0.5 m, docs/bugs.md B17
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
+        restamp_latency_ms: 85.0    # measured 2026-10-10 (rtf 0.52): ZED odom reaches the bridge 85 ms of SIM time after the true
+                                    # motion (cross-correlated with ground truth). Without it EKF2 fuses every sample 85 ms late
+                                    # (B17). It is wall-clock latency x rtf: re-measure if the sim speed changes a lot
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low

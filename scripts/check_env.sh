@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Host preflight for the sim profile. Exit 0 = ready. Run from anywhere.
 set -u
-ok=0; warn=0; fail=0
+warn=0; fail=0
 pass(){ echo "  [ok]   $*"; }
 wrn(){ echo "  [warn] $*"; warn=$((warn+1)); }
 die(){ echo "  [FAIL] $*"; fail=$((fail+1)); }

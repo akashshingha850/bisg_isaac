@@ -97,7 +97,7 @@ def main():
     cfg.pop("sim", None)
     br = cfg["services"]["px4_bridge"]
     br.update(enabled=True)
-    br["odometry"].update(enabled=True, restamp=True, min_rate_hz=5.0)
+    br["odometry"].update(enabled=True, restamp=True, restamp_latency_ms=3000.0, min_rate_hz=5.0)   # 3 s: visible on a wall clock
     br["obstacle_distance"].update(enabled=True, band=2.0, rate_hz=10.0)
     br["health"].update(enabled=True)
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
@@ -126,7 +126,8 @@ def main():
         if node.odoms:
             o = node.odoms[-1][1]
             check((o.header.frame_id, o.child_frame_id) == ("odom", "base_link"), f"frames odom/base_link ({o.header.frame_id}/{o.child_frame_id})")
-            check(abs(o.header.stamp.sec - time.time()) < 5, "restamp: stamp is the arrival time, not the source's 1 s")
+            age = time.time() - (o.header.stamp.sec + o.header.stamp.nanosec * 1e-9)
+            check(2.0 < age < 4.0, f"restamp: stamp = arrival - restamp_latency_ms (3 s), not the source's 1 s (age {age:.2f} s)")
         check(node.status is not None and node.status["components"].get("odometry", {}).get("state") == "ok",
               f"status JSON: odometry ok ({node.status and node.status['components'].get('odometry')})")
         check(node.status is not None and node.status["components"].get("obstacle_distance", {}).get("state") == "ok",

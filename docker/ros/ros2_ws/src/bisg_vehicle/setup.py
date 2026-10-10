@@ -14,12 +14,12 @@ setup(
     zip_safe=True,
     maintainer="bisg_isaac",
     maintainer_email="akashshingha850@gmail.com",
-    description="Per-drone vehicle nodes: vio_mock (sim), vio_relay (real)",
+    description="Per-drone vehicle code: offboard_controller (MAVROS OFFBOARD API), mission_square (Phase 2 exit test)",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "vio_mock = bisg_vehicle.vio_mock:main",
+            "mission_square = bisg_vehicle.mission_square:main",
         ],
     },
 )

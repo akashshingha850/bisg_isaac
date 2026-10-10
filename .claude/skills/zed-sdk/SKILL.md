@@ -30,7 +30,7 @@ Stereolabs'
 - ZED image is Fast DDS only; `docker/zed/Dockerfile.overlay` adds Cyclone. Big topics need `net.core.rmem_max >= 10 MB` (`./bisg check` warns); no-sudo fallback `ZED_RMW=rmw_fastrtps_cpp`.
 - Rates: judge in **sim time** (sim rtf ~0.35 on 6.0); the check script divides by the `/clock` rtf.
 - Intrinsics come from the extension's lens (HD720 `fx` 529.8), not the real unit: consumers read `camera_info`.
-- One odometry source per run: with `sdk`, `./bisg vehicle up` refuses `vio_mock`. SDK odometry reaches PX4 through the bridge's `odometry` module (`restamp: true` in sim: PX4 runs on `/clock`, the wrapper on wall time — B17); it is off by default in the sim (`sim:` block).
+- One odometry source per run: the wrapper (`vio_mock` and `./bisg vehicle` were removed 2026-10-07). SDK odometry reaches PX4 through the bridge's `odometry` module (`restamp: true` in sim: PX4 runs on `/clock`, the wrapper on wall time — B17); it is off by default in the sim (`sim:` block).
 - Disk: Docker's data-root is `/opt/docker-data` (1.3 TB free); packman needs ~12 GB (cache `~/.cache/packman` on `/`, override with `PACKMAN_CACHE`).
 
 ## Diagnose

@@ -15,7 +15,6 @@ any omni/isaacsim module is imported earlier).
 """
 import argparse
 import logging
-import math
 import os
 import signal
 import sys
@@ -164,7 +163,6 @@ if STREAMING:
     print(f"[launch] livestream webrtc ready — connect the Isaac Sim WebRTC Streaming Client to {_where} "
           f"(TCP 49100 signalling, UDP 47998 media)", flush=True)
 
-import carb  # noqa: E402
 import omni.timeline  # noqa: E402
 import omni.usd  # noqa: E402
 # Isaac Sim 6.0 removed omni.isaac.core.World (archive/docs/migrate.md §14): physics/render settings, the physics

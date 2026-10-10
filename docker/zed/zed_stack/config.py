@@ -67,7 +67,7 @@ ENUMS = {
 SERVICES = {
     "px4_bridge": ({"enabled": False}, {
         "health": {"enabled": True, "depth_min_valid": 0.3, "timeout_s": 2.0},
-        "odometry": {"enabled": False, "restamp": False, "min_rate_hz": 5.0},
+        "odometry": {"enabled": False, "restamp": False, "restamp_latency_ms": 0.0, "min_rate_hz": 5.0},
         "obstacle_distance": {"enabled": False, "band": 0.6, "min_range": 0.3, "max_range": 8.0, "rate_hz": 10.0},
     }),
     "qgc_video": ({"enabled": False, "layout": "grid", "width": 1280, "topic": "", "host": "127.0.0.1", "port": 5600, "bitrate": 4000,

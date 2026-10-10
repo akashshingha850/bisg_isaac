@@ -22,7 +22,7 @@ Severity: **S1** = unsafe to fly / blocks a phase exit test, **S2** = wrong data
 | [B13](#b13) | S2 | ZED | No automated check that the camera view is unobstructed / pointing forward |
 | [B15](#b15) | S3 | ZED | Sim rig resolution/fps/depth range are separate from `zed_params.yaml` (min depth 0.1 vs 0.2) |
 | [B16](#b16) | S2 | ZED | Contract TF frames are `drone_<n>/`-prefixed; the real wrapper cannot publish a prefix |
-| [B17](#b17) | S2 | ZED | SDK odometry now feeds EKF2 closed loop in the sim (bridge `odometry`, restamped); accuracy under flight is 0.37/0.53/0.34 m vs the 0.3 m bound |
+| [B17](#b17) | S2 | ZED | SDK odometry feeds EKF2 closed loop in the sim (bridge `odometry`, restamped); 85 ms latency fixed 2026-10-10 (x/y now ~0.3/0.15 m), the SDK's height in the sim still breaks the 0.3 m bound |
 | [B19](#b19) | S3 | ZED | Enabling the streaming server in the sim (`enable_streaming`) crashes the wrapper (SIGSEGV) |
 | [B18](#b18) | S3 | ZED | The SDK connects to the sim's stream once per sim run (restart the sim to reconnect) |
 
@@ -305,6 +305,18 @@ and `tests/vio_flight.py` flew OFFBOARD takeoff -> hover -> 3 m square -> land a
 ~7 % (x, y) and ~12 % (z, hover 1.98 m est vs 2.26-2.35 m truth) short, and the y error grows along the square (0.22 -> 0.50 m). The observer-mode check
 (2026-10-03, GPS flight) had path ratio 1.01 and RMSE 0.088 m, so look first at: camera lever arm (`EKF2_EV_POS_X/Y/Z` is 0 but the twin sits 0.18 m ahead of the body),
 `restamp` latency vs `EKF2_EV_DELAY`, visual-only GEN_3 under offboard accelerations, and the twin's intrinsics vs the rendered field of view.
+
+**2026-10-10 (three flights, `single_iris_vio`, rtf 0.52, data `/tmp/claude-*/…/scratchpad` not kept — re-run with the commands below):**
+- **Latency — fixed.** Cross-correlating the raw `zed_node/odom` against ground truth, both stamped with `/clock` on arrival at one node, the ZED
+  pose arrives **85 ms of sim time** after the motion (the bridge adds nothing measurable); the restamp called it "now" and `EKF2_EV_DELAY` was 0.
+  New key `restamp_latency_ms: 85.0` in zed.yaml's `sim:` block (stamp = arrival − latency; fake-topic test covers it). Same flight before/after:
+  max |err| x 0.374 → 0.295, y 0.287 → 0.144 m. It is wall latency × rtf: re-measure if the sim speed changes a lot.
+- **Lever arm — set.** The wrapper's odometry is the pose of `zed_camera_link` (base frame hard-wired, R3), so `EKF2_EV_POS_X/Z = 0.18 / 0.02`
+  in `ekf2_vision.params` (not yet flown: the next flight was blocked by PX4's accel-bias check after a forced disarm).
+- **z — the open part, and it is the SDK, not PX4.** The raw SDK odometry's height varies run to run: −0.17 m bias (run 1), a +0.8 m step inside one
+  leg that persisted to touchdown (run 2), 0.49 × the true height (run 3, test aborted at 0.9 m by its own guard). EKF2 follows it (`EKF2_HGT_REF=3`).
+  Sim tracking is visual-only (`imu_fusion: false`: the stream has no 400 Hz IMU), so the vertical scale is not observable from inertia. Next:
+  height from the down ToF (`single_iris_flow` sensors + `EKF2_HGT_REF=2`/range aid), or the SDK fed a real-rate IMU, before blaming the bound.
 
 <a id="b18"></a>
 ## B18 — The SDK connects to the sim's stream once per sim run

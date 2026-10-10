@@ -15,6 +15,12 @@ After any Isaac / Pegasus / PX4 pin or launcher-API change, all three must pass 
 1. `./bisg up headless -c single_iris_nozed && ./bisg smoke` (arm → ~1.6 m → land → disarm)
 2. `SIM_SCENARIO=single_iris_vio ./bisg all headless`, then `docker exec bisg-ros python3 /workspace/tests/vio_flight.py --drone 1` (|est − truth| ≤ 0.3 m; migration value ≤ 0.07 m)
 3. `docker exec bisg-ros python3 /workspace/tests/zed_depth_box.py` (front face within 30 mm; migration value < 1 mm)
+Phase exit tests (by hand until the runner exists; `bisg-ros` needs `./bisg ros build` once for `bisg_vehicle`):
+- Phase 2: on a fresh `single_iris` run (drone at the spawn: collision prevention stops a square that starts near a wall),
+  `docker exec bisg-ros bash -c 'source /workspace/docker/ros/ros2_ws/install/setup.bash && ros2 run bisg_vehicle mission_square --ns /drone_1'`
+  (5 m square at 2 m, OFFBOARD -> AUTO.LAND, exit 0; passed 2026-10-10).
+- Phase 3 contract: `docker exec bisg-ros bash -c 'source /opt/ros/jazzy/setup.bash && python3 /workspace/tests/check_contract.py --drone 1'`
+  (topics/types/rates from the contract table, TF chain, camera_info; 41 pass / 0 fail 2026-10-10). `--real` on the drone.
 Position hold (GPS scenario only): `docker exec bisg-sim /isaac-sim/python.sh tests/hold_position.py --instance 0 --alt 2 --hold 20` (drift ≤ 0.3 m; measured 0.03 m).
 Sim-level multi-drone: `-c two_iris_nozed` / `four_iris_nozed` / `eight_iris_nozed`, `two_iris_vio_lowres` (two ZED rigs), then `docker exec bisg-sim /isaac-sim/python.sh tests/smoke_takeoff.py --instance N`.
 Use `single_iris_vio_lowres` when you need images/depth on a host without the `rmem_max` sysctl (bugs.md B2).

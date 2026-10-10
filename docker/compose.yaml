@@ -297,6 +297,7 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DISPLAY: ${DISPLAY:-:1}
+      PYTHONPYCACHEPREFIX: /tmp/pycache     # this container runs as root: keep its .pyc out of the bind-mounted repo
     volumes:
       - ..:/workspace:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

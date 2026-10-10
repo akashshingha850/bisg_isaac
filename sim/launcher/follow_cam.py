@@ -143,7 +143,7 @@ class FollowCam:
             self._yaw = _wrap(self._yaw + dyaw)
             target = self._ps + np.array([0.0, 0.0, self.look_h])
 
-            from pxr import Gf, Usd, UsdGeom  # noqa: WPS433
+            from pxr import Usd, UsdGeom  # noqa: WPS433
             import omni.usd  # noqa: WPS433
             prim = omni.usd.get_context().get_stage().GetPrimAtPath(PERSP)
             eye = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation())
