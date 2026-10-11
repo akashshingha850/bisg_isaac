@@ -14,7 +14,7 @@ vehicles:
       pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
       pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
     sensors:
-      zed:                             # ZED Mini twin into the real ZED SDK (sim/launcher/zed_sdk_rig.py)
+      zed:                             # ZED Mini twin into the real ZED SDK (docker/sim/launcher/zed_sdk_rig.py)
         enabled: true
         mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
                                        # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
@@ -36,7 +36,7 @@ vehicles:
       pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
       pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
     sensors:
-      zed:                             # ZED Mini twin into the real ZED SDK (sim/launcher/zed_sdk_rig.py)
+      zed:                             # ZED Mini twin into the real ZED SDK (docker/sim/launcher/zed_sdk_rig.py)
         enabled: true
         mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
                                        # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the

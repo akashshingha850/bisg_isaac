@@ -35,8 +35,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 bisg_isaac/
 ├── bisg                  # operator CLI (setup / up / zed / mavros / smoke / debug ...)      scripts/*.sh
 ├── config/               # bisg.conf (project settings) · px4/ (PX4 parameter files, SITL and Pixracer)
-├── docker/               # compose.yaml + one folder per image with its config and code: sim/ (configs/ scenarios, PegasusSimulator submodule), ros/ (mavros_lean.yaml, ros2_ws/), px4-bridge/ (one entrypoint + the image with MAVROS, MAVSDK server and the XRCE agent), zed/ (zed.yaml + zed_stack/: YAML compiler, PX4 bridge, QGC video)
-├── sim/                  # Pegasus launcher code, worlds, assets (scenario YAMLs: docker/sim/configs/)
+├── docker/               # compose.yaml + one folder per image with its config and code: sim/ (launcher/ code, configs/ scenarios, raptor_main.yaml, assets/ vehicles, worlds/, tools/, PegasusSimulator submodule), ros/ (mavros_lean.yaml, ros2_ws/), px4-bridge/ (one entrypoint + the image with MAVROS, MAVSDK server and the XRCE agent), zed/ (zed.yaml + zed_stack/: YAML compiler, PX4 bridge, QGC video)
 ├── docker/ros/ros2_ws/src/          # ROS 2 packages shared by sim and hardware 
 ├── tests/                # smoke / flight / ZED tests (+ unit/ for host-side tests)
 ├── docs/                 # plan, roadmap, todo, contract, ADRs, runbooks

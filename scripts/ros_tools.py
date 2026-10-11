@@ -47,7 +47,7 @@ def main(argv):
             if val is None:
                 sys.exit("set NAME on|off")
             text = open(FILE).read()
-            new, n = re.subn(rf"(?ms)(^  {re.escape(name)}:\s*(?:#.*)?\n\s+enabled:\s*)(true|false)", rf"\g<1>{val}", text, count=1)
+            new, n = re.subn(rf"(?m)(^  {re.escape(name)}:[ \t]*(?:#[^\n]*)?\n[ \t]+enabled:[ \t]*)(true|false)", rf"\g<1>{val}", text, count=1)
             if not n:
                 sys.exit(f"could not find '{name}: enabled:' in {FILE}")
             open(FILE, "w").write(new)

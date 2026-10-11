@@ -1,4 +1,4 @@
-# Scenario: one Iris quadrotor, PX4 SITL. Consumed by sim/launcher/launch.py.
+# Scenario: one Iris quadrotor, PX4 SITL. Consumed by docker/sim/launcher/launch.py.
 # Override at run time:  SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml  and  SIM_HEADLESS=1
 
 app:
@@ -14,7 +14,7 @@ app:
   # viewport_eye / viewport_target: [x, y, z] pins the GUI start view; unset = auto-framed on the vehicles
   ros_clock: true            # publish /clock (sim time) every physics step; PX4 SITL runs on sim time,
                              # so MAVROS + our nodes need use_sim_time:=true (docs/interface-contract.md)
-  follow_cam:                    # Gazebo-style follow camera for the GUI viewport (sim/launcher/follow_cam.py)
+  follow_cam:                    # Gazebo-style follow camera for the GUI viewport (docker/sim/launcher/follow_cam.py)
     enabled: true                # live panel "Follow camera" changes everything below; replaces the fixed start view
     drone: 1                     # which vehicle to follow (1-based)
     smooth_s: 0.3                # follow smoothing, s (0 = rigid)
@@ -37,7 +37,7 @@ perf:
   skip_material_loading: false     # true = much faster load, but untextured — physics-only tests only
   min_frame_rate: null             # --/persistent/simulation/minFrameRate: PhysX catch-up clamp (e.g. 60)
   physx_threads: null              # --/persistent/physics/numThreads (default 8; 0 = main thread)
-  pegasus_fast: true               # cache Pegasus's per-step RigidPrim wrappers (sim/launcher/pegasus_fast.py); faster, same physics
+  pegasus_fast: true               # cache Pegasus's per-step RigidPrim wrappers (docker/sim/launcher/pegasus_fast.py); faster, same physics
   extra_args: []                   # raw Kit args, e.g. ["--/app/renderer/skipMaterialLoading=true"]
 
 world:
@@ -45,7 +45,7 @@ world:
   #   "Default Environment", "Curved Gridroom", "Warehouse", "Warehouse with Shelves",
   #   "Full Warehouse", "Simple Room", "Office", "Hospital", "Flat Plane", ...
   preset: "Full Warehouse"
-  usd_path: null             # absolute /workspace/sim/worlds/... path wins over preset (Phase 4)
+  usd_path: null             # absolute /workspace/docker/sim/worlds/... path wins over preset (Phase 4)
   add_ground_plane: false    # only for render-only worlds without collision (3DGS)
   # 120 Hz physics (= PX4 IMU rate), 6 steps per 20 Hz rendered frame. Do not go lower: at 60 Hz PX4's rate loop
   # (tuned for ~250 Hz) limit-cycles - hover roll std 6.3 deg, yaw rate +-160 deg/s; at 120 Hz it is 0.08 deg
@@ -74,7 +74,7 @@ vehicles:
       pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
       pub_graphical_sensors: false     # the camera is the ZED SDK twin below, not Pegasus's writer path
     sensors:
-      zed:                             # ZED Mini twin streamed into the real ZED SDK (sim/launcher/zed_sdk_rig.py); what it publishes: docker/zed/zed.yaml
+      zed:                             # ZED Mini twin streamed into the real ZED SDK (docker/sim/launcher/zed_sdk_rig.py); what it publishes: docker/zed/zed.yaml
         enabled: true
         mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
                                        # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
@@ -85,7 +85,7 @@ vehicles:
         fps: 30.0
         imu_rate: 200.0
         depth_range: [0.1, 15.0]
-      chase_cam:                       # third-person view as a ROS image /drone_N/chase/image (sim/launcher/chase_cam.py; QGC mosaic + RViz)
+      chase_cam:                       # third-person view as a ROS image /drone_N/chase/image (docker/sim/launcher/chase_cam.py; QGC mosaic + RViz)
         enabled: true
         resolution: [640, 360]         # one tile of the 1280-wide QGC mosaic
         hfov_deg: 90.0

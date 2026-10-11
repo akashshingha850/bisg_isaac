@@ -28,11 +28,11 @@ from sensor_msgs.msg import PointCloud2
 
 
 def load_scenario(path):
-    """Same `extends:` deep-merge as sim/launcher/launch.py."""
+    """Same `extends:` deep-merge as docker/sim/launcher/launch.py."""
     with open(path) as f:
         cfg = yaml.safe_load(f) or {}
-    base = cfg.pop("extends", None)
-    if not base:
+    bases = cfg.pop("extends", None)
+    if not bases:
         return cfg
 
     def merge(a, b):
@@ -40,7 +40,10 @@ def load_scenario(path):
         for k, v in b.items():
             out[k] = merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
         return out
-    return merge(load_scenario(os.path.join(os.path.dirname(path), base)), cfg)
+    merged = {}
+    for base in [bases] if isinstance(bases, str) else bases:
+        merged = merge(merged, load_scenario(os.path.join(os.path.dirname(path), base)))
+    return merge(merged, cfg)
 
 
 def quat_xyzw_to_matrix(x, y, z, w):

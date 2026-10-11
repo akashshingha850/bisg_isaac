@@ -6,7 +6,7 @@ no ZED needed. Built 2026-10-09.
 
 | | |
 |---|---|
-| Code | `sim/launcher/range_flow.py` — a Pegasus `Backend` next to `PX4MavlinkBackend`, wired in `launch.py:spawn_vehicle` |
+| Code | `docker/sim/launcher/range_flow.py` — a Pegasus `Backend` next to `PX4MavlinkBackend`, wired in `launch.py:spawn_vehicle` |
 | Scenario | `docker/sim/configs/single_iris_flow.yaml` (`sensors.tof`, `sensors.optical_flow`, no ZED) |
 | PX4 params | `docker/sim/px4/ekf2_flow_range.params` — `EKF2_HGT_REF=2` (range), `EKF2_RNG_CTRL=2`, `EKF2_OF_CTRL=1`, `EKF2_GPS_CTRL=0` |
 | Test | `tests/vio_flight.py` runs unchanged (it only needs MAVROS + the Pegasus ground truth) |

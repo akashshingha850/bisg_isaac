@@ -38,7 +38,7 @@ restarted, restart the sim too (`docs/zed-sdk-sim.md#troubleshooting`). `./bisg 
  └──────────────────────────────────────────┘              └───────────────────────────────────────────┘
 ```
 
-- **Mount** (`sim/launcher/zed_sdk_rig.py`): the extension's `ZED_M` USD is a rigid body referenced at `/World/drone_<n>_zed` and
+- **Mount** (`docker/sim/launcher/zed_sdk_rig.py`): the extension's `ZED_M` USD is a rigid body referenced at `/World/drone_<n>_zed` and
   held by a `FixedJoint` to the vehicle's `body` at `sensors.zed.mount_xyz_rpy`. This is Stereolabs' own robot-mount pattern. A
   plain nested reference does **not** follow a physics-driven parent: the camera stays at the spawn pose and the SDK sees a
   frozen scene (odometry stuck at 0.000). The asset is made weightless (1 g, no gravity) so it does not shift the vehicle's
@@ -98,20 +98,20 @@ with sensor noise and an IMU, achieves. The real-camera number comes from the be
 ## Pool depth probe: SDK depth for teleported views (2026-10-10)
 
 Question (from Kinetix, which pre-renders "view pools"): does the real SDK give usable depth when the camera **teleports** between
-discontinuous poses instead of flying? Tools: `sim/tools/zed_pool_probe.py` is a standalone Isaac app with no drone and no PX4. It loads the world, adds a **kinematic** ZED_M twin
+discontinuous poses instead of flying? Tools: `docker/sim/tools/zed_pool_probe.py` is a standalone Isaac app with no drone and no PX4. It loads the world, adds a **kinematic** ZED_M twin
 streamed exactly like the rig (same node, same port), teleports it through views and saves per view the ground-truth depth
 (`distance_to_image_plane` on the asset's own `CameraLeft`). `tests/zed_pool_probe_collect.py` records the wrapper's
 `depth/depth_registered`, and `tests/zed_pool_probe_eval.py` assigns each SDK frame to its view by wall-clock time. It compares each frame with that view's
 ground truth and with the previous view's, so stale frames are counted.
 
 ```
-./bisg down; mkdir -p sim/cache/zprobe && chmod 777 sim/cache sim/cache/zprobe      # the sim container user must write there
+./bisg down; mkdir -p docker/sim/cache/zprobe && chmod 777 docker/sim/cache docker/sim/cache/zprobe      # the sim container user must write there
 docker compose -f docker/compose.yaml --profile sim-headless run -d --name bisg-sim sim-headless \
-    python /workspace/sim/tools/zed_pool_probe.py --out /workspace/sim/cache/zprobe   # waits for <out>/go
+    python /workspace/docker/sim/tools/zed_pool_probe.py --out /workspace/docker/sim/cache/zprobe   # waits for <out>/go
 ./bisg ros up && ./bisg zed up                                                       # once (B18)
-docker exec -d bisg-ros bash -lc 'source /opt/ros/jazzy/setup.bash; python3 /workspace/tests/zed_pool_probe_collect.py --out /workspace/sim/cache/zprobe'
-touch sim/cache/zprobe/go      # ... wait for "[zprobe] done" in docker logs bisg-sim, then:
-touch sim/cache/zprobe/stop; python3 tests/zed_pool_probe_eval.py sim/cache/zprobe
+docker exec -d bisg-ros bash -lc 'source /opt/ros/jazzy/setup.bash; python3 /workspace/tests/zed_pool_probe_collect.py --out /workspace/docker/sim/cache/zprobe'
+touch docker/sim/cache/zprobe/go      # ... wait for "[zprobe] done" in docker logs bisg-sim, then:
+touch docker/sim/cache/zprobe/stop; python3 tests/zed_pool_probe_eval.py docker/sim/cache/zprobe
 docker rm -f bisg-sim; ./bisg zed down
 ```
 

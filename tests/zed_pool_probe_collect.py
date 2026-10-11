@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ROS side of the ZED pool-depth probe (sim/tools/zed_pool_probe.py): record the wrapper's depth with the wall-clock
+ROS side of the ZED pool-depth probe (docker/sim/tools/zed_pool_probe.py): record the wrapper's depth with the wall-clock
 receive time, decimated, until --seconds pass or <out>/stop exists. Writes <out>/sdk_depth.npz + camera_info.json.
 
     docker exec bisg-ros bash -lc 'source /opt/ros/jazzy/setup.bash; python3 /workspace/tests/zed_pool_probe_collect.py --out /tmp/zprobe'

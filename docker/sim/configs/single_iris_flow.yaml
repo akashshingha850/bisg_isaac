@@ -1,5 +1,5 @@
 # Scenario: single_iris, GPS-denied on a downward ToF rangefinder (LW20/C twin) + optical flow (PMW3901 twin), no ZED.
-# Both sensors are fed straight to PX4 SITL by sim/launcher/range_flow.py (docs/range-flow.md), like the real FC reads them.
+# Both sensors are fed straight to PX4 SITL by docker/sim/launcher/range_flow.py (docs/range-flow.md), like the real FC reads them.
 #   SIM_SCENARIO=single_iris_flow ./bisg up headless && docker exec bisg-sim /isaac-sim/python.sh /workspace/tests/flow_hold.py
 extends: single_iris_nozed.yaml
 

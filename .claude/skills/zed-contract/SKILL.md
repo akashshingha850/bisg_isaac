@@ -11,7 +11,7 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
 ## Procedure for a new/renamed topic
 1. Edit the contract table (topic, type, rate, sim source, real source, notes).
 2. Sim: the ZED topics come from the real wrapper on the streamed twin, so a ZED topic changes in `docker/zed/zed.yaml`; a sim-only topic
-   (chase cam, ground truth) changes in its `sim/launcher/` module and the scenario YAML.
+   (chase cam, ground truth) changes in its `docker/sim/launcher/` module and the scenario YAML.
 3. Real: confirm the zed-ros2-wrapper name/param that produces it (wrapper `common.yaml` / `zed*.yaml`); add a relay only if names cannot be made equal by remap.
 4. Update the ZED model table in `docs/hardware.md` if intrinsics/rates change.
 5. Run `python3 tests/check_contract.py --ns /drone_1` against sim (and real when available).

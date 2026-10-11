@@ -44,7 +44,7 @@ flight behaviour, not just speed. Leave it null unless a scenario documents why.
 Scene-side wins from the handbook that we will need later: primitive colliders beat convex meshes beat
 complex meshes; scenegraph instancing for repeated geometry; disable self-collisions on articulations;
 Mesh Merge Tool for imported assets. These apply to the Phase 4 vehicle and site assets — record decisions
-in `sim/assets/README.md` when that work starts.
+in `docker/sim/assets/README.md` when that work starts.
 
 ## Profiles
 
@@ -135,7 +135,7 @@ measured Isaac Sim 6 host. `single_iris.yaml` runs 120 Hz physics / 20 Hz render
 | 1/120 s | 0.08 deg | 0.8 deg/s | 1.7 deg/s | stable |
 
 `./bisg debug perf` reports the actual RTF; in the GUI the HUD shows it as "Sim speed: 0.56x real time" under the FPS line
-(`sim/launcher/rtf_hud.py`, on with `app.viewport_hud`).
+(`docker/sim/launcher/rtf_hud.py`, on with `app.viewport_hud`).
 
 ### Why it is not real time on a big GPU (measured 2026-10-04, `single_iris.yaml`, 120 Hz physics)
 The GPU is mostly idle (~40-60 %); the sim loop is one Python thread (Pegasus per-step callbacks + Kit update). Known
@@ -146,7 +146,7 @@ every rotor on every step and makes six tensor calls per step (`migration-errors
 | Change | RTF |
 |---|---|
 | baseline, GUI + ZED + third-eye + point cloud | 0.44 |
-| `sim/launcher/pegasus_fast.py` (cached prims, one batched force call, change-only propeller writes) | 0.54 |
+| `docker/sim/launcher/pegasus_fast.py` (cached prims, one batched force call, change-only propeller writes) | 0.54 |
 | same, **headless** | 0.85 |
 | GUI with preview window + third-eye + point-cloud overlay all off | 0.77 |
 | GUI, preview window off only | 0.60 |
@@ -175,7 +175,7 @@ warehouse scene:
 | headless, no view | 79 steps/s, rtf 0.32 | 186 steps/s, rtf 0.74 |
 | headless + browser view | 29 steps/s, rtf 0.12 | 117 steps/s, rtf 0.47 |
 
-`sim/launcher/launch.py` now renders one frame per `round(rendering_dt / physics_dt)` physics steps and
+`docker/sim/launcher/launch.py` now renders one frame per `round(rendering_dt / physics_dt)` physics steps and
 logs the cadence at startup (`[launch] render cadence: 1 frame per 4 physics steps`). To trade picture
 for speed, raise `world.rendering_dt` in the scenario (0.1 = 10 fps); to trade the other way, lower it.
 

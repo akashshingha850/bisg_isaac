@@ -123,4 +123,4 @@ reassemble an image (`./bisg check`, `docs/setup.md`).
 - `./bisg zed bench` — tests every SDK module above on one wrapper and measures rate / CPU / RAM / GPU per module: **[zed-benchmark.md](zed-benchmark.md)** (16/16 phases pass in the sim).
 - `./bisg zed test` — 15 unit tests (compile, validation, `set`, sector maths) and the bridge on fake topics (obstacle sectors, odometry frames/restamp/silence on lost tracking/recovery, STATUSTEXT, status JSON).
 - `./bisg zed check` — the real SDK in the sim: streams, geometry (HD720, 63 mm baseline), depth, health flags, tracking vs ground truth.
-- Emulated rig (`ZED_SOURCE=emulated`): `docker/zed/zed.yaml` still decides which products the sim publishes (`sim/launcher/zed_features.py` reads it through `zed_stack`); a switch that is on but not simulated is logged at startup.
+- Emulated rig (`ZED_SOURCE=emulated`): `docker/zed/zed.yaml` still decides which products the sim publishes (`docker/sim/launcher/zed_features.py` reads it through `zed_stack`); a switch that is on but not simulated is logged at startup.

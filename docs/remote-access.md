@@ -32,6 +32,12 @@ echo SIM_VIEW_ADDR=tailscale >> docker/.env     # WebRTC advertises this host's 
 ./bisg tailscale login --qr                     # same, plus a QR code in the terminal to scan with a phone
 ```
 
+**Tailscale already installed on the host?** Then `./bisg tailscale up|status|ip` uses the host's node and does not start the container:
+two Tailscale daemons cannot share one host (the container dies with `TUN device tailscale0 is busy`). Nothing to log in: the host
+is already on your tailnet, `SIM_VIEW_ADDR=tailscale` resolves to its address, and `down`/`logout` leave the host's Tailscale alone
+(re-login there: `sudo tailscale up --force-reauth`, which prints a URL). `TAILSCALE_MODE` in `config/bisg.conf`: `auto` (default),
+`host` or `container`.
+
 The login is kept in the `bisg-tailscale_tailscale-state` volume, and the container restarts with the machine
 (`restart: unless-stopped`), so later runs need nothing. Auth keys (`tskey-auth-...`) are deliberately not supported: a key
 stored on a shared machine is a standing secret that lets anyone who reads it join your tailnet. The browser login is the only path.

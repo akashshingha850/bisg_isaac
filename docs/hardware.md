@@ -12,7 +12,7 @@ Confirmed 2026-09-12: **Jetson Orin NX, JetPack 7.2**, **ZED Mini**, Pixracer. R
 | Telemetry | WiFi on Jetson (fleet) + optional 900 MHz/433 MHz radio to QGC (safety) | |
 | RC | any PX4-supported RC for manual override (kill switch mandatory) | |
 | GPS | optional; missions are VIO-first | |
-| Frame/props/ESC/battery | **TBD** | measured in Phase 4 for the `bisg_quad` sim model (mass, inertia, arm length, thrust curve) |
+| Frame/props/ESC/battery | **TBD** | measured in Phase 4 for the `raptor` sim model (mass, inertia, arm length, thrust curve) |
 
 Drone count for the first hardware swarm (Phase 7): **TBD** (swarm is a later migration).
 
@@ -72,7 +72,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 
 Limits worth knowing: ZED Mini is USB, so no GMSL capture card. Stereolabs' Isaac Sim streaming extension supports it from v5.2 on (Isaac Sim 6.0, asset `ZED_M`); the sim's intrinsics come from that twin (HD720 `fx` = 529.8 px, baseline 63.0 mm), **not** from your unit's factory calibration — code must read `camera_info`, never hard-code `K`. Copy the real unit's `K` here once it is on the bench (`docs/zed-sdk-sim.md`).
 
-## Vehicle model measurements (Phase 4, for `sim/assets/vehicles/bisg_quad`)
+## Vehicle model measurements (Phase 4, for `docker/sim/assets/vehicles/raptor`)
 
 - Total mass with battery + Jetson + ZED Mini; CG position.
 - Arm length / motor positions relative to CG; prop diameter and pitch; rotation directions.

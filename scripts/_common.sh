@@ -63,7 +63,7 @@ fi
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5
-conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""
+conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto
 conf_default PX4_BRIDGE mavros
 conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
@@ -98,7 +98,19 @@ STREAM_SIGNAL_PORT=49100      # TCP, hardcoded in the Isaac Sim WebRTC Streaming
 STREAM_MEDIA_PORT=47998       # UDP, likewise
 TAILSCALE_NAME=bisg-tailscale
 # This host's tailnet IPv4 from the `tailscale` service (./bisg tailscale up); empty when it is not up or not logged in.
-tailscale_ip(){ container_running "$TAILSCALE_NAME" && docker exec "$TAILSCALE_NAME" tailscale ip -4 2>/dev/null | head -1 || true; }
+# A Tailscale daemon already running on the host owns tailscale0 and its routes, so the container cannot share the host with it
+# (tailscaled: "TUN device tailscale0 is busy"). TAILSCALE_MODE=auto (config/bisg.conf) then uses the host's node instead.
+host_tailscale(){
+  case "${TAILSCALE_MODE:-auto}" in
+    container) return 1;;
+    host) return 0;;
+    *) command -v tailscale >/dev/null 2>&1 && [[ -S /run/tailscale/tailscaled.sock ]];;
+  esac
+}
+tailscale_ip(){
+  if host_tailscale; then tailscale ip -4 2>/dev/null | head -1 || true
+  else container_running "$TAILSCALE_NAME" && docker exec "$TAILSCALE_NAME" tailscale ip -4 2>/dev/null | head -1 || true; fi
+}
 # SIM_VIEW_ADDR=tailscale means "this host's tailnet IP". Resolve it to an address before anything uses it.
 resolve_view_addr(){
   [[ "${SIM_VIEW_ADDR:-}" == vpn ]] && die "SIM_VIEW_ADDR=vpn was renamed: set SIM_VIEW_ADDR=tailscale in docker/.env"

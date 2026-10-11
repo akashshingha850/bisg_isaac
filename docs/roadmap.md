@@ -39,7 +39,7 @@ Exit test
 Deliverables
 - `docker/sim/Dockerfile` (Isaac 6.0 base since the 2026-10 migration — was 5.1; Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
 - `docker/compose.yaml` profiles `sim` and `sim-headless`.
-- `sim/launcher/launch.py` + `docker/sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
+- `docker/sim/launcher/launch.py` + `docker/sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
 - submodules (`docker/sim/PegasusSimulator`, `docker/zed/zed-ros2-wrapper`) pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
 - `scripts/check_env.sh`: driver, nvidia runtime, X11, disk, VRAM.
 
@@ -77,14 +77,14 @@ Exit test
 **Goal:** the sim vehicle and the sim world are faithful models of the real quad and the real site.
 
 Deliverables
-- **Vehicle model** `sim/assets/vehicles/bisg_quad/`: USD of the real frame (mass, inertia, arm length, motor/prop placement, ZED Mini mount pose, Pixracer IMU position), Pegasus thrust curve fitted to the real motor/prop/battery, registered as a Pegasus vehicle preset. Documented measurement procedure in `docs/hardware.md`.
-- **Site world** `sim/worlds/<site>/`: capture route chosen (3DGS/NuRec via nerfstudio/Postshot, or photogrammetry mesh), render asset + invisible collision proxies (floor, walls, obstacles) + spawn points + geofence.
+- **Vehicle model** `docker/sim/assets/vehicles/raptor/`: USD of the real frame (mass, inertia, arm length, motor/prop placement, ZED Mini mount pose, Pixracer IMU position), Pegasus thrust curve fitted to the real motor/prop/battery, registered as a Pegasus vehicle preset. Documented measurement procedure in `docs/hardware.md`.
+- **Site world** `docker/sim/worlds/<site>/`: capture route chosen (3DGS/NuRec via nerfstudio/Postshot, or photogrammetry mesh), render asset + invisible collision proxies (floor, walls, obstacles) + spawn points + geofence.
 - Geo-reference: PX4 `LAT/LON/ALT` home = real site origin so GPS and local frames match hardware.
 - Asset pipeline docs: how to re-capture, re-export, and validate scale (a known 1 m reference in the scene).
 - Scenario YAMLs for one drone: `hover_check`, `square`, `survey_strip`, `inspect_structure`.
 
 Exit test
-- Phase 3 exit test runs with the `bisg_quad` model in the site world with the same task YAML; measured hover thrust / climb rate in sim within 15 % of the real quad's bench numbers (or of the spec sheet until Phase 5 provides bench data).
+- Phase 3 exit test runs with the `raptor` model in the site world with the same task YAML; measured hover thrust / climb rate in sim within 15 % of the real quad's bench numbers (or of the spec sheet until Phase 5 provides bench data).
 
 ## Phase 5 — Hardware single drone
 **Goal:** one real drone (Jetson Orin NX, JetPack 7.2, Pixracer, ZED Mini) runs the Phase 2/3 stack.

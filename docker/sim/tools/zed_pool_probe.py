@@ -8,7 +8,7 @@ ground-truth depth (Isaac `distance_to_image_plane` on the asset's own left came
 tests/zed_pool_probe_collect.py records the wrapper's depth meanwhile; tests/zed_pool_probe_eval.py compares them.
 
     docker compose -f docker/compose.yaml --profile sim-headless run -d --rm --name bisg-sim sim-headless \
-        python /workspace/sim/tools/zed_pool_probe.py --out /tmp/zprobe
+        python /workspace/docker/sim/tools/zed_pool_probe.py --out /tmp/zprobe
 (full sequence: docs/zed-sdk-sim.md)
 """
 import argparse
@@ -17,7 +17,7 @@ import os
 import sys
 import time
 
-sys.path.insert(0, "/workspace/sim/launcher")
+sys.path.insert(0, "/workspace/docker/sim/launcher")
 from zed_sdk_cfg import EXT_ID, ext_folder, stream_port  # noqa: E402  (stdlib only, safe before Kit)
 
 ap = argparse.ArgumentParser()

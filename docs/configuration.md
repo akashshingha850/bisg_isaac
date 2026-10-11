@@ -99,7 +99,7 @@ warehouse scene): leave `SIM_VIEW=headless` for regression runs.
 
 **How it reaches the container.** `SIM_VIEW` never enters one. `./bisg` resolves it into the two
 values the stack already took: the compose profile (`gui` → service `sim`, `headless` → service
-`sim-headless`, i.e. `SIM_HEADLESS=1`) and `SIM_STREAM=off|web|webrtc|both`, which `sim/launcher/launch.py`
+`sim-headless`, i.e. `SIM_HEADLESS=1`) and `SIM_STREAM=off|web|webrtc|both`, which `docker/sim/launcher/launch.py`
 reads. A raw `docker compose` call bypasses that resolution and falls back to `SIM_STREAM=off`; pass it
 inline instead — `SIM_STREAM=web docker compose -f docker/compose.yaml --profile sim-headless up`. Do not
 put `SIM_STREAM` in `docker/.env`: `./bisg` rejects the old keys there rather than half-honouring them.
@@ -124,6 +124,12 @@ SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in docker/sim/config
 `./bisg up -c headless_fast` overrides it for one run; `-c /abs/path/to/x.yaml` works too. The resolved
 path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
+
+A scenario file can `extends:` one file or a list (paths relative to it; later entries win, the file itself wins over all;
+dictionaries merge, lists are replaced). A top-level `paths:` block of a main file sets `drone` (the USD of every vehicle without
+its own `usd_path`) and optionally `environment` (`world.usd_path`; null keeps `world.preset`). Example: `docker/sim/raptor_main.yaml`, run with
+`SIM_SCENARIO=/workspace/docker/sim/raptor_main.yaml` (a path, not a name), which composes `docker/sim/configs/raptor_scenario.yaml` (scenario, world and common
+settings, self-contained) and `docker/sim/assets/vehicles/raptor/raptor.yaml` (the drone).
 
 `single_iris` defaults to Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
 is the real SDK on a streamed ZED Mini twin (`docs/zed-sdk-sim.md`); what it publishes is `docker/zed/zed.yaml`. To switch

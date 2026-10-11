@@ -1,17 +1,17 @@
 # Isaac / Omniverse caches and logs
-sim/cache/
+docker/sim/cache/
 **/kit/logs/
 **/.nv/
 *.log
 logs/
 
 # Large assets: keep worlds out of git unless LFS is set up
-sim/worlds/**/*.usd
-sim/worlds/**/*.usda
-sim/worlds/**/*.usdc
-sim/worlds/**/*.usdz
-sim/worlds/**/*.ply
-!sim/worlds/**/README.md
+docker/sim/worlds/**/*.usd
+docker/sim/worlds/**/*.usda
+docker/sim/worlds/**/*.usdc
+docker/sim/worlds/**/*.usdz
+docker/sim/worlds/**/*.ply
+!docker/sim/worlds/**/README.md
 
 # ROS 2 workspace build products
 docker/ros/ros2_ws/build/

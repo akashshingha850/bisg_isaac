@@ -54,7 +54,7 @@ built fine.
 
 <a id="m2"></a>
 ## M2 — `UnboundLocalError: cannot access local variable 'omni'`
-**Fixed.** `sim/launcher/launch.py`. Introduced during the port: a `import omni.usd` inside `App.__init__` made `omni` a local name for
+**Fixed.** `docker/sim/launcher/launch.py`. Introduced during the port: a `import omni.usd` inside `App.__init__` made `omni` a local name for
 the whole function, so the earlier `omni.timeline.get_timeline_interface()` failed. Fix: import `omni.usd` at module level.
 **Lesson:** the traceback appears only in `docker logs` after ~190 s of boot (then ~30 s warm); lint launcher edits with
 `python3 -m py_compile` and look for function-local imports of module names.
@@ -63,7 +63,7 @@ the whole function, so the earlier `omni.timeline.get_timeline_interface()` fail
 
 <a id="m3"></a>
 ## M3 — `cannot import name 'IMUSensor' from 'isaacsim.sensors.physics' (unknown location)`
-**Fixed.** `sim/launcher/zed_rig.py`.
+**Fixed.** `docker/sim/launcher/zed_rig.py`.
 
 **Cause.** `isaacsim.sensors.physics` moved to `extsDeprecated/` in 6.0. `apps/isaacsim.exp.base.python.kit` has that folder on the search
 path, but the extension is not loaded and `enable_extension()` did not make the import resolve ("unknown location" = an empty
@@ -78,7 +78,7 @@ Keep a reference to the sensor object (it is returned in the rig dict) so it is 
 
 <a id="m4"></a>
 ## M4 — WebRTC: `No versions of omni.services.livestream.nvcf that satisfies …`
-**Fixed.** `sim/launcher/launch.py`.
+**Fixed.** `docker/sim/launcher/launch.py`.
 
 **Symptom.** `./bisg up webrtc|both` printed `livestream webrtc ready — connect … TCP 49100`, but nothing listened on 49100. The only hint
 was an extension-manager "No versions of … satisfies" block in the log.
@@ -120,7 +120,7 @@ user-owned; `./bisg debug clean-cache` removes it too.
 
 <a id="m7"></a>
 ## M7 — ZED images/depth publish at the full render rate
-**Fixed.** `sim/launcher/zed_rig.py` (this was already known as bugs.md **B9**).
+**Fixed.** `docker/sim/launcher/zed_rig.py` (this was already known as bugs.md **B9**).
 
 `PostProcessDispatchIsaacSimulationGate` (what the 5.1 code set) only gates `camera_info`. Each image writer has its own
 `<rendervar>IsaacSimulationGate` (`LdrColorSDIsaacSimulationGate`, `DistanceToImagePlaneSDIsaacSimulationGate`), left at step 1, so images
@@ -149,7 +149,7 @@ Total drone-steps per second is roughly constant (119 → 184 from 1 to 8 drones
 `Multirotor.update` makes 6 `RigidPrim.apply_forces_and_torques_at_pos` calls per step (4 rotors, body torque, drag) and 4
 `Articulation.set_dof_velocities` calls (propeller animation) each preceded by `get_all_matching_child_prims`; every call builds warp
 arrays (`wp.array.__init__` ≈ 18 % of the profile). 5.1 used `dynamic_control` handles, which are cheap.
-**Partly fixed 2026-10-04:** `sim/launcher/pegasus_fast.py` (runtime patch, `perf.pegasus_fast`) caches the RigidPrim wrappers, batches the 6 force/torque calls into 1 and writes propeller joints only on change: Python time per step -22 %, RTF 0.44 -> 0.54 in the GUI, hover test PASS; headless 0.85. See `performance.md` "Why it is not real time". **Candidates (still open):** one batched force/torque call per step; propeller visuals only on rendered
+**Partly fixed 2026-10-04:** `docker/sim/launcher/pegasus_fast.py` (runtime patch, `perf.pegasus_fast`) caches the RigidPrim wrappers, batches the 6 force/torque calls into 1 and writes propeller joints only on change: Python time per step -22 %, RTF 0.44 -> 0.54 in the GUI, hover test PASS; headless 0.85. See `performance.md` "Why it is not real time". **Candidates (still open):** one batched force/torque call per step; propeller visuals only on rendered
 frames or off when headless; avoid per-call prim resolution; `physics_dt` is **not** a safe knob (it sets the PX4 sensor rate).
 **Detect:** `./bisg debug perf` (now steps/s = real physics steps) or `ros2 topic hz /clock`.
 
@@ -183,7 +183,7 @@ autopilot. Not looked into; connection, topics (155) and `connected: true` are f
 <a id="m12"></a>
 ## M12 — Deprecated APIs still in use (port before Isaac Sim 6.1)
 **Open.** They import and work in 6.0, but live in `extsDeprecated/` or are shims:
-* `sim/launcher/zed_rig.py`: `isaacsim.sensors.camera.camera.Camera`, `isaacsim.core.utils.stage`, `isaacsim.core.utils.prims.set_targets`.
+* `docker/sim/launcher/zed_rig.py`: `isaacsim.sensors.camera.camera.Camera`, `isaacsim.core.utils.stage`, `isaacsim.core.utils.prims.set_targets`.
 * `enable_extension("isaacsim.ros2.bridge")` in `launch.py`, `zed_rig.py`, `zed_depth.py`: `isaacsim.ros2.bridge` is now a thin extension (version
   5.1.1) that just depends on `isaacsim.ros2.{core,nodes,ui,examples}`. OmniGraph node names are still `isaacsim.ros2.bridge.ROS2Publish*`, so
   those strings are correct. Enable `isaacsim.ros2.core` + `isaacsim.ros2.nodes` instead to skip loading the UI/examples.

@@ -1,0 +1,11 @@
+# MAIN scenario for the raptor twin — what SIM_SCENARIO points to (docker/.env). It composes two parts and sets the drone path:
+#   docker/sim/configs/raptor_scenario.yaml         scenario, world (environment path/preset) and common settings: app, perf, PX4
+#   docker/sim/assets/vehicles/raptor/raptor.yaml   the drone: vehicle entry (ZED/ToF mounts, spawn pose, chase cam) + its build inputs
+# `extends` takes a list, relative to this file; later entries win, this file wins over all (lists are replaced, not added).
+extends:
+  - configs/raptor_scenario.yaml
+  - assets/vehicles/raptor/raptor.yaml
+
+paths:
+  drone: /workspace/docker/sim/assets/vehicles/raptor/raptor.usd   # vehicle USD (every vehicle without its own usd_path)
+  # environment: set in docker/sim/configs/raptor_scenario.yaml (world.usd_path / world.preset), not here: one key, one place

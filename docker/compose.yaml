@@ -40,7 +40,7 @@ x-sim-base: &sim-base
   <<: *nvidia
   network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
   # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in
-  # practice (host files are uid 1000); nothing in sim/ or tests/ needs to write there.
+  # practice (host files are uid 1000); nothing in docker/sim/ or tests/ needs to write there.
   ipc: host
   privileged: false
   stdin_open: true

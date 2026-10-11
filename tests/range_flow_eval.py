@@ -3,7 +3,7 @@
 Accuracy of the ToF rangefinder + optical-flow twins against ground truth (docs/range-flow.md), from the PX4 log of a
 tests/range_flow_bench.py flight (+ its ROS CSVs). numpy only: runs on the host or in any container.
 
-Ground truth = PX4's `vehicle_*_groundtruth` topics, sent by sim/launcher/range_flow.py (`sensors.ground_truth`) on the
+Ground truth = PX4's `vehicle_*_groundtruth` topics, sent by docker/sim/launcher/range_flow.py (`sensors.ground_truth`) on the
 same clock as `distance_sensor` and `vehicle_optical_flow`, so no cross-clock alignment is needed. A residual lag is
 still measured (best shift in ±200 ms).
 
@@ -337,7 +337,7 @@ def fmt(x, nd=3):
 def markdown(r):
     t, f, e = r["tof"], r["flow"], r["ekf"]
     L = [f"# Range + flow benchmark — {os.path.basename(r['ulog'])}", "",
-         "Sim twins (sim/launcher/range_flow.py) vs PX4 ground truth. Gates test the twin, not real sensors.", "",
+         "Sim twins (docker/sim/launcher/range_flow.py) vs PX4 ground truth. Gates test the twin, not real sensors.", "",
          "| Check | Result | Gate | Pass |", "|---|---|---|---|"]
     if "error" in t and isinstance(t["error"], dict):
         s = t["error"]

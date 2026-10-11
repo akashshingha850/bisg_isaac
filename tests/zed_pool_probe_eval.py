@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Analysis of the ZED pool-depth probe (sim/tools/zed_pool_probe.py + tests/zed_pool_probe_collect.py), numpy only.
+Analysis of the ZED pool-depth probe (docker/sim/tools/zed_pool_probe.py + tests/zed_pool_probe_collect.py), numpy only.
 
 Each recorded SDK depth frame is assigned to the view whose dwell window contains its receive time, then compared with
 that view's ground truth AND the previous view's, so a frame still showing the old pose ("stale") is told apart from a
 fresh one. Per view: time to the first fresh frame and to the first settled one (error within 1.5x of the view's final
 error); overall: accuracy of settled frames by depth, valid-pixel coverage, and repeatability on revisited views.
 
-    python3 tests/zed_pool_probe_eval.py sim/cache/zprobe [--out report.json]
+    python3 tests/zed_pool_probe_eval.py docker/sim/cache/zprobe [--out report.json]
 """
 import argparse
 import json

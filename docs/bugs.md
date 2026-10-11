@@ -261,7 +261,7 @@ fuselage (see Fixed, 2026-09-25). Nothing in the pipeline *looks* at the pixels.
 3. Check stereo sanity: disparity of a near object must be positive (left x > right x). This catches a
    swapped or backwards pair.
 4. Re-run the view check whenever `sensors.zed.mount_xyz_rpy`, the airframe USD (Phase 4
-   `bisg_quad`) or the FOV changes. The real mount must also keep the lens ahead of the frame and the
+   `raptor`) or the FOV changes. The real mount must also keep the lens ahead of the frame and the
    props outside the ~90° HFOV (`docs/hardware.md`).
 
 ---
@@ -331,15 +331,15 @@ starts before the stream exists. `./bisg zed up` retries once, which covers a mi
 ---
 
 ## Fixed
-- **2026-10-02 — B4: launcher RTF metric under-reported** (`sim/launcher/launch.py`, Isaac 6.0 migration). Cause confirmed:
+- **2026-10-02 — B4: launcher RTF metric under-reported** (`docker/sim/launcher/launch.py`, Isaac 6.0 migration). Cause confirmed:
   it counted loop iterations, and a render iteration ran more than one physics step. The 6.0 loop is
   `simulation_app.update()` and the heartbeat now counts `SimulationManager.get_num_physics_steps()`, so
   `perf … steps/s` equals the `/clock` rate (measured 82 vs 80, 97 vs 97 Hz). Old `docs/performance.md` numbers
   are still the iteration-based ones and need a redo.
-- **2026-10-02 — B9: ZED images/depth ignored the rate gate** (`sim/launcher/zed_rig.py`). Only the
+- **2026-10-02 — B9: ZED images/depth ignored the rate gate** (`docker/sim/launcher/zed_rig.py`). Only the
   `PostProcessDispatch…Gate` (camera_info) was set; each image writer has its own `<rendervar>IsaacSimulationGate`.
   All of them are now set from the render dt: images 12.05 Hz wall at rtf 0.387 = 31 Hz sim, camera_info 31 Hz.
-- **2026-09-25 — ZED camera footage blocked / backwards / wrong FOV** (`sim/launcher/zed_rig.py`).
+- **2026-09-25 — ZED camera footage blocked / backwards / wrong FOV** (`docker/sim/launcher/zed_rig.py`).
   - **Symptom:** frames were nearly black, and 90% of depth was under 0.2 m.
   - **Three stacked bugs:**
     1. The mount at x 0.10 m put the lens *inside* the Iris nose; the body mesh ends at x 0.156.

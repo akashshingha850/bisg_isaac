@@ -2,7 +2,7 @@
 """
 bisg_isaac Pegasus launcher — YAML-driven Isaac Sim standalone app.
 
-    /isaac-sim/python.sh sim/launcher/launch.py --config docker/sim/configs/single_iris.yaml
+    /isaac-sim/python.sh docker/sim/launcher/launch.py --config docker/sim/configs/single_iris.yaml
 
 Reads the scenario file, creates the SimulationApp (headless or not), loads the
 world, spawns each vehicle with a PX4 MAVLink backend (PX4 SITL autolaunched by
@@ -32,12 +32,13 @@ def parse_args():
 
 
 def load_scenario(path):
-    """Read a scenario YAML. `extends: <file>` (relative to this file) loads that scenario
-    first and deep-merges this one over it, so a variant only lists what it changes."""
+    """Read a scenario YAML. `extends: <file>` or a list of files (relative to this file) loads those scenarios first, in
+    order, and deep-merges this one over them (later wins; lists are replaced, not added), so a variant only lists what
+    it changes."""
     with open(path, "r") as f:
         cfg = yaml.safe_load(f) or {}
-    base = cfg.pop("extends", None)
-    if not base:
+    bases = cfg.pop("extends", None)
+    if not bases:
         return cfg
 
     def merge(a, b):
@@ -45,11 +46,27 @@ def load_scenario(path):
         for k, v in b.items():
             out[k] = merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
         return out
-    return merge(load_scenario(os.path.join(os.path.dirname(path), base)), cfg)
+    merged = {}
+    for base in [bases] if isinstance(bases, str) else bases:
+        merged = merge(merged, load_scenario(os.path.join(os.path.dirname(path), base)))
+    return merge(merged, cfg)
+
+
+def apply_paths(cfg):
+    """Top-level `paths:` of a main scenario file (sim/<name>_main.yaml): `drone` is the vehicle USD for every vehicle that
+    has no usd_path of its own, `environment` is world.usd_path (null = keep world.preset)."""
+    paths = cfg.pop("paths", None) or {}
+    if paths.get("environment"):
+        cfg.setdefault("world", {})["usd_path"] = paths["environment"]
+    if paths.get("drone"):
+        for v in cfg.get("vehicles", []):
+            v.setdefault("usd_path", None)
+            v["usd_path"] = v["usd_path"] or paths["drone"]
+    return cfg
 
 
 ARGS = parse_args()
-CFG = load_scenario(ARGS.config)
+CFG = apply_paths(load_scenario(ARGS.config))
 
 APP_CFG = CFG.get("app", {})
 HEADLESS = bool(APP_CFG.get("headless", False)) or ARGS.headless or os.environ.get("SIM_HEADLESS", "0") == "1"
@@ -174,7 +191,7 @@ from scipy.spatial.transform import Rotation  # noqa: E402
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS  # noqa: E402
 from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig  # noqa: E402
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig  # noqa: E402
-if PERF.get("pegasus_fast", True):   # per-step speed-ups for Pegasus on 6.0 (sim/launcher/pegasus_fast.py)
+if PERF.get("pegasus_fast", True):   # per-step speed-ups for Pegasus on 6.0 (docker/sim/launcher/pegasus_fast.py)
     import pegasus_fast  # noqa: E402
     pegasus_fast.apply()
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface  # noqa: E402
@@ -456,7 +473,7 @@ class App:
             self.spawn_vehicle(v, px4_cfg)
 
         phase("vehicles spawned")
-        self.chase = []              # per-vehicle chase cameras -> /drone_N/chase/image (sim/launcher/chase_cam.py)
+        self.chase = []              # per-vehicle chase cameras -> /drone_N/chase/image (docker/sim/launcher/chase_cam.py)
         for v, veh in zip(cfg.get("vehicles", []), self.vehicles):
             cc = (v.get("sensors") or {}).get("chase_cam") or {}
             if cc.get("enabled", False):
@@ -471,7 +488,7 @@ class App:
         follow_cfg = app_cfg.get("follow_cam") or {}
         self.follow = None
         if follow_cfg.get("enabled", False) and (not HEADLESS or STREAMING) and self.vehicles:
-            try:   # Gazebo-style follow camera (sim/launcher/follow_cam.py); replaces the fixed start view
+            try:   # Gazebo-style follow camera (docker/sim/launcher/follow_cam.py); replaces the fixed start view
                 from follow_cam import FollowCam  # noqa: WPS433
                 self.follow = FollowCam(self.vehicles, follow_cfg)
                 eye = target = None
@@ -488,7 +505,7 @@ class App:
             eye = centre + np.array([-2.5 - spread, -2.0 - spread, 1.8 + 0.5 * spread])
             target = centre + np.array([0.0, 0.0, 0.5])
         if (not HEADLESS or STREAMING) and app_cfg.get("viewport_hud", True):
-            try:   # real-time factor next to Kit's FPS line (sim/launcher/rtf_hud.py)
+            try:   # real-time factor next to Kit's FPS line (docker/sim/launcher/rtf_hud.py)
                 import rtf_hud  # noqa: WPS433
                 rtf_hud.install(SimulationManager.get_simulation_time)
             except Exception as exc:  # noqa: BLE001 — the HUD must never stop the sim

@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do case "$1" in
   --video-port) video_port=$2; shift;;
   *) passthru+=("$1");; esac; shift; done
 ZNAME="bisg-zed-${DRONE_ID}"
-# Port math lives with the launcher (sim/launcher/zed_sdk_cfg.py): drone N = vehicle id N-1 -> 30000 + 2*(N-1).
+# Port math lives with the launcher (docker/sim/launcher/zed_sdk_cfg.py): drone N = vehicle id N-1 -> 30000 + 2*(N-1).
 export ZED_SIM_PORT=$((30000 + 2 * (DRONE_ID - 1)))
 # --video-host: an IPv4, or a device name on the tailnet (resolved through the tailscale service) / in DNS
 video_ip(){
