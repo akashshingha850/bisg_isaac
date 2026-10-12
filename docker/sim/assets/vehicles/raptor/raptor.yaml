@@ -44,13 +44,13 @@ sensors:
   zed_camera_link: [0.2450, 0.0693, -0.002]   # centre of the ZED M body in the CAD
   tof: [0.0600, 0.0715, -0.090]               # Lightware LW20 bottom face
 
-# --- the raptor as a scenario vehicle (read by the launcher through docker/sim/raptor_main.yaml; build_raptor.py ignores it) ---------
+# --- the raptor as a scenario vehicle (read by the launcher through docker/sim/sim.yaml `vehicle:`; build_raptor.py ignores it) ----
 # Mounts are the body-frame offsets from raptor_summary.json (CoM = body origin); rest height 0.100 m above the duct rims.
 vehicles:
   - id: 0
     model: raptor                      # label only: the USD is set by paths.drone / usd_path (launch.py resolve_vehicle_usd)
-    usd_path: null                     # the drone USD comes from `paths.drone` in the main file (docker/sim/raptor_main.yaml)
-    position: [0.0, 0.0, 0.11]         # body origin = CoM, 0.100 m above the duct rims
+    usd_path: null                     # the drone USD is `model:` in docker/sim/sim.yaml
+    position: [0.0, 0.0, 0.11]         # body origin = CoM, 0.100 m above the duct rims (on a z=0 floor; sim.yaml `spawn:` wins)
     yaw_deg: 0.0
     ros2:
       enabled: true

@@ -1,20 +1,24 @@
 # PX4 parameter files
 
-One topic per file, `NAME VALUE MAV_PARAM_TYPE` per line (6 = INT32, 9 = REAL32; not the 5-column QGC save format, `#`
+One file per vehicle plus mode overlays, `NAME VALUE MAV_PARAM_TYPE` per line (6 = INT32, 9 = REAL32; not the 5-column QGC save format, `#`
 comments allowed). Names and ranges are checked against the pinned PX4 tag (`PX4_TAG`, ADR-003).
 
 | file | what it sets |
 |---|---|
-| `ekf2_vision.params` | GPS-denied flight on the ZED visual odometry: EKF2 external-vision fusion, GPS and magnetometer off |
-| `collision_prevention.params` | PX4 collision prevention in Position mode (`CP_*`), fed by the ZED depth through `mavros/obstacle/send` |
+| `iris.params` | **vehicle file**, the Iris: collision prevention (`CP_*`, fed by the ZED depth through `mavros/obstacle/send`); rate gains are the airframe defaults |
+| `raptor.params` | **vehicle file**, the raptor twin: the same collision prevention + **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer) |
+| `ekf2_vision.params` | overlay: GPS-denied flight on the ZED visual odometry (EKF2 external vision, GPS and magnetometer off) |
+| `ekf2_flow_range.params` | overlay: GPS-denied flight on the downward ToF + optical flow (docs/range-flow.md) |
 
-A new topic (failsafes, geofence, tuning, ...) is a new file here, not another block in an existing one.
+A scenario lists **its vehicle's file first, then any overlays** (later wins): `px4.params: [iris]`, `[iris, ekf2_vision]`,
+`[raptor]`. Everything a vehicle always flies with goes in its vehicle file; only a sensing mode that switches EKF2 sources
+is an overlay. A new vehicle-wide setting (failsafes, geofence, tuning, ...) is a block in each vehicle file, not a new file.
 
 **SITL:** a scenario lists the files it wants, applied in order at PX4 boot (later wins, an override is logged):
 
 ```yaml
 px4:
-  params: [ekf2_vision, collision_prevention]   # bare name = docker/sim/px4/<name>.params; or a path
+  params: [iris, ekf2_vision]   # bare name = docker/sim/px4/<name>.params; or a path
 ```
 
 The launcher turns them into `PX4_PARAM_<name>` env vars, which PX4's rcS applies before EKF2 starts, so the

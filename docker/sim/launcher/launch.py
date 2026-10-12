@@ -31,12 +31,45 @@ def parse_args():
     return args
 
 
+def expand_locator(cfg, path):
+    """The locator keys of docker/sim/sim.yaml (what the sim runs) -> the plain scenario keys. `scenario` and `vehicle` are
+    files loaded first (like `extends`), `model` is paths.drone, `world` a Pegasus preset name or a .usd path, `px4_params`
+    is px4.params, `objects` is world.objects. Relative paths are relative to the locator file."""
+    here = os.path.dirname(path)
+
+    def where(p):
+        return p if os.path.isabs(p) else os.path.normpath(os.path.join(here, p))
+    bases = [cfg.pop(k) for k in ("scenario", "vehicle") if cfg.get(k)]
+    for k in ("scenario", "vehicle"):
+        cfg.pop(k, None)
+    extra = cfg.get("extends") or []
+    if bases:
+        cfg["extends"] = bases + ([extra] if isinstance(extra, str) else list(extra))
+    if cfg.get("model"):
+        cfg.setdefault("paths", {})["drone"] = where(cfg["model"])
+    cfg.pop("model", None)
+    world = cfg.pop("world", None)
+    if isinstance(world, str):
+        is_usd = world.endswith((".usd", ".usda", ".usdc", ".usdz"))
+        cfg["world"] = {"usd_path": where(world), "preset": None} if is_usd else {"preset": world, "usd_path": None}
+    elif world is not None:
+        cfg["world"] = world
+    if "px4_params" in cfg:
+        cfg.setdefault("px4", {})["params"] = cfg.pop("px4_params")
+    if "objects" in cfg:
+        cfg.setdefault("world", {})["objects"] = cfg.pop("objects")
+    if cfg.get("spawn"):
+        cfg.setdefault("paths", {})["spawn"] = cfg["spawn"]
+    cfg.pop("spawn", None)
+    return cfg
+
+
 def load_scenario(path):
     """Read a scenario YAML. `extends: <file>` or a list of files (relative to this file) loads those scenarios first, in
     order, and deep-merges this one over them (later wins; lists are replaced, not added), so a variant only lists what
-    it changes."""
+    it changes. A locator file (docker/sim/sim.yaml) is expanded first (expand_locator)."""
     with open(path, "r") as f:
-        cfg = yaml.safe_load(f) or {}
+        cfg = expand_locator(yaml.safe_load(f) or {}, path)
     bases = cfg.pop("extends", None)
     if not bases:
         return cfg
@@ -53,8 +86,8 @@ def load_scenario(path):
 
 
 def apply_paths(cfg):
-    """Top-level `paths:` of a main scenario file (sim/<name>_main.yaml): `drone` is the vehicle USD for every vehicle that
-    has no usd_path of its own, `environment` is world.usd_path (null = keep world.preset)."""
+    """Top-level `paths:` (filled by expand_locator from docker/sim/sim.yaml): `drone` is the vehicle USD for every vehicle that
+    has no usd_path of its own, `environment` is world.usd_path (null = keep world.preset), `spawn` the first vehicle's pose."""
     paths = cfg.pop("paths", None) or {}
     if paths.get("environment"):
         cfg.setdefault("world", {})["usd_path"] = paths["environment"]
@@ -62,6 +95,8 @@ def apply_paths(cfg):
         for v in cfg.get("vehicles", []):
             v.setdefault("usd_path", None)
             v["usd_path"] = v["usd_path"] or paths["drone"]
+    if paths.get("spawn") and cfg.get("vehicles"):  # sim.yaml `spawn:` = the first vehicle's start pose
+        cfg["vehicles"][0].update({k: paths["spawn"][k] for k in ("position", "yaw_deg") if k in paths["spawn"]})
     return cfg
 
 

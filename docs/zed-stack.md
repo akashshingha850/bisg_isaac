@@ -73,7 +73,7 @@ input is lost — PX4's own timeouts and failsafes then act, rather than acting 
 |---|---|---|
 | `health` | `status/health`, `pose/status`, depth validity → `zed_stack/status` (JSON, 1 Hz) + STATUSTEXT in QGC | tells the operator *why* another module went silent: "ZED tracking: LOST (odometry_status=1)" |
 | `odometry` | `odom` → `mavros/odometry/out` → EKF2 external vision | silent while `odometry_status != OK` or the source is slower than `min_rate_hz`; frames fixed to `odom`/`base_link` (what MAVROS matches); `restamp` stamps with the node clock (sim: PX4 runs on `/clock`, the wrapper on wall time — B17). Lever arm of the camera: `EKF2_EV_POS_X/Y/Z` |
-| `obstacle_distance` | `depth_registered` → 72×5° sector map → `mavros/obstacle/send` → PX4 collision prevention (`CP_DIST`, `docker/sim/px4/collision_prevention.params`) + QGC proximity radar | height band ±`band` m around the camera; FOV ±45°, the rest "unknown" (`CP_GO_NO_DATA 0`); acts in Position mode only |
+| `obstacle_distance` | `depth_registered` → 72×5° sector map → `mavros/obstacle/send` → PX4 collision prevention (`CP_DIST`, `docker/sim/px4/iris.params` / `raptor.params`) + QGC proximity radar | height band ±`band` m around the camera; FOV ±45°, the rest "unknown" (`CP_GO_NO_DATA 0`); acts in Position mode only |
 
 **Not built yet** (listed so nothing is assumed): a ZED-derived `DISTANCE_SENSOR` (M3; the LW20/C ToF twin is separate and built, [range-flow.md](range-flow.md)), MAVLink camera component so QGC
 finds the video itself (M11), `FOLLOW_TARGET` / `LANDING_TARGET` from object/body detection (M5/M6, needs actors in the sim and `zed_msgs` in

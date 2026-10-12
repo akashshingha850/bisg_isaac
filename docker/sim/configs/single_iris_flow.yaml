@@ -4,7 +4,7 @@
 extends: single_iris_nozed.yaml
 
 px4:
-  params: [ekf2_flow_range]    # a list replaces, it does not add
+  params: [iris, ekf2_flow_range]   # the Iris file + the ToF/flow EKF2 overlay (a list replaces, it does not add)
 
 vehicles:
   - id: 0

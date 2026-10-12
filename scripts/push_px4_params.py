@@ -4,7 +4,7 @@ Push PX4 EKF2/GPS params over MAVLink (Phase 3 — GPS-denied flight on ZED Mini
 
 Run once PX4 SITL is ready (same offboard link tests/smoke_takeoff.py uses, so it
 coexists with MAVROS on the same port):
-    python3 scripts/push_px4_params.py --instance 0 [--file ekf2_vision --file collision_prevention]
+    python3 scripts/push_px4_params.py --instance 0 [--file iris --file ekf2_vision]
 
 File format (docker/sim/px4/*.params): "NAME VALUE MAV_PARAM_TYPE" per line,
 `#` comments allowed — NOT the 5-column QGC save format. See the file header for why.

@@ -6,7 +6,7 @@
 extends: single_iris.yaml
 
 px4:
-  params: [ekf2_vision, collision_prevention]   # GPS-denied EKF2 + the obstacle params single_iris has (a list replaces, it does not add)
+  params: [iris, ekf2_vision]   # the Iris file + the GPS-denied EKF2 overlay (a list replaces, it does not add)
 
 world:
   objects:                     # depth test target (tests/zed_depth_box.py): a 1 m cube straight ahead of the

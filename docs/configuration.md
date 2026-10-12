@@ -118,18 +118,31 @@ node. Login is in a browser, started from the terminal with `./bisg tailscale lo
 ## Scenario
 
 ```
-SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in docker/sim/configs/ (no .yaml), or an absolute path
+SIM_SCENARIO=/workspace/docker/sim/sim.yaml   # config/bisg.conf: the locator below, a file name in docker/sim/configs/ (no .yaml), or a path
 ```
 
 `./bisg up -c headless_fast` overrides it for one run; `-c /abs/path/to/x.yaml` works too. The resolved
 path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
-A scenario file can `extends:` one file or a list (paths relative to it; later entries win, the file itself wins over all;
-dictionaries merge, lists are replaced). A top-level `paths:` block of a main file sets `drone` (the USD of every vehicle without
-its own `usd_path`) and optionally `environment` (`world.usd_path`; null keeps `world.preset`). Example: `docker/sim/raptor_main.yaml`, run with
-`SIM_SCENARIO=/workspace/docker/sim/raptor_main.yaml` (a path, not a name), which composes `docker/sim/configs/raptor_scenario.yaml` (scenario, world and common
-settings, self-contained) and `docker/sim/assets/vehicles/raptor/raptor.yaml` (the drone).
+**`docker/sim/sim.yaml` (the locator) says what the sim runs**, one key each:
+
+```yaml
+scenario: configs/raptor_scenario.yaml         # app, render, physics, PX4 airframe
+vehicle: assets/vehicles/raptor/raptor.yaml    # the vehicles: entry (mounts, chase cam)
+model: assets/vehicles/raptor/raptor.usd       # drone USD (null = the vehicle's `model:`, e.g. Iris)
+world: Simple Room                             # Pegasus preset, or a .usd path
+px4_params: [raptor]                           # docker/sim/px4/<name>.params: vehicle file, then overlays
+spawn: {position: [-2.5, 0.0, -0.66], yaw_deg: 0.0}   # first vehicle's start pose
+objects: [...]                                 # static cuboids added to the world (world.objects)
+```
+
+Paths are relative to `sim.yaml`; its keys win over the scenario and vehicle files, which therefore do not set them
+(`docker/sim/launcher/launch.py` `expand_locator`). To fly the Iris: `scenario: configs/single_iris.yaml`, `vehicle: null`,
+`model: null`, `px4_params: [iris]`.
+
+Any scenario file can also `extends:` one file or a list (paths relative to it; later entries win, the file itself wins over all;
+dictionaries merge, lists are replaced), as the `single_iris_*` variants do.
 
 `single_iris` defaults to Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
 is the real SDK on a streamed ZED Mini twin (`docs/zed-sdk-sim.md`); what it publishes is `docker/zed/zed.yaml`. To switch

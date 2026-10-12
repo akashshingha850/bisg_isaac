@@ -1,9 +1,9 @@
-# Scenario, world and common settings for the raptor twin (docker/sim/raptor_main.yaml extends this file + the drone's raptor.yaml).
-# Self-contained: app/perf/world/px4 below are the same keys as docker/sim/configs/single_iris.yaml, minus the Iris. The drone itself
-# (spawn pose, ZED/ToF mounts) is in docker/sim/assets/vehicles/raptor/raptor.yaml; the drone USD path is `paths.drone` in the main file.
-# The environment lives here: `world.usd_path` (absolute /workspace/... .usd) wins over `world.preset`.
+# Common settings for the raptor twin: app, perf, physics, PX4 airframe. docker/sim/sim.yaml (what the sim runs) loads this file,
+# then the drone's docker/sim/assets/vehicles/raptor/raptor.yaml, and sets the world, the drone USD and px4.params itself:
+# those three are NOT here (one key, one place).
 # Override at run time:  SIM_HEADLESS=1  (see docs/configuration.md)
-# PLACEHOLDER: thrust curve and PX4 airframe are still the Iris' (Phase 4, docs/todo.md): an Iris-tuned PX4 on a 0.8 kg whoop.
+# PLACEHOLDER: thrust curve and PX4 airframe are still the Iris' (Phase 4, docs/todo.md); the Iris rate gains limit-cycle on this
+# body (shaking at takeoff), so sim.yaml's px4_params loads raptor.params (sim-only rate gains, docker/sim/px4/raptor.params).
 
 app:
   headless: false            # SIM_HEADLESS=1 overrides to true
@@ -44,12 +44,7 @@ perf:
   pegasus_fast: true               # cache Pegasus's per-step RigidPrim wrappers (docker/sim/launcher/pegasus_fast.py); faster, same physics
   extra_args: []                   # raw Kit args, e.g. ["--/app/renderer/skipMaterialLoading=true"]
 
-world:
-  # Select the active world here. Use any key from pegasus.simulator.params.SIMULATION_ENVIRONMENTS:
-  #   "Default Environment", "Curved Gridroom", "Warehouse", "Warehouse with Shelves",
-  #   "Full Warehouse", "Simple Room", "Office", "Hospital", "Flat Plane", ...
-  preset: "Full Warehouse"
-  usd_path: null             # absolute /workspace/docker/sim/worlds/... path wins over preset (Phase 4)
+world:                       # the world itself (preset / usd_path) is `world:` in docker/sim/sim.yaml
   add_ground_plane: false    # only for render-only worlds without collision (3DGS)
   # 120 Hz physics (= PX4 IMU rate), 6 steps per 20 Hz rendered frame. Do not go lower: at 60 Hz PX4's rate loop
   # (tuned for ~250 Hz) limit-cycles - hover roll std 6.3 deg, yaw rate +-160 deg/s; at 120 Hz it is 0.08 deg
@@ -62,6 +57,4 @@ px4:
   autolaunch: true
   airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
   enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
-  params: [collision_prevention]  # docker/sim/px4/<name>.params, applied in order at PX4 boot via PX4_PARAM_* env vars (so
-                                  # reboot_required params work); later files win. Files: ekf2_vision (GPS-denied), collision_prevention.
-                                  # A variant (single_iris_vio) replaces the whole list.
+  # params: `px4_params` in docker/sim/sim.yaml (raptor = docker/sim/px4/raptor.params)

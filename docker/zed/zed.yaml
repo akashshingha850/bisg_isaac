@@ -78,9 +78,11 @@ positional_tracking:
   imu_fusion: true                  # true on the real camera (400 Hz IMU); the sim cannot supply that stream -> see `sim:`
   publish_tf: true
   publish_map_tf: false             # MAVROS/PX4 owns `map`; the wrapper publishes odom -> zed_camera_link only (map -> odom: zed_drone.launch.py)
-  initial_base_pose: [0.18, 0.0, -0.02, 0.0, 0.0, 0.0]   # camera mount base_link -> zed_camera_link [x y z roll pitch yaw] (m, rad):
+  initial_base_pose: [0.1205, -0.0011, 0.0527, 0.0, 0.0, 0.0]   # camera mount base_link -> zed_camera_link [x y z roll pitch yaw] (m, rad):
                                     # tracking starts here, and zed_drone.launch.py publishes its inverse zed_camera_link -> base_link.
-                                    # Keep equal to the sim's sensors.zed.mount_xyz_rpy; the real drone's value goes in docs/hardware.md
+                                    # Keep equal to the sim's sensors.zed.mount_xyz_rpy: the raptor (CAD, assets/vehicles/raptor/raptor.yaml),
+                                    # which is also the real drone (measured value -> docs/hardware.md). Iris scenarios mount it at
+                                    # [0.18, 0.0, -0.02]: set that here for an Iris run that reads TF/odom (e.g. tests/vio_flight.py)
   area_memory: false                # loop closure / relocalisation in a saved map of the site
   area_file_path: ''                # .area file to relocalise in a known site
   set_gravity_as_origin: true       # align the world to the IMU's gravity: z up, yaw kept

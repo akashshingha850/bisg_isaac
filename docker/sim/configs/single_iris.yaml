@@ -58,9 +58,9 @@ px4:
   autolaunch: true
   airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
   enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
-  params: [collision_prevention]  # docker/sim/px4/<name>.params, applied in order at PX4 boot via PX4_PARAM_* env vars (so
-                                  # reboot_required params work); later files win. Files: ekf2_vision (GPS-denied), collision_prevention.
-                                  # A variant (single_iris_vio) replaces the whole list.
+  params: [iris]                  # docker/sim/px4/<name>.params, applied in order at PX4 boot via PX4_PARAM_* env vars (so
+                                  # reboot_required params work); later files win. One file per vehicle (iris | raptor), then
+                                  # optional mode overlays (ekf2_vision, ekf2_flow_range). A variant replaces the whole list.
 
 vehicles:
   - id: 0                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}

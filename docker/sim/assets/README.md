@@ -1,9 +1,9 @@
 # docker/sim/assets
 
 `vehicles/raptor/` (Phase 4): the real quad (Raptor 5" cinewhoop: frame, Jetson Orin NX, ZED Mini, LW20) as a Pegasus vehicle.
-Run it through the main file `docker/sim/raptor_main.yaml` (`SIM_SCENARIO=/workspace/docker/sim/raptor_main.yaml` or `./bisg up -c <that path>`): it
-sets the drone and environment paths (`paths:`) and extends `docker/sim/configs/raptor_scenario.yaml` (scenario, world, common settings) and
-`vehicles/raptor/raptor.yaml` (the vehicle entry: spawn pose, ZED/ToF mounts; also the build inputs below).
+It runs through the locator `docker/sim/sim.yaml` (the default `SIM_SCENARIO`): `scenario: configs/raptor_scenario.yaml` (common
+settings), `vehicle: vehicles/raptor/raptor.yaml` (the vehicle entry: ZED/ToF mounts; also the build inputs below), `model:` the USD,
+plus world, spawn pose and `px4_params: [raptor]`.
 
 Pipeline (each step runs in the `bisg/sim:6.0.0` image, command in the script's docstring; the container user cannot write
 `docker/sim/assets`, so output goes to `docker/sim/cache/...` and is copied):
