@@ -96,7 +96,7 @@ cmd_wait(){
     local el=$(( $(date +%s) - t0 ))
     if sim_failed; then fail "launcher error after ${el}s:"; docker logs "$SIM_NAME" 2>&1 | grep -E -A3 "Traceback|Failed to create any GPU" | tail -12; return 1; fi
     if ! container_running "$SIM_NAME"; then fail "container exited (code $(docker inspect -f '{{.State.ExitCode}}' "$SIM_NAME")) — ./bisg logs"; return 1; fi
-    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; zed_autostart; ros_tools_autostart; fi
+    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; zed_autostart; ros_tools_autostart; "$(dirname "$0")/bag.sh" autostart; fi
     if px4_ready; then ok "PX4 'Ready for takeoff' after ${el}s"; return 0; fi
     (( el > timeout )) && { fail "timeout after ${el}s (last lines below)"; docker logs --tail 5 "$SIM_NAME" 2>&1 | cut -c1-140; return 1; }
     sleep 3
@@ -187,16 +187,27 @@ ros_tool_start(){
     info "$exe is not in the bisg/ros image yet: rebuilding it (one time, a few minutes)"
     compose --profile tools build ros && compose --profile tools up -d --force-recreate ros >/dev/null || die "ros image build failed"
   fi
-  if docker exec "$ROS_NAME" bash -c "kill -0 \$(cat /tmp/bisg-tool-$name.pid 2>/dev/null) 2>/dev/null"; then ok "$name is already running"; return 0; fi
+  if docker exec "$ROS_NAME" bash -c "kill -0 \$(cat /tmp/bisg-tool-$name.pid 2>/dev/null) 2>/dev/null"; then ok "$name is already running"; foxglove_ui "$name" up; return 0; fi
   command -v xhost >/dev/null && xhost +local: >/dev/null 2>&1 || true   # let the container draw on the host display
   docker exec -d -e DISPLAY="${DISPLAY:-:0}" "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; echo \$\$ >/tmp/bisg-tool-$name.pid; exec $line >/tmp/$name.log 2>&1"
   ok "$name started in the background (log: docker exec $ROS_NAME cat /tmp/$name.log; stop: ./bisg ros stop $name)"
+  foxglove_ui "$name" up
+}
+# The foxglove tool (the bridge, ws://:8765) brings its web UI along: the `lichtblick` service on FOXGLOVE_UI_PORT, for VS Code's Simple Browser.
+foxglove_ui(){
+  [[ $1 == foxglove ]] || return 0
+  if [[ $2 == down ]]; then compose --profile tools stop lichtblick >/dev/null 2>&1; compose --profile tools rm -f lichtblick >/dev/null 2>&1; return 0; fi
+  compose --profile tools up -d lichtblick >/dev/null 2>&1 || { warn "foxglove web UI (lichtblick) did not start"; return 0; }
+  local ui="http://localhost:${FOXGLOVE_UI_PORT}"
+  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/raptor.json):"
+  echo "         ${ui}/?ds=foxglove-websocket&ds.url=ws://localhost:8765&layoutUrl=${ui}/layouts/raptor.json"
 }
 ros_tool_stop(){
   [[ -n "${1:-}" ]] || die "ros stop NAME"
   # kill, then wait for the process to be gone (a restart right after must not see the old pid)
   docker exec "$ROS_NAME" bash -c "p=\$(cat /tmp/bisg-tool-$1.pid 2>/dev/null); kill -0 \$p 2>/dev/null || exit 1; kill \$p; for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 \$p 2>/dev/null || exit 0; sleep 0.5; done; kill -9 \$p" \
     && ok "$1 stopped" || info "$1 is not running"
+  foxglove_ui "$1" down
 }
 # ROS_TOOLS_AUTOSTART=1: the tools enabled in docker/ros/tools.yaml start when the sim is ready (display tools need a desktop).
 ros_tools_autostart(){
@@ -281,11 +292,11 @@ cmd_config(){
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
   show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
-  show "ros 2"      ROS_DOMAIN_ID
+  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_UI_PORT
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG TAILSCALE_TAG ISAAC_IMAGE ROS_BASE_IMAGE
-  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG TAILSCALE_TAG LICHTBLICK_TAG ISAAC_IMAGE ROS_BASE_IMAGE
+  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR BAG_DIR
   info "resolved for the next ./bisg up"
   view_parse
   echo "  view      $(view_label)$( [[ "${SIM_VIEW}" == auto ]] && { have_x11 && echo "   (auto: X server on $DISPLAY)" || echo "   (auto: no X server)"; } )"
@@ -304,8 +315,9 @@ cmd_all(){
   cmd_wait "$SIM_WAIT_TIMEOUT"
   if [[ ",$PX4_BRIDGE," == *,mavros,* ]]; then cmd_mavros state; else "$(dirname "$0")/px4-bridge.sh" status; fi
 }
-cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; }
-cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null; }
+bag_close(){ container_running "$ROS_NAME" && "$(dirname "$0")/bag.sh" stop || true; }   # a bag must be closed before its recorder dies
+cmd_stop(){ bag_close; info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; }
+cmd_down(){ bag_close; info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null; }
 cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }
 
 case "${1:-}" in
@@ -313,6 +325,7 @@ case "${1:-}" in
   build) shift; cmd_build "$@";; shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; ros) shift; cmd_ros "$@";; rviz|rqt) cmd_ros "$@";;
   config) shift; cmd_config "$@";;
   zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
+  bag) shift; exec "$(dirname "$0")/bag.sh" "$@";;
   drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;
   px4-bridge) shift; exec "$(dirname "$0")/px4-bridge.sh" "$@";;
   view|stream) shift; cmd_view "$@";;

@@ -45,7 +45,7 @@ reach(){
   info "from any device on your tailnet"
   echo "  browser view   http://${ip}:${SIM_WEB_PORT}/        (./bisg up web)"
   echo "  WebRTC client  ${ip}                    (./bisg up webrtc, with SIM_VIEW_ADDR=tailscale in docker/.env)"
-  echo "  Foxglove       ws://${ip}:8765                    (./bisg ros start foxglove)"
+  echo "  Foxglove       http://${ip}:${FOXGLOVE_UI_PORT:-8080}/?ds=foxglove-websocket&ds.url=ws://${ip}:8765&layoutUrl=http://${ip}:${FOXGLOVE_UI_PORT:-8080}/layouts/raptor.json   (./bisg ros start foxglove)"
   echo "  ssh            ssh $(id -un)@${ip}         (or the MagicDNS name: ${TS_NAME:-$TAILSCALE_HOSTNAME})"
   echo "  QGroundControl GCS_URL=udp://@<remote machine's tailnet IP>:14550 in docker/.env, then ./bisg mavros up"
   [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] || echo "  note: SIM_VIEW_ADDR=${SIM_VIEW_ADDR:-<empty>}: set SIM_VIEW_ADDR=tailscale in docker/.env so WebRTC advertises this address"

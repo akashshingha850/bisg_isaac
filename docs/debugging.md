@@ -40,6 +40,35 @@ Equivalent from a shell: `./bisg shell` then `cd /tmp && /opt/PX4-Autopilot/buil
 
 `./bisg debug topics`, `./bisg debug hz /drone_1/mavros/local_position/pose`, `./bisg debug echo /drone_1/mavros/state`. All run inside the `ros` container (started on demand) so they see the same DDS domain as MAVROS.
 
+## Recording a run (rosbag2)
+
+`./bisg bag` records the live ROS graph to MCAP for later inspection (Foxglove, `ros2 bag play`, PlotJuggler). Topic sets and
+the on/off switch live in `docker/ros/bag.yaml`; bags go to `BAG_DIR` (`config/bisg.conf`, default `$ARCHIVE_DIR/bags`).
+
+| Command | What it does |
+|---|---|
+| `./bisg bag enable` / `disable` | record automatically from the moment the sim is ready (`./bisg up`/`all`/`wait`), every run |
+| `./bisg bag start [PROFILE] [NAME]` / `stop` | record now / close the bag (SIGINT, so the MCAP is complete). `down`/`stop` close it too |
+| `./bisg bag [status]` · `profiles` · `list` · `info [BAG]` | what is on, the topic sets, the bags, `ros2 bag info` (default: newest) |
+| `./bisg bag play BAG` | `ros2 bag play --clock` in bisg-ros (stop the sim first) |
+
+Profiles: `flight` (MAVROS/PX4 state, poses, setpoints, Pegasus ground truth, ZED odometry, zed_stack status, TF, `/rosout`:
+~1.4 MB per 13 s sim), `vision` (+ ZED left image compressed + camera_info: ~5 MB/s), `all` (everything except raw images,
+depth, clouds). Never record a raw 720p image or depth stream by accident: 3.7 MB a frame (a 40 s test was 4.2 GB). Bag
+timestamps are sim time (`use_sim_time: true`); the ZED wrapper's header stamps inside the messages are wall clock.
+
+Gotcha: `./bisg smoke` (and any pymavlink script on `udpin:14540`) shares MAVROS's UDP port, and the kernel hands PX4's
+packets to one socket or the other, so MAVROS topics nearly stop while it runs (seen as ~1 Hz `local_position/pose` in a bag
+during smoke; full 30 Hz otherwise). Not a recorder problem.
+
+## Host ROS 2 (optional, debugging only)
+
+The stack never needs it, but a native ROS 2 on the desktop is handy: `sudo scripts/install_host_ros.sh` (Jazzy desktop +
+CycloneDDS + MCAP + mavros_msgs; `--base` for no GUI), then `source scripts/host_ros_env.sh` in a shell: same
+`ROS_DOMAIN_ID` and DDS profile as the containers, so `ros2 topic list`, `rviz2 --ros-args -p use_sim_time:=true` and
+`ros2 bag info /opt/docker-archive/bags/...` work directly. ZED custom messages (`zed_msgs`) are not in apt; echo those
+from bisg-ros. No script may depend on host ROS (CLAUDE.md).
+
 ## Logs
 
 | Log | Where |

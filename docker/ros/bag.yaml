@@ -1,0 +1,36 @@
+# rosbag2 recording of the running stack, for debugging (`./bisg bag ...`, docs/debugging.md). The recorder runs in bisg-ros
+# as the host user and writes MCAP bags to $BAG_DIR (config/bisg.conf; default $ARCHIVE_DIR/bags, outside the repo).
+#   enabled   true = start recording when the sim is ready (./bisg up | all | wait); `./bisg bag enable|disable` flips it.
+#             `./bisg down` / `stop` always close a running bag cleanly first.
+#   profile   the topic set autostart and `./bisg bag start` use; `./bisg bag start <profile>` picks another for one run
+# A profile has `regex` (topic names, full match), or `all: true`; `include:` adds other profiles' regexes; `exclude_regex`
+# drops topics from the result. Raw ZED images are 2.7-3.7 MB per frame (~100 MB/s): only `vision` takes the left image,
+# and only its compressed transport.
+enabled: false
+profile: flight
+storage: mcap
+preset: zstd_fast           # MCAP chunk compression: none | fastwrite | zstd_fast | zstd_small
+use_sim_time: true          # bag timestamps on /clock (sim time, = PX4's). The ZED wrapper's own header stamps stay wall clock
+max_bag_size_mb: 2048       # split into files of this size; 0 = one file
+
+profiles:
+  flight:                   # PX4 via MAVROS, sim ground truth, ZED odometry + the zed_stack bridge, TF, logs: a few MB/min
+    regex: >-
+      /clock|/tf|/tf_static|/rosout|/diagnostics|/parameter_events
+      |/drone_[0-9]+/mavros/(state|extended_state|battery|sys_status|estimator_status|altitude|imu/data|home_position/home
+      |local_position/(pose|odom|velocity_local|velocity_body)|global_position/(global|local|rel_alt)
+      |setpoint_(position|raw|velocity|accel)/.*|odometry/(in|out)|vision_pose/.*|obstacle/send|distance_sensor/.*
+      |statustext/(recv|send)|hil/.*)
+      |/drone_[0-9]+/state/.*
+      |/drone_[0-9]+/zed/zed_node/(odom|pose|pose/status|odom/status|status/health|imu/data|path_odom|path_map)
+      |/drone_[0-9]+/zed_stack/.*|/drone_[0-9]+/vehicle/.*|/fleet/.*
+  vision:                   # flight + ZED left image (compressed JPEG) and camera_info. No raw depth/confidence: 3.7 MB a frame
+    include: [flight]       # each (a 40 s test with confidence_map was 4.2 GB); add a profile for them when you need them
+    regex: >-
+      /drone_[0-9]+/zed/zed_node/(left/color/rect/(image/compressed|camera_info)|right/color/rect/camera_info
+      |depth/camera_info)|/drone_[0-9]+/chase/image/compressed
+  all:                      # every topic except the raw/heavy image, depth and cloud streams
+    all: true
+    exclude_regex: >-
+      .*/(image|image_raw|depth_registered|disparity_image|confidence_map|optical_flow)
+      |.*/(theora|zstd|compressedDepth)|.*/point_cloud/.*|.*/mapping/.*

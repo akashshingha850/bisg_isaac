@@ -14,7 +14,7 @@ tools:
     enabled: false
     exec: rqt
     args: [--perspective-file, /workspace/docker/ros/rqt/node_graph.perspective]
-  foxglove:                   # Foxglove Studio bridge (ws://localhost:8765), for the browser / desktop app
+  foxglove:                   # Foxglove bridge (ws://localhost:8765) + its web UI (compose service lichtblick, http://localhost:FOXGLOVE_UI_PORT); docker/ros/foxglove/README.md
     enabled: true
     exec: ros2 launch foxglove_bridge foxglove_bridge_launch.xml
     args: []

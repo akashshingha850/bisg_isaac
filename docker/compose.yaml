@@ -8,7 +8,7 @@
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
 # Profiles (one file for the workstation AND the Jetson; ./bisg picks images by CPU architecture, scripts/_common.sh):
 #   sim | sim-headless   Isaac Sim + PX4 SITL                    x86_64 only
-#   ros | tools          dev shell                    x86_64 and arm64
+#   ros | tools          dev shell + Foxglove web UI (lichtblick)    x86_64 and arm64
 #   px4-bridge           the one PX4 bridge service: mavros | mavsdk | xrce, chosen by PX4_BRIDGE (config/bisg.conf)   x86_64 and arm64
 #   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
 #   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
@@ -301,7 +301,21 @@ services:
     volumes:
       - ..:/workspace:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${BAG_DIR:-/tmp/bisg-bags}:/bags:rw     # rosbag2 recordings (./bisg bag, docker/ros/bag.yaml)
     command: ["sleep", "infinity"]
+
+  # Foxglove web UI served from this host: Lichtblick, the open-source Foxglove Studio fork, for the foxglove_bridge (ws://:8765 in bisg-ros).
+  # Starts and stops with the `foxglove` tool (./bisg ros start foxglove), which prints the URL; it opens in VS Code's Simple Browser
+  # (app.foxglove.dev sends X-Frame-Options: DENY and needs a login). The layouts in docker/ros/foxglove/*.json are served at /layouts/
+  # (the printed URL loads raptor.json with ?layoutUrl=, fresh on every page load); raptor.json is also the built-in default layout.
+  lichtblick:
+    image: ghcr.io/lichtblick-suite/lichtblick:${LICHTBLICK_TAG:-1.29.1}
+    container_name: bisg-lichtblick
+    profiles: ["ros", "tools"]
+    network_mode: host
+    volumes: ["./ros/foxglove:/foxglove:ro"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /lichtblick /src/layouts; cp /foxglove/*.json /src/layouts/ 2>/dev/null; cp /foxglove/raptor.json /lichtblick/default-layout.json 2>/dev/null; exec /bin/sh /entrypoint.sh \"$$@\"", "--"]
+    command: ["caddy", "file-server", "--listen", ":${FOXGLOVE_UI_PORT:-8080}"]
 
 volumes:
   tailscale-state:

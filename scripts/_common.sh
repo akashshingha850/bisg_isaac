@@ -53,7 +53,7 @@ while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_f
 # Fallbacks so the scripts still work with no config file at all; keep in sync with config/bisg.conf.
 conf_default SIM_VIEW gui+webrtc;        conf_default SIM_SCENARIO /workspace/docker/sim/sim.yaml;  conf_default SIM_WAIT_TIMEOUT 600
 conf_default SIM_GPU all;         conf_default ZED_GPU all;         conf_default ZED_AUTOSTART 1;     conf_default ROS_TOOLS_AUTOSTART 1;     conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
-conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
+conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550;  conf_default FOXGLOVE_UI_PORT 8080
 # ROS_DOMAIN_ID=auto: one stable domain per machine (1..99, from the hostname), so two workstations on one LAN never see each other's
 # /drone_N topics (CycloneDDS multicast discovery crosses the LAN). A number set in docker/.env or the environment wins.
 if [[ "$ROS_DOMAIN_ID" == auto ]]; then
@@ -62,7 +62,7 @@ if [[ "$ROS_DOMAIN_ID" == auto ]]; then
 fi
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG pr144-fcb99c0
 conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
-conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5
+conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
 conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto
 conf_default PX4_BRIDGE mavros
 conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
@@ -73,6 +73,8 @@ case "$(uname -m)" in
   *)             conf_default BISG_ARCH x86_64; conf_default ZED_VARIANT desktop;;    # workstation (docker/zed/build.sh desktop)
 esac
 conf_default ARCHIVE_DIR "$HOME/bisg-archive"
+conf_default BAG_DIR "${ARCHIVE_DIR}/bags"
+BAG_DIR="${BAG_DIR/#\~/$HOME}"; export BAG_DIR   # compose bind-mounts it into bisg-ros as /bags
 conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
 conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
@@ -180,7 +182,7 @@ scenario_path(){
   to_ws "$s"
 }
 
-compose(){ docker compose -f "$COMPOSE_FILE" "$@"; }
+compose(){ mkdir -p "$BAG_DIR" 2>/dev/null || true; docker compose -f "$COMPOSE_FILE" "$@"; }   # BAG_DIR made by us, not by docker as root
 
 # Every GPU container fails at `docker start` when the loaded nvidia module and the installed
 # userspace disagree (apt upgraded the driver under a running kernel module). Catch it here: the

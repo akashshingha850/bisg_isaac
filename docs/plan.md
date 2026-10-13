@@ -96,6 +96,7 @@ Key properties:
 | ZED ROS 2 wrapper | `zed-ros2-wrapper` matching SDK, Jazzy | its topic/frame names define our ZED contract | — |
 | Docker | Compose v2, nvidia runtime | present on host | ADR-002 |
 | Remote access | **Tailscale `v1.102.5`** (`tailscale/tailscale`, compose service `tailscale`) | reach the sim from another network; WebRTC needs UDP, which tunnels do not carry | ADR-009 |
+| Foxglove web UI | **Lichtblick `1.29.1`** (`ghcr.io/lichtblick-suite/lichtblick`, amd64 + arm64, compose service `lichtblick`) | self-hosted Foxglove-compatible viewer for `foxglove_bridge`; opens in VS Code's Simple Browser, which `app.foxglove.dev` refuses (`X-Frame-Options: DENY`) | — |
 | GPU budget | RTX 2080 Ti 11 GB | below Isaac's recommended 3070; swarm tests run headless, 1 camera/drone, ≤1280×720 | risk R1 |
 
 The values above are applied from the pins block of `config/bisg.conf` (`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`);
