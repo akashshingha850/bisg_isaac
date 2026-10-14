@@ -58,7 +58,51 @@ in `docker/sim/assets/README.md` when that work starts.
 ./bisg debug perf
 ```
 
-## Isaac Sim 6.0 (migration, 2026-10-02) — read this before the tables below
+## Where the time goes now: camera renders (2026-10-14, raptor, Simple Room, 120 Hz physics) — read this first
+
+Measured on the RTX 4500 box with `./bisg up <view> -c <variant>` + the ros tools (as `./bisg all`), mean of 7–15 heartbeats after a 100–120 s
+settle; base repeated three times (0.547 / 0.549 / 0.548). Variants were copies of `sim.yaml` + `raptor.yaml` with one key changed.
+
+| View (scene: ZED twin + chase cam) | RTF |
+|---|---:|
+| gui | 0.51 |
+| gui+webrtc | 0.51 |
+| webrtc (no window) | 0.51 |
+| headless | 0.55 |
+
+| Scene content (headless) | RTF | note |
+|---|---:|---|
+| ZED twin HD720 30 fps + chase cam every frame (the default until today) | 0.55 | |
+| chase cam off | 0.60 | |
+| chase cam at 10 Hz (`sensors.chase_cam.rate_hz: 10`, **now the default**) | 0.58 | publishes 10.0 Hz sim time |
+| ZED twin at 15 fps | 0.63 | wrapper still gets its full 15 Hz (sim time) |
+| ZED 15 fps + chase cam 10 Hz | **0.66** | |
+| ZED twin off | 0.85 | |
+| ZED twin and chase cam off | **0.99** | real time |
+
+So on 6.0 the loop is no longer held back by physics or Pegasus Python: with no extra cameras one drone runs in real time. **Every extra
+camera view costs the whole loop**: the main thread spends ~82 % of its time inside `simulation_app.update()` (py-spy, Python incl. all of
+Pegasus ~10 %) and only ~53 % of a core busy, i.e. it waits on the render of each view. The view mode (window, WebRTC) is worth < 8 %.
+The ZED twin (two HD720 views streamed to the SDK) is ~2/3 of the gap, the chase cam (one 640x360 view) the rest. VGA was not usable as a
+test: the wrapper first re-optimises its depth model for a new resolution (~6 min) and published nothing in the window.
+
+Knobs, cheapest first:
+- `sensors.chase_cam.rate_hz` (Isaac 6.0 multi-tick rendering: `OmniSensorAPI` + `omni:sensor:tickRate` on the camera prim, the renderer
+  skips the view between ticks; `rtx.hydra.supportMultiTickRate` is on in `isaacsim.exp.base`). 10 Hz by default; 0 = every frame.
+- `sensors.zed.fps` 30 → 15 in the scenario: +15 % RTF, **rejected 2026-10-15**: `zed_depth_box` front face −40 mm (FAIL, tol 30; −26 at 30 fps) and the
+  GPS-denied `vio_flight` aborted (z 0.91 m). Stay at 30 fps (the real ZED's `grab_frame_rate`).
+- No ZED in scenarios that do not need it (flow/ToF tests, PX4 tuning): real time.
+Same finding upstream: Pegasus issues #111 (cameras limit 20 drones to 3) and #79.
+
+Tried and **not** a lever (2026-10-15, headless, chase cam 10 Hz, control 0.572):
+- `--/app/asyncRendering=true` 0.569, plus `--/app/asyncRenderingLowLatency=true` 0.567. Both boot on 6.0 (the 5.1-era boot hang is gone) and
+  every camera still delivers, but the loop stays serial (`omni.kit.loop-isaac` fixed time stepping): not worth the risk Isaac warns about
+  ("Async rendering must be disabled for SDG", which the ROS camera helper and the ZED extension use).
+- `/app/hydraEngine/waitIdle` is already off (only `isaacsim.exp.base.zero_delay.kit` sets it).
+- A second GPU: `SimulationApp` has `multi_gpu: True` (all GPUs) by default, so Workstation B already renders on both; one sim there was
+  not faster (section below). NVENC is not involved: it encodes finished frames (WebRTC already uses it), the cost is producing them.
+
+## Isaac Sim 6.0 (migration, 2026-10-02)
 
 The tables below were measured on **Isaac Sim 5.1** with an iteration-counting metric and the old render-every-Nth-step loop. On 6.0 the loop is
 one `simulation_app.update()` per `world.rendering_dt` with ~`rendering_dt/physics_dt` physics sub-steps inside it, and `perf … steps/s` now counts real
@@ -71,7 +115,7 @@ physics steps (= the `/clock` rate). Current numbers (RTX 4500 Ada, headless, PX
 | `headless_fast` | 30 s | 132–137 | 0.53 |
 | 2 / 4 / 8 drones, no ZED | 30–34 s | 73 / 41 / 23 | 0.29 / 0.17 / 0.09 |
 
-The bottleneck is Pegasus's per-step Python, not rendering (`migration-errors.md` M8); `app.profile_s: 45` in a scenario prints a cProfile of the loop.
+These numbers predate `pegasus_fast` and the 120 Hz physics; then the bottleneck was Pegasus's per-step Python (`migration-errors.md` M8). Since then it is the camera renders (section above). `app.profile_s: 45` in a scenario prints a cProfile of the loop.
 First boot (or after `./bisg debug clean-cache`) takes ~190 s while RTX shaders compile into the `isaac-cache-kit` volume (M6). `app.render: false` no longer
 skips the app update (M9). Full comparison with 5.1: `archive/docs/migration-report.md` §7.
 

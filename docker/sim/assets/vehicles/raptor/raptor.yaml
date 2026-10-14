@@ -88,3 +88,4 @@ vehicles:
         offset: [-1.0, 0.0, 0.5]       # smaller than the Iris view: the whoop is 0.3 m across
         look_height: 0.0
         smooth_s: 0.3
+        rate_hz: 10.0                  # render + publish rate, sim time (0 = every frame: costs ~9 % RTF at 20 Hz, docs/performance.md)

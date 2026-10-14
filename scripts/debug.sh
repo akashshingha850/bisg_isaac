@@ -68,8 +68,10 @@ cmd_perf(){
   container_running "$SIM_NAME" || die "$SIM_NAME is not running (./bisg up)"
   local cfg; cfg=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -m1 '^SIM_CONFIG=' | cut -d= -f2-)
   echo "config: ${cfg:-?}"
-  local host="$ROOT${cfg#/workspace}"
-  [[ -f "$host" ]] && { echo "perf block:"; sed -n '/^perf:/,/^[a-z]/p' "$host" | grep -E "^  [a-z_]+:" | grep -v ": *null" | sed 's/^/  /'; }
+  # what the launcher applied (the perf block can sit in any file sim.yaml loads, so read its log, not the YAML)
+  echo "applied:"
+  docker logs "$SIM_NAME" 2>&1 | grep -E "\[launch\] INFO (SimulationApp config|world settings|loop cadence|pegasus_fast)" \
+    | sed -E 's/.*\[launch\] INFO /  /; s/, .extra_args.*/}/' || true
   echo "boot:"
   sim_ready && ok "reached 'sim ready'" || warn "not ready yet"
   echo "steady state (last 5 heartbeats):"

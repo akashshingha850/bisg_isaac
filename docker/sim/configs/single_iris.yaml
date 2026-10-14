@@ -92,3 +92,4 @@ vehicles:
         offset: [-2.0, 0.0, 1.0]       # camera position in the drone's yaw frame FLU, m
         look_height: 0.0               # aim this far above the drone's centre, m
         smooth_s: 0.3                  # follow smoothing, s (0 = rigid)
+        rate_hz: 10.0                  # render + publish rate, sim time (0 = every frame: costs ~9 % RTF at 20 Hz, docs/performance.md)

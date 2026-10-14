@@ -12,6 +12,8 @@ product, so it also works headless and while the viewport shows something else. 
   offset       camera position in the drone's yaw frame FLU, m (x forward, y left, z up)
   look_height  aim this far above the drone's centre, m
   smooth_s     low-pass time constant on the followed position/heading, s (0 = rigid)
+  rate_hz      render + publish rate in sim time (Isaac 6.0 multi-tick: `omni:sensor:tickRate` on the camera prim), 0 = every
+               rendered frame. Each extra view costs the whole loop: at 20 Hz this camera alone took RTF 0.60 -> 0.55 (docs/performance.md)
 
 Published by the OmniGraph chain OnPlaybackTick -> IsaacCreateRenderProduct -> ROS2CameraHelper (rgb) on
 /drone_<n>/chase/image. View only: no camera_info, no TF.
@@ -24,7 +26,7 @@ import omni.graph.core as og
 import omni.usd
 import usdrt.Sdf
 from isaacsim.core.experimental.utils.app import enable_extension
-from pxr import Gf, UsdGeom
+from pxr import Gf, Sdf, UsdGeom
 from scipy.spatial.transform import Rotation
 
 LOG = logging.getLogger("launch")
@@ -45,6 +47,7 @@ class ChaseCam:
         self.tau = max(0.0, float(cfg.get("smooth_s", 0.3)))
         width, height = [int(x) for x in cfg.get("resolution", [640, 360])]
         hfov = math.radians(float(cfg.get("hfov_deg", 90.0)))
+        rate = float(cfg.get("rate_hz", 10.0))
 
         self.path = f"/World/drone_{vid + 1}_chase_cam"
         cam = UsdGeom.Camera.Define(omni.usd.get_context().get_stage(), self.path)
@@ -52,6 +55,10 @@ class ChaseCam:
         cam.CreateHorizontalApertureAttr(H_APERTURE_MM)
         cam.CreateVerticalApertureAttr(H_APERTURE_MM * height / width)
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 1000.0))
+        if rate > 0:   # the renderer skips this view between ticks (rtx.hydra.supportMultiTickRate, on in isaacsim.exp.base)
+            prim = cam.GetPrim()
+            prim.ApplyAPI("OmniSensorAPI")
+            prim.CreateAttribute("omni:sensor:tickRate", Sdf.ValueTypeNames.Float).Set(rate)
         xf = UsdGeom.Xformable(cam)
         self._t_op = xf.AddTranslateOp()
         self._r_op = xf.AddOrientOp(UsdGeom.XformOp.PrecisionDouble)
@@ -76,8 +83,8 @@ class ChaseCam:
                                   ("pub.inputs:resetSimulationTimeOnStop", True)],
             },
         )
-        LOG.info("chase cam: %dx%d %.0f deg at %s behind/above drone %d -> %s/chase/image",
-                 width, height, math.degrees(hfov), self.offset.tolist(), vid + 1, ns)
+        LOG.info("chase cam: %dx%d %.0f deg at %s behind/above drone %d, %s -> %s/chase/image", width, height, math.degrees(hfov),
+                 self.offset.tolist(), vid + 1, f"{rate:g} Hz" if rate > 0 else "every frame", ns)
 
     def update(self):
         """Move the camera to this frame's chase pose (call once per rendered frame)."""

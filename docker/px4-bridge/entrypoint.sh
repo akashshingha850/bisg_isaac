@@ -32,9 +32,15 @@ mavros() {
              -p use_sim_time:="$sim" "${extra[@]}")
   [[ "$sim" == true ]] || exec "${cmd[@]}"
   "${cmd[@]}" & local pid=$!
-  trap 'kill -TERM "$pid" 2>/dev/null' TERM INT                       # keep `compose stop` clean (MAVROS is not PID 1)
+  stopping=0
+  trap 'stopping=1; kill -TERM "$pid" 2>/dev/null' TERM INT           # keep `compose stop` clean (MAVROS is not PID 1)
   python3 /workspace/docker/ros/mavros_sim_time.py "/${ns}" || echo "[px4-bridge] WARNING: MAVROS plugins still on wall time"
-  wait "$pid" || wait "$pid" 2>/dev/null || true                      # 1st wait returns early on SIGTERM; let MAVROS finish
+  local rc=0
+  wait "$pid" || rc=$?
+  if (( stopping )); then wait "$pid" 2>/dev/null || true; exit 0; fi        # 1st wait returns early on SIGTERM; let MAVROS finish
+  # MAVROS died by itself (seen: a segfault 3 s after connecting, 2026-10-15): a non-zero exit so `restart: on-failure` brings it back
+  echo "[px4-bridge] mavros_node exited on its own (status ${rc}); exiting non-zero for a restart" >&2
+  exit $(( rc == 0 ? 1 : rc ))
 }
 
 mavsdk() {

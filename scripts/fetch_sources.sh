@@ -8,7 +8,14 @@ set -euo pipefail
 SIM="$ROOT/docker/sim"; ZED="$ROOT/docker/zed"
 clone(){ local url=$1 tag=$2 dir=$3; shift 3
   if [[ -e "$dir/.git" ]]; then echo "exists: ${dir#$ROOT/}"; else git clone --depth 1 --branch "$tag" "$@" "$url" "$dir"; fi; }
-if [[ "$PEGASUS_TAG" =~ ^pr([0-9]+)-([0-9a-f]+)$ ]]; then
+if [[ "$PEGASUS_TAG" =~ ^local-([0-9a-f]+)$ ]]; then
+  # Our fork (ADR-010): branch `local` = PR #144 + our local commits; check out the pinned SHA, keep upstream as a remote for rebasing.
+  if [[ -e "$SIM/PegasusSimulator/.git" ]]; then echo "exists: docker/sim/PegasusSimulator"; else
+    git clone --branch local "$PEGASUS_REPO" "$SIM/PegasusSimulator"
+    git -C "$SIM/PegasusSimulator" checkout -B local "${BASH_REMATCH[1]}"
+    git -C "$SIM/PegasusSimulator" remote add upstream "$PEGASUS_UPSTREAM"
+  fi
+elif [[ "$PEGASUS_TAG" =~ ^pr([0-9]+)-([0-9a-f]+)$ ]]; then
   # Isaac Sim 6.0 support lives in Pegasus PR #144 (not yet a release tag): fetch the PR head, check out the pinned SHA.
   if [[ -e "$SIM/PegasusSimulator/.git" ]]; then echo "exists: docker/sim/PegasusSimulator"; else
     git clone --no-checkout "$PEGASUS_REPO" "$SIM/PegasusSimulator"

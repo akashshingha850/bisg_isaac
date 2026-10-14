@@ -16,7 +16,7 @@ Evidence logs are in `logs/migration/` (git-ignored, local to the workstation).
 | [M5](#m5) | Fixed | compose | Sim container reports `(unhealthy)` while working |
 | [M6](#m6) | Fixed | boot time | Every boot recompiles RTX shaders (~190 s instead of ~30 s) |
 | [M7](#m7) | Fixed | ZED rig | Image/depth publish at the full render rate, twice `camera_info` (= bugs.md B9) |
-| [M8](#m8) | **Open** | performance | Simulation runs at 0.33× real time (was 1.18×): Pegasus per-step Python |
+| [M8](#m8) | **Open** | performance | Simulation runs at 0.33× real time (was 1.18×): Pegasus per-step Python, now camera renders (2026-10-14) |
 | [M9](#m9) | **Open** | launcher | `app.render: false` no longer gives a physics-only loop; `headless_fast` is 2.4× slower |
 | [M10](#m10) | Open | cosmetic | Test box renders yellow, scenario asks for orange |
 | [M11](#m11) | Note | MAVROS | Second drone's `mavros/state` shows `CMODE(50593792)` |
@@ -26,7 +26,7 @@ Evidence logs are in `logs/migration/` (git-ignored, local to the workstation).
 | [M15](#m15) | Note | host | `./bisg debug mavlink` needs `pymavlink` on the host (pre-existing) |
 | [M16](#m16) | Note | logs | Benign warnings that look like errors |
 | [M17](#m17) | Note | image | The `6.0.0` image reports a release-candidate version string |
-| [M18](#m18) | **Open** | supply chain | Pegasus pin is only reachable via `refs/pull/144/head` |
+| [M18](#m18) | Fixed | supply chain | Pegasus pin is only reachable via `refs/pull/144/head` (now our fork, ADR-010) |
 | [M19](#m19) | Note | Pegasus | Environment loading and world setup semantics changed (async load, no `World.reset`) |
 | [M20](#m20) | Note | docs/perf | `docs/performance.md` numbers and `rendering_dt` meaning are 5.1-era |
 
@@ -151,7 +151,10 @@ Total drone-steps per second is roughly constant (119 → 184 from 1 to 8 drones
 arrays (`wp.array.__init__` ≈ 18 % of the profile). 5.1 used `dynamic_control` handles, which are cheap.
 **Partly fixed 2026-10-04:** `docker/sim/launcher/pegasus_fast.py` (runtime patch, `perf.pegasus_fast`) caches the RigidPrim wrappers, batches the 6 force/torque calls into 1 and writes propeller joints only on change: Python time per step -22 %, RTF 0.44 -> 0.54 in the GUI, hover test PASS; headless 0.85. See `performance.md` "Why it is not real time". **Candidates (still open):** one batched force/torque call per step; propeller visuals only on rendered
 frames or off when headless; avoid per-call prim resolution; `physics_dt` is **not** a safe knob (it sets the PX4 sensor rate).
-**Detect:** `./bisg debug perf` (now steps/s = real physics steps) or `ros2 topic hz /clock`.
+**Update 2026-10-14 — the bottleneck moved to the camera renders.** With `pegasus_fast` and 120 Hz physics, the raptor with no ZED twin and no chase
+cam runs at RTF 0.99; with both (the default) 0.55. py-spy: Pegasus/Python ~10 % of the main thread, 82 % inside `simulation_app.update()`, which waits on
+the extra views. Chase cam now renders at 10 Hz (`rate_hz`, Isaac 6.0 per-sensor tick rate); ZED fps is the next knob. Tables: `performance.md`
+"Where the time goes now". **Detect:** `./bisg debug perf` (now steps/s = real physics steps) or `ros2 topic hz /clock`.
 
 ---
 
@@ -250,7 +253,7 @@ Not a problem observed, but record the digest if you need to reproduce the exact
 
 <a id="m18"></a>
 ## M18 — The Pegasus pin lives only on a GitHub pull-request ref
-**Open.** `docker/sim/PegasusSimulator` points at `fcb99c0`, reachable upstream only as `refs/pull/144/head` (not a branch or tag).
+**Fixed 2026-10-15** (ADR-010): the submodule now comes from our fork `akashshingha850/PegasusSimulator`, branch `local` (PR #144 + local commits). Before: `docker/sim/PegasusSimulator` points at `fcb99c0`, reachable upstream only as `refs/pull/144/head` (not a branch or tag).
 A fresh `git submodule update --init` fetches by SHA, which GitHub allows today; if the PR is force-pushed, closed with a rewritten
 history, or the author deletes the fork, the SHA can become unfetchable. Our own clone and every built image keep it.
 `scripts/fetch_sources.sh` handles the `pr144-fcb99c0` pin. **Mitigation:** push the submodule's `local` branch to a fork, or
