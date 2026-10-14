@@ -177,8 +177,9 @@ services:
   # ZED video -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
   qgc_video:
     enabled: true
-    layout: grid                    # grid = ONE 2x2 picture: left | chase view (sim: /drone_N/chase/image) / depth | optical flow of the left image (flow is computed by the video
-                                    # node with OpenCV Farneback, the SDK has none). single = the one `topic` below as it comes
+    layout: grid                    # grid = ONE 2x2 picture: left | chase view (sim: /drone_N/chase/image) / depth | PMW3901 optical flow (PX4 via MAVROS
+                                    # px4flow, drawn by the video node; not from the ZED). single = the one `topic` below as it comes. Both layouts
+                                    # publish the flow drawing as /drone_N/optical_flow/image
     width: 1280                     # grid: width of the whole picture in px, each tile is half of it (1280 -> 4 x 640x360, as 1280x720 H.264)
     topic: ''                       # single only; empty = left/color/rect/image of this drone
     host: 127.0.0.1                 # where QGC runs: 127.0.0.1 = this machine; a LAN or tailnet IP for a remote QGC (or ./bisg zed video --video-host)

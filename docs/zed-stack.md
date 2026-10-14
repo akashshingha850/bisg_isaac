@@ -92,11 +92,11 @@ register it in `node.py:MODULES`, its defaults in `config.py:SERVICES`, its topi
 | top left | `left/color/rect/image` | rectified left camera |
 | top right | `/drone_N/chase/image` | **third-person chase view** of the drone (sim only, `sensors.chase_cam`, [interface-contract.md](interface-contract.md)); "no signal" on the real drone. Replaced the ZED right image on 2026-10-10: the left image is enough |
 | bottom left | `depth/depth_registered` | colour map 0.3-10 m, near = red, far = blue, no data = black |
-| bottom right | optical flow of the left image | dense Farneback flow between consecutive frames: hue = direction, brightness = speed, black = still. Computed by the video node (OpenCV), **not** by the SDK and **not** the PMW3901 twin of [range-flow.md](range-flow.md) |
+| bottom right | `/drone_N/mavros/px4flow/raw/optical_flow_rad` | the **PMW3901** optical-flow sensor as PX4 reports it (sim: the twin of [range-flow.md](range-flow.md); drone: the sensor on the Pixracer), drawn top-down by `mosaic.FlowView`: arrow = gyro-compensated flow (motion over the ground, rad/s, radius ~ sqrt), dots = the last 2 s, text = quality, distance, flow × distance in m/s. Not from the ZED (until 2026-10-14 this tile was Farneback flow of the ZED left image) and not a picture: the PMW3901 sends no image |
 
 The four sources are sampled by a timer at `fps` (15 when 0) and each tile is captioned. A source that sends nothing for 2 s turns its tile into "no signal" and
-`./bisg zed logs video` says which topic is missing. Cost (RTX 4500 box, sim): ~0.5 CPU core for the node at 15 fps, 1280x720, 4000 kbit/s; the flow runs at 320 px width (~6 ms).
-The optical-flow tile is also a ROS image, published only while something subscribes (RELIABLE, bgr8, tile size, 15 Hz): `/drone_N/zed/video/optical_flow` ([interface-contract.md](interface-contract.md)); the colour depth exists only inside the QGC picture. `docker/ros/rviz/drone.rviz` shows four images in one column: ZED left, Chase view, ZED depth (`depth/depth_registered`) and Optical flow.
+`./bisg zed logs video` says which topic is missing. Cost (RTX 4500 box, sim): ~0.5 CPU core for the node at 15 fps, 1280x720, 4000 kbit/s.
+The flow drawing is also a ROS image, in both layouts, published only while something subscribes (RELIABLE, bgr8, tile size, one per flow message = 10 Hz): `/drone_N/optical_flow/image` ([interface-contract.md](interface-contract.md)); the colour depth exists only inside the QGC picture. `docker/ros/rviz/drone.rviz` shows four images in one column: ZED left, Chase view, ZED depth (`depth/depth_registered`) and Optical flow (PMW3901).
 `layout: single` streams the one `topic` as it comes (the old behaviour; `bitrate: 2000` is enough). `width` is the whole picture's width, each tile half of it.
 Needs OpenCV: the `bisg/zed` overlay installs `opencv-python-headless==4.11.0.86` with pip (the apt one cannot import next to the base's numpy 2).
 

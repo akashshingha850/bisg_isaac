@@ -130,7 +130,7 @@ depth = image("depth", "ZED depth [0.3-10 m, turbo; script depth_mm]", "/studio_
               colorMode="colormap", colorMap="turbo", minValue=300, maxValue=10000)
 conf = image("confidence", "Depth confidence [blue good - red bad; script confidence_u16]", "/studio_script/confidence_u16",
              colorMode="colormap", colorMap="turbo", minValue=0, maxValue=10000)
-flow = image("flow", "Optical flow (hue = direction)", f"{D}/zed/video/optical_flow")
+flow = image("flow", "PMW3901 optical flow (arrow = motion over ground)", f"{D}/optical_flow/image")
 cfg["3D!cloud"] = {   # default camera: a custom cameraState left the cloud out of view
     TITLE: "ZED point cloud", "followTf": "zed_camera_link", "followMode": "follow-pose",
     "scene": {"transforms": {"showLabel": False, "axisScale": 0.3}},

@@ -17,7 +17,7 @@ mavros() {
   # FCU_URL empty = the sim's PX4 (udp://:14540+i@127.0.0.1:14580+i); serial:///dev/px4:921600 on the drone
   local fcu="${FCU_URL:-udp://:$((14540 + INSTANCE))@127.0.0.1:$((14580 + INSTANCE))}"
   local ns="${NS:-drone_${DRONE_ID}}" sim="${USE_SIM_TIME:-false}" share=/opt/ros/jazzy/share/mavros/launch
-  # lean (docker/ros/mavros_lean.yaml, 17 plugins, idle 9 % CPU) falls back to MAVROS' stock list when the repo is not mounted
+  # lean (docker/ros/mavros_lean.yaml, 19 plugins) falls back to MAVROS' stock list when the repo is not mounted
   local plugins=/workspace/docker/ros/mavros_lean.yaml
   if [[ "${MAVROS_PLUGINS:-lean}" == full || ! -f "$plugins" ]]; then plugins="${share}/px4_pluginlists.yaml"; fi
   echo "[px4-bridge] mavros ns=/${ns} tgt_system=${DRONE_ID} fcu_url=${fcu} plugins=$(basename "$plugins") use_sim_time=${sim} ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"

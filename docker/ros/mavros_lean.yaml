@@ -18,6 +18,7 @@
       - vision_pose
       - obstacle_distance
       - distance_sensor
+      - px4flow                      # OPTICAL_FLOW_RAD (PMW3901) -> mavros/px4flow/raw/optical_flow_rad (docs/range-flow.md)
       - landing_target
       - onboard_computer_status
       - debug_value

@@ -3,7 +3,7 @@
 # the stack needs and the upstream image lacks. Same file for x86_64 (desktop) and arm64 (Jetson, L4T r38).
 #   - CycloneDDS: the upstream image is Fast DDS only; the whole bisg stack uses CycloneDDS (ADR-004), and
 #     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp makes every ROS tool in a Fast-DDS-only image abort.
-#   - mavros_msgs: the bridge talks to MAVROS (ADR-001) over DDS; it does not need MAVROS itself.
+#   - mavros_msgs: the bridge talks to MAVROS (ADR-001) over DDS, the video node reads its px4flow topic; neither needs MAVROS itself.
 #   - GStreamer: zed_stack.video (ZED image -> RTP/H.264 for QGroundControl).
 ARG BASE=bisg/zed:desktop-base
 FROM ${BASE}
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
     && rm -rf /var/lib/apt/lists/*
 # Same profile as every other bisg container; /workspace is the bind-mounted repo (compose).
-# OpenCV for the 2x2 QGC video (zed_stack/mosaic.py: tile resize, depth colormap, Farneback optical flow). The apt python3-opencv in the base is
+# OpenCV for the 2x2 QGC video (zed_stack/mosaic.py: tile resize, depth colormap, PMW3901 flow drawing). The apt python3-opencv in the base is
 # built against numpy 1.x and fails to import next to the base's numpy 2.x, so use the pip wheel (numpy 2 compatible, x86_64 and aarch64).
 RUN pip install --break-system-packages --no-cache-dir opencv-python-headless==4.11.0.86
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \

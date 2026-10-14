@@ -265,9 +265,9 @@
       }
     },
     "Image!flow": {
-      "lichtblickPanelTitle": "Optical flow (hue = direction)",
+      "lichtblickPanelTitle": "PMW3901 optical flow (arrow = motion over ground)",
       "imageMode": {
-        "imageTopic": "/drone_1/zed/video/optical_flow"
+        "imageTopic": "/drone_1/optical_flow/image"
       }
     },
     "3D!cloud": {

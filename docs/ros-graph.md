@@ -34,8 +34,8 @@ the live graph on 2026-10-10 (workstation A). It is a reading guide. The **contr
  ┌─ bisg-zed-bridge-1: /zed_px4_bridge ────────────────────────────────────────────────────────────┘  odometry/out (VIO, off in sim)
  │  health (status/health, pose/status, depth) · obstacle_distance (depth + camera_info) · odometry (odom, pose/status)
  │  publishes /drone_1/zed_stack/status
- ├─ bisg-zed-video-1: /video_stream ─ left + chase + depth ─► 2x2 mosaic + Farneback flow ─► RTP/H.264 UDP 5600 ─► QGC
- │                                                        └─► /drone_1/zed/video/optical_flow
+ ├─ bisg-zed-video-1: /video_stream ─ left + chase + depth + mavros/px4flow ─► 2x2 mosaic ─► RTP/H.264 UDP 5600 ─► QGC
+ │                                                        └─► /drone_1/optical_flow/image (PMW3901 flow drawn)
  └─ bisg-ros: /rviz (left, chase, depth, flow, point cloud, odom, path_odom, TF) · /rqt_gui_py_node_* · test scripts
 ```
 
@@ -59,7 +59,7 @@ video → QGC (RTP/UDP 5600), and MAVROS → QGC (MAVLink, when `GCS_URL` is set
 | `/drone_1/zed/zed_state_publisher` | `bisg-zed-1` | `robot_state_publisher` for the ZED URDF: `zed_camera_link → center → left/right → optical` | with the ZED |
 | `/launch_ros_1`, `transform_listener_impl_*` | ZED / MAVROS / RViz | the launch process and TF-listener helpers inside other nodes; no data of their own | infrastructure |
 | `/zed_px4_bridge` | `bisg-zed-bridge-1` (`zed_stack.bridge`) | ZED → PX4 through MAVROS: **health** (STATUSTEXT to QGC), **obstacle_distance** (72 sectors → PX4 collision prevention), **odometry** (VIO → EKF2, GPS-denied only) | whenever PX4 should use the ZED |
-| `/video_stream` | `bisg-zed-video-1` (`zed_stack.video`) | QGC video: 2x2 mosaic (left / chase / depth / flow) as H.264 RTP, and `zed/video/optical_flow` | only while someone watches QGC |
+| `/video_stream` | `bisg-zed-video-1` (`zed_stack.video`) | QGC video: 2x2 mosaic (left / chase / depth / PMW3901 flow) as H.264 RTP, and `optical_flow/image` | only while someone watches QGC |
 | `/rviz`, `/rqt_gui_py_node_*` | `bisg-ros` (`ROS_TOOLS_AUTOSTART`, `docker/ros/tools.yaml`) | operator views | only while someone looks at them |
 | test scripts (`vio_flight_test`, `range_flow_bench`, …) | `bisg-ros` | flights and checks; they stream setpoints and read ground truth | during a test |
 
@@ -77,7 +77,7 @@ PX4 OFFBOARD. Feedback: `mavros/state` (1 Hz), `mavros/local_position/{pose,odom
 `zed_node/status/health` + `pose/status` + depth valid fraction → bridge `health` → `mavros/statustext/send` + `zed_stack/status`.
 `zed_node/odom` → bridge `odometry` → `mavros/odometry/out` → EKF2 external vision (GPS-denied scenarios only, `services.px4_bridge.odometry`).
 
-**C. Operator views.** `zed_node` images, depth and point cloud → RViz. Images and depth → `video_stream` → QGC and `zed/video/optical_flow` → RViz.
+**C. Operator views.** `zed_node` images, depth and point cloud → RViz. Images and depth → `video_stream` → QGC; `mavros/px4flow` (PMW3901) → `video_stream` → the QGC flow tile and `optical_flow/image` → RViz.
 
 **D. Truth and time (sim only).** `/clock` → every node with `use_sim_time`. `/drone_1/state/*` → tests.
 
@@ -106,7 +106,7 @@ Measured with RViz and QGC video running:
 | `right/color/rect/image` | – | **0**: no subscriber since 2026-10-10 (the chase view replaced it in RViz and the mosaic), so the wrapper does not send it | – |
 | `depth/depth_registered` (32FC1) | 9–19 Hz | ≈ 70 MB/s **per subscriber** | rviz, video_stream, bridge **×2** |
 | `point_cloud/cloud_registered` | ~10 Hz | ≈ 20 MB/s | rviz only |
-| `zed/video/optical_flow` | ~14 Hz | ≈ 10 MB/s | rviz only |
+| `optical_flow/image` (PMW3901 drawing; replaced the ZED Farneback `zed/video/optical_flow` 2026-10-14) | ~5 Hz wall (10 Hz sim) | ≈ 3.5 MB/s (640x360 bgr8) | rviz only |
 | `zed_node/imu/data` | 72 Hz combined | small | **none** (two publishers, R1) |
 | `/clock` | 26 Hz | small | ~25 nodes |
 | `/drone_1/state/pose` | 72 Hz | small | tests |
