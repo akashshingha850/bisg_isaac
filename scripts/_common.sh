@@ -125,8 +125,15 @@ resolve_view_addr(){
 stream_addr(){
   [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] && { local v; v="$(tailscale_ip)"; echo "${v:-<tailscale not up>}"; return; }
   if [[ -n "${SIM_VIEW_ADDR:-}" ]]; then echo "$SIM_VIEW_ADDR"; return; fi
-  local ip; ip=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+  local ip; ip="$(lan_ip)"
   echo "${ip:-127.0.0.1}"
+}
+lan_ip(){ ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1 || true; }
+# Foxglove web UI link for a host (localhost, LAN or tailnet address): connects to the bridge and loads docker/ros/foxglove/raptor.json.
+FOXGLOVE_BRIDGE_PORT=8765     # foxglove_bridge's default port (docker/ros/tools.yaml)
+foxglove_url(){
+  local h="${1:-localhost}"; local ui="http://${h}:${FOXGLOVE_UI_PORT:-8080}"
+  echo "${ui}/?ds=foxglove-websocket&ds.url=ws://${h}:${FOXGLOVE_BRIDGE_PORT}&layoutUrl=${ui}/layouts/raptor.json"
 }
 # SIM_VIEW is the one knob for the window and the remote view. It resolves into the two things
 # the container actually takes: which compose profile (SIM_HEADLESS) and what the launcher serves

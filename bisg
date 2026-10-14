@@ -4,6 +4,7 @@
 #   ./bisg setup [--arm64|--third-party|--rebuild|--no-build]   one-shot workstation setup (scripts/setup.sh)
 #   ./bisg config [--edit]              show/edit settings (config/bisg.conf + docker/.env)
 #   ./bisg up [gui|headless|web|webrtc|both] [-c scenario]    ./bisg wait   ./bisg status   ./bisg logs [-f]
+#   ./bisg info                         every way in: addresses, Tailscale, sim view, Foxglove, QGC, ssh (live state + links)
 #   ./bisg view                         how to watch a run (browser URL / WebRTC client)   ./bisg shell [sim|ros]
 #   ./bisg smoke                        arm/takeoff/land test           ./bisg all [gui|headless]  sim + mavros + ros
 #   ./bisg mavros up|down|state|logs [--drone N]                        ./bisg ros up|down|shell|build
@@ -26,6 +27,7 @@ case "${1:-}" in
   tailscale) shift; exec "$HERE/scripts/tailscale.sh" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
   bag) shift; exec "$HERE/scripts/bag.sh" "$@";;
-  -h|--help|help|"") sed -n 2,17p "$0";;
+  info) shift; exec "$HERE/scripts/info.sh" "$@";;
+  -h|--help|help|"") sed -n 2,18p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

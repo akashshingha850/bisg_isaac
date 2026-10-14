@@ -198,9 +198,8 @@ foxglove_ui(){
   [[ $1 == foxglove ]] || return 0
   if [[ $2 == down ]]; then compose --profile tools stop lichtblick >/dev/null 2>&1; compose --profile tools rm -f lichtblick >/dev/null 2>&1; return 0; fi
   compose --profile tools up -d lichtblick >/dev/null 2>&1 || { warn "foxglove web UI (lichtblick) did not start"; return 0; }
-  local ui="http://localhost:${FOXGLOVE_UI_PORT}"
-  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/raptor.json):"
-  echo "         ${ui}/?ds=foxglove-websocket&ds.url=ws://localhost:8765&layoutUrl=${ui}/layouts/raptor.json"
+  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/raptor.json; all addresses: ./bisg info):"
+  echo "         $(foxglove_url localhost)"
 }
 ros_tool_stop(){
   [[ -n "${1:-}" ]] || die "ros stop NAME"

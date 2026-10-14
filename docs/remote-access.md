@@ -15,6 +15,9 @@ one you can use depends on whether UDP reaches you.
 `SIM_VIEW=both` runs the two at once, and `gui+web` / `gui+webrtc` add a stream on top of the local
 window. Either transport forces rendering on, so never use one for a timing or regression run.
 
+`./bisg info` lists every way into the host on one screen (sim view, WebRTC, Foxglove, QGroundControl MAVLink + ZED video,
+ssh, Tailscale), each with its live state and its link for this machine, the LAN and the tailnet. It only reads; it starts nothing.
+
 ## You are on another network: the `tailscale` service
 
 A Tailscale node runs as a compose service (`tailscale`, ADR-009) on the host network. This server gets a
