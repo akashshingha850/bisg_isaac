@@ -81,6 +81,9 @@ vehicles:
         max_m: 5.0                     # beyond this the sensor reports quality 0
         rate_hz: 50.0
         noise_std_rad_s: 0.02
+      ground_truth:                    # exact pose/velocity -> PX4 (HIL_STATE_QUATERNION) -> ulog *_groundtruth on PX4's clock; test-only,
+        enabled: true                  # PX4 does not fuse it. Read by tests/range_flow_eval.py and tests/vio_eval.py
+        rate_hz: 100.0
       chase_cam:
         enabled: true
         resolution: [640, 360]

@@ -6,12 +6,7 @@ docker/sim/cache/
 logs/
 
 # Large assets: keep worlds out of git unless LFS is set up
-docker/sim/worlds/**/*.usd
-docker/sim/worlds/**/*.usda
-docker/sim/worlds/**/*.usdc
-docker/sim/worlds/**/*.usdz
-docker/sim/worlds/**/*.ply
-!docker/sim/worlds/**/README.md
+docker/sim/worlds/
 
 # ROS 2 workspace build products
 docker/ros/ros2_ws/build/
