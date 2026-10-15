@@ -80,6 +80,22 @@ settle; base repeated three times (0.547 / 0.549 / 0.548). Variants were copies 
 | ZED twin off | 0.85 | |
 | ZED twin and chase cam off | **0.99** | real time |
 
+Same method on **Workstation B** (2x RTX 6000 Ada, Threadripper PRO 7975WX, 2026-10-15, `bisg/sim:6.0.0` with Pegasus `08c9954`; `./bisg all <view>`
+per variant, mean of 17–41 heartbeats over 120 s after a 150 s settle, sd ≤ 0.01; base repeated: 0.720 / 0.717):
+
+| Workstation B | RTF | steps/s | vs A |
+|---|---:|---:|---:|
+| headless, ZED twin + chase cam 10 Hz (default scene) | **0.72** | 86 | 0.58 |
+| headless+webrtc (`./bisg all headless` with `SIM_VIEW=gui+webrtc` in `bisg.conf`: the stream stays on) | 0.64 | 77 | |
+| gui | 0.61 | 73 | 0.51 |
+| gui+webrtc (`bisg.conf` default) | 0.60 | 71 | 0.51 |
+| headless, chase cam off | 0.76 | 91 | 0.60 |
+| headless, ZED twin off | **1.22** | 147 | 0.85 |
+| headless, ZED twin and chase cam off | **1.42** | 171 | 0.99 |
+
+B is ~1.3x A in every row; GPU0 stays at 31–41 % and GPU1 at 0–13 %, so the faster CPU (single-thread loop + PX4/ZED containers), not the
+GPU, is the likely difference. The ordering of the costs is the same: the ZED twin is most of the gap. A WebRTC stream costs ~11 % headless.
+
 So on 6.0 the loop is no longer held back by physics or Pegasus Python: with no extra cameras one drone runs in real time. **Every extra
 camera view costs the whole loop**: the main thread spends ~82 % of its time inside `simulation_app.update()` (py-spy, Python incl. all of
 Pegasus ~10 %) and only ~53 % of a core busy, i.e. it waits on the render of each view. The view mode (window, WebRTC) is worth < 8 %.
