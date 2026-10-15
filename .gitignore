@@ -32,5 +32,8 @@ docker/zed/zed-isaac-sim/
 
 # test output
 out/
+*.npz
 docker/ros/ros2_ws/*.stale/
-docker/zed/.*.yaml
+archive/vio-bench
+archive/px4-link-study
+# archive/vio-2026-10-15

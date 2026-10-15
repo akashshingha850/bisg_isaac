@@ -40,9 +40,11 @@ def flight(latency_s=0.0, lever_err=(0.0, 0.0, 0.0), yaw_slip_deg=0.0, gap=None,
     rng = np.random.default_rng(seed)
     t = np.arange(0.0, 60.0, 0.01)
     z = -np.clip((t - 5) / 3, 0, 1) ** 2 * (3 - 2 * np.clip((t - 5) / 3, 0, 1))      # smooth climb to 1 m (NED up = -z)
-    m = np.clip(t - 8, 0, None)
+    m = np.clip(t - 22, 0, None)                                       # hover 8-22 s, then a figure
     x, y = 0.8 * np.sin(0.3 * m), 0.8 * (1 - np.cos(0.25 * m))
-    psi = np.where(t > 20, 1.5 * np.sin(0.4 * (t - 20)), 0.0)          # up to 0.6 rad/s
+    sstep = lambda u: np.clip(u, 0, 1) ** 2 * (3 - 2 * np.clip(u, 0, 1))
+    psi = sum(np.pi / 2 * sstep((t - t0) / 1.5) for t0 in (9.0, 12.0, 15.0, 18.0))   # four 90 deg hover yaw steps (vio_bench)
+    psi = psi + np.where(t > 22, 1.5 * np.sin(0.4 * (t - 22)), 0.0)                # then yaw swings in flight
     p = np.stack([x, y, z], 1)
     v = np.gradient(p, t, axis=0)
     w = np.stack([0 * t, 0 * t, np.gradient(psi, t)], 1)
@@ -127,6 +129,12 @@ class Synthetic(unittest.TestCase):
         self.assertAlmostEqual(dx, 0.05, delta=0.005)
         self.assertAlmostEqual(dy, -0.03, delta=0.005)
 
+    def test_yaw_drift_is_not_taken_for_a_lever_arm(self):
+        """A yaw error rotates positions about the takeoff point; the old whole-flight fit read that as a ~2 cm camera offset."""
+        rep, _ = self.run_eval(yaw_slip_deg=-3.0)
+        self.assertLess(max(abs(v) for v in rep["lever_arm_fit"]["delta_xy_m"]), 0.003)
+        self.assertEqual(rep["lever_arm_fit"]["hover_rotations"], 4)
+
     def test_yaw_slip_is_measured(self):
         rep, _ = self.run_eval(yaw_slip_deg=-3.0)
         self.assertAlmostEqual(rep["yaw"]["end_deg"], -3.0, delta=0.1)
@@ -190,8 +198,7 @@ class Archive(unittest.TestCase):
                 self.assertLessEqual(abs(rep["latency_ms"]["best_lag_ms"]), 20)          # restamp_latency_ms 85 holds
                 for ax in "xy":
                     self.assertAlmostEqual(rep["velocity_body"][ax]["scale"], 1.0, delta=0.02)
-                if run != "4-confirm-fromfile":     # its 0.22 m gap slip happened while yawed: the fit absorbs it (4.6 cm)
-                    self.assertLess(max(abs(v) for v in rep["lever_arm_fit"]["delta_xy_m"]), 0.03)   # EKF2_EV_POS_* right
+                self.assertLess(max(abs(v) for v in rep["lever_arm_fit"]["delta_xy_m"]), 0.02)   # EKF2_EV_POS_* right (hover steps)
                 self.assertLess(max(rep["position"]["hf_noise_std_m"].values()), 0.015)  # 4-9 mm; run 4: 10 mm (slip step)
 
     def test_baseline_fast_yaw_slips_and_fails(self):
@@ -256,9 +263,23 @@ class Params(unittest.TestCase):
         self.assertEqual(p["EKF2_EV_CTRL"], 13)            # hpos + 3D vel + yaw, not the drifting vertical position
         self.assertEqual(p["EKF2_EV_DELAY"], 0)            # the bridge stamps at capture
 
-    def test_eval_lever_arm_matches_ekf2(self):
+    def test_camera_mount_is_one_value_in_three_files(self):
+        """Twin mount (raptor.yaml, FLU), EKF2 lever arm (raptor.params, FRD) and the wrapper's initial_base_pose (zed.yaml, FLU)
+        are one physical fact; vio_eval reads raptor.params. Real drone: centred, forward offset only (y = 0)."""
+        import yaml
         p = read_params("raptor")
-        self.assertEqual([p["EKF2_EV_POS_X"], p["EKF2_EV_POS_Y"], p["EKF2_EV_POS_Z"]], list(vio_eval.R_CAM_FRD))
+        frd = [p["EKF2_EV_POS_X"], p["EKF2_EV_POS_Y"], p["EKF2_EV_POS_Z"]]
+        self.assertEqual(frd, list(vio_eval.R_CAM_FRD))
+        with open(os.path.join(ROOT, "docker", "sim", "assets", "vehicles", "raptor", "raptor.yaml")) as fh:
+            twin = yaml.safe_load(fh)["vehicles"][0]["sensors"]["zed"]["mount_xyz_rpy"]
+        with open(os.path.join(ROOT, "docker", "zed", "zed.yaml")) as fh:
+            base = yaml.safe_load(fh)["positional_tracking"]["initial_base_pose"]
+        flu_from_frd = [frd[0], -frd[1], -frd[2]]
+        for name, flu in (("raptor.yaml sensors.zed.mount_xyz_rpy", twin), ("zed.yaml initial_base_pose", base)):
+            for a, b in zip(flu[:3], flu_from_frd):
+                self.assertAlmostEqual(a, b, places=6, msg=f"{name} {flu[:3]} != EKF2_EV_POS (FLU) {flu_from_frd}")
+            self.assertEqual(list(flu[3:6]), [0, 0, 0], msg=name)
+        self.assertEqual(frd[1], 0.0)                                   # centred on the real drone
 
 
 if __name__ == "__main__":

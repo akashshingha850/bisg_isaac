@@ -42,14 +42,19 @@ METRICS = {
     "pos_noise": ("ZED position noise (2 s HP)", "m", 4, lambda r: max(r["position"]["hf_noise_std_m"].values())),
     "gaps": ("EV gaps > 150 ms", "", 1, lambda r: r["frame_gaps"]["count"]),
     "gap_slip": ("worst slip at a gap", "m", 3, lambda r: r["frame_gaps"]["worst_slip_m"]),
+    "gap_yaw_slip": ("worst yaw slip at a gap", "deg", 2, lambda r: r["frame_gaps"].get("worst_yaw_slip_deg", float("nan"))),
+    "pose_jump": ("worst pose jump (no gap)", "m", 3, lambda r: r.get("pose_jumps", {}).get("worst_m", float("nan"))),
     "tilt_end": ("ZED frame tilt, end", "deg", 2, lambda r: r["tilt"]["end_deg"]),
     "ev_pos_fused": ("EV position fused", "", 3, lambda r: r["ekf2"].get("ev_pos", {}).get("fused", float("nan"))),
     "flow_fused": ("optical flow fused", "", 3, lambda r: r["ekf2"].get("optical_flow", {}).get("fused", float("nan"))),
 }
 TABLE = ["ekf_h_max", "ekf_h_end", "ekf_h_rms", "ekf_z_max", "ev_yaw_end", "ekf_yaw_end", "yaw_step_worst", "yaw_rate_peak",
-         "gaps", "gap_slip", "tilt_end"]
+         "gaps", "gap_slip", "gap_yaw_slip", "pose_jump", "tilt_end"]
+EVENTS = ["none (drift)", "slip at a frame gap", "yaw slip at a frame gap", "pose jump (no gap)", "yaw slip in a rotation"]
 CALIB = ["latency", "vel_scale_x", "vel_scale_y", "vel_rmse", "lever_fit", "pos_noise"]
-FIGS = ["ekf_h_max", "ekf_h_end", "ekf_z_max", "ev_yaw_end", "yaw_step_worst", "gap_slip"]
+FIGS = ["ekf_h_max", "ekf_h_end", "ekf_z_max", "ev_yaw_end", "yaw_step_worst", "gap_slip", "pose_jump"]
+DEFAULT_VERIFY = {"latency_abs_ms": 20, "vel_scale_err": 0.03, "lever_arm_m": 0.03, "event_free_horiz_max_m": 0.25,
+                  "performance_horiz_max_m": 0.30}
 COLORS = ["#2a6fdb", "#e0663a", "#2e9e5b", "#9b51e0", "#c9a227", "#d6457a", "#4aa3a2", "#7a7a7a"]
 
 
@@ -103,6 +108,7 @@ def load(camp):
                 except (KeyError, TypeError, ValueError):
                     run["metrics"][k] = float("nan")
         run["passed"] = bool(run["eval"] and not run["eval"].get("fails"))
+        run["event"] = (run["eval"] or {}).get("dominant_event", "-")
         run["series"] = read_series(os.path.join(d, "series.csv"))
         runs.append(run)
     return plan, machine, runs
@@ -127,42 +133,43 @@ def file_value(path, pattern):
 
 # ---- verdict + calibration -------------------------------------------------------------------------------------------
 def verify(plan, runs):
-    v = plan.get("verify", {})
+    v = {**DEFAULT_VERIFY, **plan.get("verify", {})}
     flown = [r for r in runs if r["metrics"]]
     checks, suggest = [], []
     if not flown:
         return "INCOMPLETE", [("flights with ZED data", False, "none")], suggest
     lat = st.median(r["metrics"]["latency"] for r in flown)
-    cur = file_value("docker/zed/zed.yaml", r"^\s*restamp_latency_ms:\s*([0-9.]+)\s*#\s*measured")
+    cur = plan.get("restamp_latency_ms")                                        # the value the campaign flew with
+    if cur is None or (isinstance(cur, float) and math.isnan(cur)):
+        cur = file_value("docker/zed/zed.yaml", r"^\s*restamp_latency_ms:\s*([0-9.]+)\s*#\s*measured")
     checks.append((f"residual EV latency |median| <= {v['latency_abs_ms']} ms", abs(lat) <= v["latency_abs_ms"], f"{lat:+.0f} ms"))
-    if abs(lat) > 5 and cur is not None:
+    if cur is not None and (abs(lat) > v["latency_abs_ms"] / 2 or (abs(lat) > 5 and len(flown) >= 3)):   # one flight: ~3 ms noise
         suggest.append(f"docker/zed/zed.yaml `sim.services.px4_bridge.odometry.restamp_latency_ms`: {cur:g} -> {cur + lat:.0f} "
                        f"(residual {lat:+.0f} ms at this machine's RTF)")
     for ax in "xy":
         s = st.median(r["metrics"][f"vel_scale_{ax}"] for r in flown)
         checks.append((f"ZED velocity scale {ax} within ±{v['vel_scale_err']}", abs(s - 1) <= v["vel_scale_err"], f"{s:.3f}"))
-    clean = [r for r in flown if r["metrics"]["gap_slip"] < 0.05] or flown       # a slip while yawed biases the lever fit
-    fits = [r["eval"]["lever_arm_fit"]["delta_xy_m"] for r in clean]
-    fx, fy = st.median(f[0] for f in fits), st.median(f[1] for f in fits)
-    checks.append((f"lever-arm fit |median| <= {v['lever_arm_m']} m ({len(clean)} flights without a gap slip)",
-                   math.hypot(fx, fy) <= v["lever_arm_m"], f"({fx:+.3f}, {fy:+.3f}) m"))
-    if math.hypot(fx, fy) > v["lever_arm_m"] / 2 and len(clean) >= 3:       # one flight is too noisy to move the mount
-        px = file_value("docker/sim/px4/raptor.params", r"^EKF2_EV_POS_X\s+([-0-9.]+)")
-        py = file_value("docker/sim/px4/raptor.params", r"^EKF2_EV_POS_Y\s+([-0-9.]+)")
-        if px is not None and py is not None:
-            suggest.append(f"raptor.params EKF2_EV_POS_X/Y: {px:g}/{py:g} -> {px + fx:.4f}/{py + fy:.4f} (check the mount first)")
-    cal = [r for r in runs if r["config"] == "calibrated" and r.get("status") == "done"]
-    if cal:
-        rate = sum(r["passed"] for r in cal) / len(cal)
-        checks.append((f"calibrated flights passing vio_eval's gates >= {v['calibrated_pass_rate']:.0%}",
-                       rate >= v["calibrated_pass_rate"], f"{sum(r['passed'] for r in cal)}/{len(cal)}"))
-        hm = [r["metrics"].get("ekf_h_max") for r in cal if r["metrics"]]
-        if hm:
-            med = st.median(hm)
-            checks.append((f"calibrated EKF2 horizontal max, median <= {v['calibrated_horiz_max_median_m']} m",
-                           med <= v["calibrated_horiz_max_median_m"], f"{med:.3f} m"))
+    fits = [r["eval"]["lever_arm_fit"]["delta_xy_m"] for r in flown
+            if r["eval"]["lever_arm_fit"].get("hover_rotations", 1) and all(num(x) for x in r["eval"]["lever_arm_fit"]["delta_xy_m"])]
+    if fits:
+        fx, fy = st.median(f[0] for f in fits), st.median(f[1] for f in fits)
+        checks.append((f"lever-arm fit from hover yaw steps |median| <= {v['lever_arm_m']} m ({len(fits)} flights)",
+                       math.hypot(fx, fy) <= v["lever_arm_m"], f"({fx:+.4f}, {fy:+.4f}) m"))
+        if math.hypot(fx, fy) > v["lever_arm_m"] / 2 and len(fits) >= 3:
+            px = file_value("docker/sim/px4/raptor.params", r"^EKF2_EV_POS_X\s+([-0-9.]+)")
+            py = file_value("docker/sim/px4/raptor.params", r"^EKF2_EV_POS_Y\s+([-0-9.]+)")
+            suggest.append(f"the sim ZED's effective camera position is ({fx:+.3f}, {fy:+.3f}) m (FRD) off EKF2_EV_POS_X/Y {px:g}/{py:g}: "
+                           "check the twin's mount (raptor.yaml sensors.zed) before touching raptor.params, which is the REAL mount")
     else:
-        checks.append(("calibrated flights", False, "none flown"))
+        checks.append(("lever-arm fit", True, "no hover yaw steps in these flights: not checked"))
+    cal = [r for r in runs if r["config"] == "calibrated" and r["metrics"]]
+    free = [r for r in cal if r["event"] == "none (drift)"]
+    if free:
+        worst = max(r["metrics"]["ekf_h_max"] for r in free)
+        checks.append((f"event-free calibrated flights: EKF2 horizontal max <= {v['event_free_horiz_max_m']} m",
+                       worst <= v["event_free_horiz_max_m"], f"worst {worst:.3f} m over {len(free)}/{len(cal)} flights"))
+    else:
+        checks.append(("event-free calibrated flights", False, f"none of {len(cal)} (fly more: --reps)"))
     return ("PASS" if all(c[1] for c in checks) else "FAIL"), checks, suggest
 
 
@@ -177,7 +184,8 @@ def nice_max(x):
     return 10 * e
 
 
-def svg_bars(path, title, unit, names, groups, ref=None):
+def svg_bars(path, title, unit, names, groups, ref=None, hollow=None):
+    """groups: per name the flight values; hollow: per name, per flight True = drawn as an open circle (a flight with an SDK event)."""
     W, H, L, R, T, B = 760, 380, 70, 20, 40, 95
     vals = [x for g in groups for x in g if num(x)]
     top = nice_max(max(vals + [ref or 0]) * 1.1 if vals else 1)
@@ -204,11 +212,15 @@ def svg_bars(path, title, unit, names, groups, ref=None):
                 xm = x0 + bw / 2
                 o.append(f'<line x1="{xm:.1f}" x2="{xm:.1f}" y1="{y(min(top, d["mean"] + d["std"])):.1f}" '
                          f'y2="{y(max(0, d["mean"] - d["std"])):.1f}" stroke="#222" stroke-width="1.5"/>')
+            flags = [h for x_, h in zip(g, (hollow or [[]] * len(groups))[i] or [False] * len(g)) if num(x_)]
             for k, v in enumerate(x for x in g if num(x)):
-                o.append(f'<circle cx="{x0 + bw * (0.35 + 0.3 * k / max(d["n"] - 1, 1)):.1f}" cy="{y(min(v, top)):.1f}" r="3.5" '
-                         f'fill="{c}"/>')
+                fill = "white" if k < len(flags) and flags[k] else c
+                o.append(f'<circle cx="{x0 + bw * (0.35 + 0.3 * k / max(d["n"] - 1, 1)):.1f}" cy="{y(min(v, top)):.1f}" r="3.8" '
+                         f'fill="{fill}" stroke="{c}" stroke-width="1.6"/>')
         o.append(f'<text x="{x0 + bw / 2:.1f}" y="{H - B + 16}" text-anchor="end" '
                  f'transform="rotate(-30 {x0 + bw / 2:.1f} {H - B + 16})">{n}</text>')
+    if hollow:
+        o.append(f'<text x="{W - R}" y="{H - 8}" text-anchor="end" fill="#666">filled dot = flight, open dot = flight with an SDK event</text>')
     o.append(f'<line x1="{L}" x2="{W - R}" y1="{y(0):.1f}" y2="{y(0):.1f}" stroke="#444"/></svg>')
     write(path, "\n".join(o))
 
@@ -262,6 +274,10 @@ def build(camp, quiet=False):
     by = {n: [r for r in runs if r["config"] == n] for n in names}
     stats = {n: {k: describe([r["metrics"].get(k) for r in rs if r["metrics"]]) for k in METRICS} for n, rs in by.items()}
     verdict, checks, suggest = verify(plan, runs)
+    vv = {**DEFAULT_VERIFY, **plan.get("verify", {})}
+    free_stats = {n: {k: describe([r["metrics"].get(k) for r in rs if r["metrics"] and r["event"] == "none (drift)"]) for k in METRICS}
+                  for n, rs in by.items()}
+    attribution = {n: {e: sum(1 for r in rs if r["metrics"] and r["event"] == e) for e in EVENTS} for n, rs in by.items()}
     versions = next((r["versions"] for r in runs if r.get("versions")), {})
     rtfs = [r["rtf"]["median"] for r in runs if r.get("rtf", {}).get("median")]
     figs = os.path.join(camp, "figures")
@@ -271,7 +287,8 @@ def build(camp, quiet=False):
     for k in FIGS:
         lab, unit, _, _ = METRICS[k]
         svg_bars(os.path.join(figs, f"{k}.svg"), lab, unit, names, [[r["metrics"].get(k) for r in by[n] if r["metrics"]] for n in names],
-                 ref=0.3 if k == "ekf_h_max" else None)
+                 ref=vv["performance_horiz_max_m"] if k == "ekf_h_max" else None,
+                 hollow=[[r["event"] != "none (drift)" for r in by[n] if r["metrics"]] for n in names])
     for key, lab, unit in (("ekf_horiz_err_m", "EKF2 horizontal error vs ground truth", "m"),
                            ("ev_yaw_err_deg", "ZED yaw error vs ground truth (|.|)", "deg")):
         curves = [[(r["series"]["t_s"], [abs(v) for v in r["series"][key]]) if r["series"] else None for r in by[n]] for n in names]
@@ -309,6 +326,19 @@ def build(camp, quiet=False):
         done = [r for r in rs if r.get("status") == "done"]
         md.append(f"| `{n}` | {len(done)}/{len(rs)} | {sum(r['passed'] for r in done)}/{len(done)} | "
                   + " | ".join(fmt(stats[n][k], METRICS[k][2]) for k in TABLE) + " |")
+    lim = vv["performance_horiz_max_m"]
+    md += ["", f"## Performance and failure attribution (EKF2 horizontal max <= {lim} m; dominant SDK event per flight, tests/vio_eval.py)", "",
+           f"| config | flights | within {lim} m | " + " | ".join(EVENTS) + " | EKF2 h max, event-free flights [m] | EKF2 h max, flights with an event [m] |",
+           "|---|---|---|" + "---|" * len(EVENTS) + "---|---|"]
+    for n in names:
+        fl = [r for r in by[n] if r["metrics"]]
+        ev_vals = [r["metrics"]["ekf_h_max"] for r in fl if r["event"] != "none (drift)"]
+        md.append(f"| `{n}` | {len(fl)} | {sum(r['metrics']['ekf_h_max'] <= lim for r in fl)}/{len(fl)} | "
+                  + " | ".join(str(attribution[n][e]) for e in EVENTS) + f" | {fmt(free_stats[n]['ekf_h_max'], 3)} | {fmt(describe(ev_vals), 3)} |")
+    tot = {e: sum(a[e] for a in attribution.values()) for e in EVENTS}
+    nfl = sum(1 for r in runs if r["metrics"])
+    md += ["", f"All configs: {nfl} flights, " + ", ".join(f"{e}: {c}" for e, c in tot.items()) + ". An event is an SDK tracking failure of the "
+           "IMU-less sim ZED (docs/vio.md); the event-free column isolates what the parameters do."]
     if "calibrated" in names:
         md += ["", "## Ablation: difference of the means vs `calibrated` (positive = worse for errors)", "",
                "| config | " + " | ".join(f"Δ {METRICS[k][0]} [{METRICS[k][1]}]" for k in TABLE[:7]) + " |", "|---|" + "---|" * 7]
@@ -321,25 +351,31 @@ def build(camp, quiet=False):
                 a, b = stats[n][k], base[k]
                 cells.append(f"{a['mean'] - b['mean']:+.{METRICS[k][2]}f}" if a.get("n") and b.get("n") else "-")
             md.append(f"| `{n}` | " + " | ".join(cells) + " |")
+        md += ["", "Event-free flights only (the parameter effect without the SDK events): EKF2 horizontal max / RMS, ZED yaw end:", "",
+               "| config | n | EKF2 h max [m] | EKF2 h RMS [m] | ZED yaw end [deg] | worst yaw slip per rotation [deg] |", "|---|---|---|---|---|---|"]
+        for n in names:
+            fs = free_stats[n]
+            md.append(f"| `{n}` | {fs['ekf_h_max'].get('n', 0)} | {fmt(fs['ekf_h_max'], 3)} | {fmt(fs['ekf_h_rms'], 3)} | "
+                      f"{fmt(fs['ev_yaw_end'], 2)} | {fmt(fs['yaw_step_worst'], 2)} |")
     md += ["", "## Calibration of the ZED pipeline (every flight; independent of the EKF2 params)", "",
            "| quantity | all flights | what it calibrates |", "|---|---|---|"]
     allm = {k: describe([r["metrics"].get(k) for r in runs if r["metrics"]]) for k in METRICS}
     what = {"latency": "zed.yaml sim `restamp_latency_ms` (residual should be ~0)", "vel_scale_x": "velocity frame/scale (1.0)",
             "vel_scale_y": "velocity frame/scale (1.0)", "vel_rmse": "vs `EKF2_EVV_NOISE` 0.1 m/s",
-            "lever_fit": "`EKF2_EV_POS_*` (raptor.params) (~0; biased by gap slips)", "pos_noise": "vs `EKF2_EVP_NOISE` 0.1 m"}
+            "lever_fit": "`EKF2_EV_POS_*` (raptor.params) (~0; from the hover yaw steps)", "pos_noise": "vs `EKF2_EVP_NOISE` 0.1 m"}
     md += [f"| {METRICS[k][0]} [{METRICS[k][1]}] | {fmt(allm[k], METRICS[k][2] + 1)} | {what[k]} |" for k in CALIB]
     infra = [(r["dir"], f) for r in runs for f in r.get("infra_failures", [])]
     md += ["", "## Reliability of the sim stack", "",
            f"{len(infra)} infra failure(s) over {sum(r.get('attempts', len(r.get('infra_failures', []))) for r in runs)} boots "
            f"(each retried on a fresh sim; not counted against the VIO):", ""]
     md += [f"- `{d}` attempt {f['attempt']}: {f['what']}" for d, f in infra] or ["- none"]
-    md += ["", "## Flights", "", "| flight | status | attempts | RTF | flight | gates | EKF2 h max [m] | ZED yaw end [deg] | gaps | fails |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
+    md += ["", "## Flights", "", "| flight | status | attempts | RTF | flight | gates | EKF2 h max [m] | ZED yaw end [deg] | gaps | dominant event | fails |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in runs:
         m = r["metrics"]
         md.append(f"| `{r['dir']}` | {r.get('status')} | {r.get('attempts', '-')} | {r.get('rtf', {}).get('median', '-')} | "
                   f"{'ok' if r.get('flight_rc') == 0 else r.get('flight_rc', '-')} | {'PASS' if r['passed'] else 'FAIL'} | "
-                  f"{m.get('ekf_h_max', float('nan')):.3f} | {m.get('ev_yaw_end', float('nan')):.2f} | {m.get('gaps', float('nan')):.0f} | "
+                  f"{m.get('ekf_h_max', float('nan')):.3f} | {m.get('ev_yaw_end', float('nan')):.2f} | {m.get('gaps', float('nan')):.0f} | {r['event']} | "
                   f"{'; '.join((r['eval'] or {}).get('fails', [])) or '-'} |")
     md += ["", "## Figures", ""] + [f"![{METRICS[k][0]}](figures/{k}.svg)" for k in FIGS] + \
           ["![EKF2 horizontal error over time](figures/ekf_horiz_err_m.svg)", "![ZED yaw error over time](figures/ev_yaw_err_deg.svg)", ""]
@@ -347,15 +383,16 @@ def build(camp, quiet=False):
 
     # summary.json / .csv
     write(os.path.join(camp, "summary.json"), json.dumps({"verdict": verdict, "checks": [{"check": c, "pass": ok, "value": v} for c, ok, v in checks], "suggestions": suggest,
-               "machine": machine, "versions": versions, "stats": stats, "all_flights": allm,
-               "flights": [{k: r.get(k) for k in ("dir", "config", "rep", "status", "attempts", "flight_rc", "rtf", "passed", "metrics",
+               "machine": machine, "versions": versions, "stats": stats, "stats_event_free": free_stats, "attribution": attribution,
+               "all_flights": allm,
+               "flights": [{k: r.get(k) for k in ("dir", "config", "rep", "status", "attempts", "flight_rc", "rtf", "passed", "event", "metrics",
                                                   "infra_failures", "params_applied")} for r in runs]}, indent=1))
     with open(os.path.join(camp, "summary.csv"), "w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["flight", "config", "rep", "status", "attempts", "rtf", "passed"] + list(METRICS))
+        w.writerow(["flight", "config", "rep", "status", "attempts", "rtf", "passed", "event"] + list(METRICS))
         for r in runs:
             w.writerow([r["dir"], r["config"], r.get("rep"), r.get("status"), r.get("attempts"), r.get("rtf", {}).get("median"),
-                        int(r["passed"])] + [r["metrics"].get(k, "") for k in METRICS])
+                        int(r["passed"]), r["event"]] + [r["metrics"].get(k, "") for k in METRICS])
     if not quiet:
         print(f"{camp}/summary.md: verdict {verdict}")
         for c, ok, v in checks:

@@ -49,13 +49,64 @@ config; ablation deltas vs `calibrated`; pipeline calibration; reliability; per-
 flight), `figures/*.svg` (bars per config with every flight as a dot; EKF2 horizontal and ZED yaw error over time), `machine.json`,
 `campaign.yaml`, `campaign.log`, `runs/<config>-r<k>/` (`flight.ulg`, `topics.npz`, `vio_eval.json`, `series.csv`, `bench.log`, `run.json`).
 
-Verdict (exit 0 = PASS, `verify:` in the YAML): over all flights the residual EV latency (|median| <= 20 ms), the ZED velocity scale
-(±0.03) and the lever-arm fit (<= 3 cm, flights without a gap slip); over the `calibrated` flights the pass rate of vio_eval's gates
-(>= 2/3) and the median EKF2 horizontal max (<= 0.3 m). When a pipeline quantity is off for this machine the report prints the
-correction, e.g. a new `restamp_latency_ms` (it is wall latency x RTF, so it moves with the machine's sim speed).
+Verdict (exit 0 = PASS, `verify:` in the YAML) answers "is the VIO pipeline calibrated on this machine": over every flight the
+residual EV latency (|median| <= 20 ms), the ZED velocity scale (±0.03) and the lever-arm fit (<= 3 cm, from the hover yaw steps); and every
+`calibrated` flight without an SDK event (tests/vio_eval.py `dominant_event`: slip or yaw slip at a frame gap, pose jump, yaw slip in a
+rotation) within 0.25 m (from the data, see the centred-camera note): an error without an SDK event means the configuration is wrong, which is what this gate catches. Performance
+(flights within the 0.3 m bound, events per config, statistics over all and over event-free flights) is reported, not gated: in the sim
+it is set by random SDK events no parameter removes. The report prints corrections when a pipeline quantity is off for this machine,
+e.g. a new `restamp_latency_ms` (wall latency x RTF, so it moves with the machine's sim speed; the campaign records the value it flew with).
 Tests of the tools themselves (no sim): `python3 -m unittest tests.unit.test_vio_eval tests.unit.test_vio_report`.
 
-## Results
+## Ablation study 2026-10-15 (stallman2, 6 configs x 3 flights)
+
+`./bisg vio bench --archive`: [archive/vio-bench/20261015-152046-stallman2/summary.md](../archive/vio-bench/20261015-152046-stallman2/summary.md)
+(experimental setup, every table, per-flight reports, `topics.npz` log extracts, figures). RTX 4500 Ada, driver 580.178.04, Core Ultra 9 285K,
+Isaac Sim 6.0.0, PX4 v1.17.0, ZED SDK 5.4.1, headless, RTF 0.56-0.59, `restamp_latency_ms` 85; 18 flights in 121 min, 2 infra failures (the
+wrapper never connected, B18 class; retried). Errors are EKF2 vs ground truth over the ~130 s, ~26 m profile.
+
+| config | within 0.3 m | EKF2 horizontal max, all flights [m] | event-free flights: n, EKF2 h max [m] | flights with an SDK event (which) |
+|---|---|---|---|---|
+| `calibrated` | 1/3 | 0.320 ± 0.236 (0.070-0.540) | 1: 0.070 | 2 (yaw slip at a gap 0.35; pose jump 0.54) |
+| `no_yaw_limit` | 2/3 | 0.261 ± 0.215 (0.129-0.509) | 1: 0.129 | 2 (yaw slip at a gap 0.14, 0.51) |
+| `no_eva_fix` | 3/3 | 0.181 ± 0.104 (0.071-0.278) | 1: 0.071 | 2 (yaw slip in a rotation 0.28; slip at a gap 0.20) |
+| `px4_defaults` | 2/3 | 0.288 ± 0.302 (0.088-0.635) | 1: 0.088 | 2 (yaw slip at a gap 0.14, 0.64) |
+| `no_flow` | 2/3 | 0.188 ± 0.165 (0.090-0.378) | 2: 0.093 ± 0.004 | 1 (slip at a gap 0.38) |
+| `ev_no_position` | 3/3 | 0.163 ± 0.037 (0.121-0.189) | 3: 0.163 ± 0.037 | 0 (pose jumps / slips are not fused) |
+
+What it shows (n = 3 per config: the means do not separate the configs, the SDK events do):
+- **Every flight over 0.25 m had an SDK event**, every event-free flight stayed <= 0.19 m. 9 of 18 flights had an event: 5 yaw slips at a
+  frame gap, 2 position slips at a gap, 1 pose jump without a gap (0.42 m in one sample, calibrated r3), 1 yaw slip in a rotation. No PX4
+  parameter here removes them; they are the IMU-less sim tracking (real ZED: IMU-fused).
+- **Yaw rate drives the yaw slips** (`MC_YAWRATE_MAX 60` kept): at 328 deg/s 4 of 6 flights had a yaw slip at a frame gap, at 99 deg/s 1 of 12
+  (one-sided Fisher exact p = 0.02); worst slip per rotation 5.8-6.1 deg mean vs 0.8-3.9.
+- **`EKF2_EVA_NOISE 0.01` makes EKF2's heading follow the ZED's** (kept): |EKF2 - ZED| yaw at the end 0.11-0.21 deg (calibrated) vs
+  0.22-2.31 (`no_eva_fix`) and 0.43-3.92 (`px4_defaults`). It cannot fix a slipped ZED yaw; it removes the lag.
+- **ZED velocity instead of position (`EKF2_EV_CTRL 12`) is the robust variant**: 3/3 within bound, no events reach EKF2 (a pose jump or
+  slip in the ZED position is not fused), but ~2x the event-free error (0.163 vs 0.070-0.093 m: velocity integrates drift). A candidate for
+  the real drone if its ZED shows jumps; kept at 13 (position) until hardware data exists.
+- **Optical flow** helps a little without events (0.093 vs 0.070 m event-free, n = 2 / 1); it does not prevent a ZED slip (EKF2 trusts the
+  ZED position more).
+- **Pipeline calibration on this machine** (all 18 flights): residual latency +10.8 ± 3.1 ms -> `restamp_latency_ms` 85 -> 95 (applied, see
+  the verification below); velocity scale 0.995 / 1.001; position noise 7.5 mm; the camera lever arm, fitted from the hover yaw steps only (306 steps, 20 flights),
+  is within (+1.0, -1.9) mm of `EKF2_EV_POS` (the first report said ~2 cm sideways: its whole-flight fit took yaw drift, which rotates
+  positions about the takeoff point, for a lever arm; replaced 2026-10-15, unit test `test_yaw_drift_is_not_taken_for_a_lever_arm`). The
+  real ZED is centred with a forward offset only: y set to 0 in raptor.yaml, raptor.params and zed.yaml (it was the placeholder CoM's
+  1.1 mm), and `tests/unit/test_vio_eval.py` checks the three stay one value; vio_eval reads it from raptor.params.
+
+**Verification of the latency change** (`./bisg vio bench --configs calibrated --reps 3`, same machine, `restamp_latency_ms` 95,
+[archive/vio-bench/20261015-172336-stallman2](../archive/vio-bench/20261015-172336-stallman2/summary.md)): residual latency +1.7 ± 2.9 ms
+(median 0, was +10.8 at 85), verdict PASS, 3/3 flights within 0.3 m (event-free 0.129 / 0.140 m; one slip at a frame gap 0.238 m), velocity
+scale 0.996 / 1.001, no infra failure, lever-arm fit (-0.002, +0.000) m.
+
+**Centred camera (y = 0), 2026-10-15**: `./bisg vio check` twice. First run FAIL under the then 0.15 m event-free gate: 0.181 m with no
+detected event, but a 2.0 deg ZED yaw slip in one hover step (under the 3 deg event threshold) rotated the frame -2.45 deg, ~9 cm at the
+far square corner; pipeline fine (latency +5 ms, scale 0.993 / 1.001, lever (-8, +6) mm). That gate was a guess from 3 flights; it is now
+0.25 m from the data (22 flights fusing ZED position: event-free <= 0.19 m, with an event 0.14-0.64 m). Rerun PASS: 0.120 m, lever
+(-1.3, +6.0) mm ([archive/vio-bench/20261015-181554-stallman2](../archive/vio-bench/20261015-181554-stallman2/summary.md); the FAIL run is
+kept as [20261015-180905-stallman2](../archive/vio-bench/20261015-180905-stallman2/summary.md)).
+
+## First flights 2026-10-15 (gui+webrtc, before the benchmark)
 
 | Run (fresh sim each) | yaw rate peak | ZED yaw error, end | EKF2 horizontal max / end | EKF2 z max | notes |
 |---|---|---|---|---|---|
@@ -68,7 +119,7 @@ Same in every run (the ZED pipeline itself is calibrated):
 - **Velocity** (body, vs the camera's true velocity incl. w x r): scale 0.996-1.002, RMSE 0.023-0.032 m/s with slow yaw (0.04-0.06 with
   325 deg/s yaw), rare spikes up to 2 m/s during fast rotation (EKF2 rejects 0.1-0.6 %). Frames and signs are right.
 - **Position** short-term noise 4-9 mm (10 mm in run 4, the slip step); drift during translation only (0-58 s of the profile) within 2 cm, table edge included.
-- **Lever arm**: the yaw-correlated error fits a camera offset of <= 2.5 cm, so `EKF2_EV_POS_*` (raptor.params) is right (runs 1 and 3; in run 4 the gap slip happened while yawed and the fit absorbs it: 4.6 cm).
+- **Lever arm**: from the hover yaw steps the camera offset is within 1.6 cm (run 1) and 0.9 cm (runs 3, 4) of `EKF2_EV_POS_*` (raptor.params); over all benchmark flights within 2 mm (above).
 - **EKF2 follows the ZED**: EV position innovations 4-9 mm vs the assumed 0.1 m, flow fused 99.97 % but it cannot correct the ZED.
   EKF2's horizontal error is the ZED's error.
 

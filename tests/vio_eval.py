@@ -56,8 +56,20 @@ KEEP = {
     "distance_sensor": ["timestamp", "current_distance"],
 }
 TOPICS = list(KEEP)
-R_CAM_FRD = np.array([0.1205, 0.0011, -0.0527])      # EKF2_EV_POS_X/Y/Z (docker/sim/px4/raptor.params)
+def ev_pos_from_params(path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docker", "sim", "px4", "raptor.params")):
+    """EKF2_EV_POS_X/Y/Z (body FRD, m) from the vehicle params file: the camera lever arm lives there only."""
+    vals = {}
+    with open(path) as fh:
+        for line in fh:
+            f = line.split("#")[0].split()
+            if len(f) >= 2 and f[0].startswith("EKF2_EV_POS_"):
+                vals[f[0][-1]] = float(f[1])
+    return np.array([vals["X"], vals["Y"], vals["Z"]])
+
+
+R_CAM_FRD = ev_pos_from_params()                       # the camera lever arm EKF2 uses (raptor.params)
 GAP_MS = 150.0                                         # an EV gap longer than this is reported
+JUMP_M = 0.10                                          # a ZED position step this much off truth between two samples = a pose jump
 GATES = {
     "latency_abs_ms": 30.0,          # residual EV latency after the bridge's restamp
     "vel_scale_err": 0.05,           # |slope - 1| per horizontal axis
@@ -280,7 +292,7 @@ def analyse(d, air_margin=0.15):
         y_k = yaw_of(quat_interp(tstamp(ka), vec(ka, "q", 4), t_ev))
         yerr_k = wrap(y_k + wrap(y_gt[i0] - y_k[i0]) - y_gt)
     spinning = np.abs(wg[:, 2]) > 0.3
-    steps = []
+    steps, rotations = [], []
     edges = np.flatnonzero(np.diff(spinning.astype(int)))
     for s in edges[~spinning[edges]] + 1:                      # rising edges
         ends = edges[(edges >= s) & spinning[edges]] + 1
@@ -297,6 +309,7 @@ def analyse(d, air_margin=0.15):
         if yerr_k is not None:
             row["ekf_err_after_deg"] = float(np.degrees(np.median(yerr_k[post])))
         steps.append(row)
+        rotations.append((s, e))
     rep["yaw_steps"] = {"steps": steps,
                         "peak_rate_dps": max((r["peak_rate_dps"] for r in steps), default=0.0),
                         "worst_ev_err_added_deg": max((abs(r["ev_err_added_deg"]) for r in steps), default=0.0)}
@@ -327,14 +340,21 @@ def analyse(d, air_margin=0.15):
         noise[ax] = float(np.std((e - sm)[ok]))
     rep["position"]["hf_noise_std_m"] = noise
 
-    # ---- lever arm: does the error follow the yaw? (a wrong r_cam gives err = (R(yaw) - R(yaw0)) * dr) ---------------
+    # ---- lever arm from the HOVER yaw steps: across a pure rotation the body-position error changes by (R_after - R_before) dr,
+    # dr = true camera offset - EKF2_EV_POS. Only hover rotations near the takeoff spot: a yaw error rotates positions about the
+    # takeoff point, so a whole-flight fit mistakes yaw drift for a lever arm (it read +2.3 cm sideways on a centred camera).
     Rg = rot(qg)
-    A = (Rg - Rg[i0])[air][:, :2, :2].reshape(-1, 2)            # horizontal part only
-    b = perr[air, :2].reshape(-1)
-    ok = np.isfinite(b) & np.all(np.isfinite(A), 1)
-    dr, *_ = np.linalg.lstsq(A[ok], b[ok], rcond=None)
-    rep["lever_arm_fit"] = {"delta_xy_m": [float(v) for v in dr],
-                            "note": "camera offset error that best explains the yaw-correlated position error; ~0 = EKF2_EV_POS ok"}
+    A, b = [], []
+    for s_, e_ in rotations:
+        pre, post = slice(max(0, s_ - 40), s_ - 5), slice(e_ + 15, min(len(t_ev), e_ + 50))
+        moving = max(np.linalg.norm(vg[pre, :2], axis=1).max(), np.linalg.norm(vg[post, :2], axis=1).max())
+        if moving > 0.1 or np.linalg.norm(np.median(disp_gt[post, :2], 0)) > 0.5:
+            continue
+        A.append((np.median(Rg[post], 0) - np.median(Rg[pre], 0))[:2, :2])
+        b.append(np.median(perr[post, :2], 0) - np.median(perr[pre, :2], 0))
+    dr = np.linalg.lstsq(np.concatenate(A), np.concatenate(b), rcond=None)[0] if A else np.full(2, np.nan)
+    rep["lever_arm_fit"] = {"delta_xy_m": [float(v) for v in dr], "hover_rotations": len(A), "camera_frd_m": R_CAM_FRD.tolist(),
+                            "note": "true camera offset - EKF2_EV_POS (FRD), from hover yaw steps; ~0 = EKF2_EV_POS ok, nan = no hover rotation"}
 
     # ---- frame gaps: the sim SDK has no IMU to bridge them, so a gap while moving slips the pose ---------------------
     dt = np.diff(t_ev) / 1e3
@@ -349,6 +369,31 @@ def analyse(d, air_margin=0.15):
                          "p99_dt_ms": float(np.percentile(dt[air[1:]], 99)),
                          "worst_slip_m": max((g["pos_err_change_m"] for g in gaps), default=0.0),
                          "worst_yaw_slip_deg": max((abs(g["yaw_err_change_deg"]) for g in gaps), default=0.0)}
+
+    # ---- pose jumps: the ZED position steps between consecutive samples (no gap) by more than truth moved -------------
+    dstep = np.linalg.norm(np.diff(perr[:, :2], axis=0), axis=1)
+    cand = np.flatnonzero((dstep > JUMP_M) & air[1:] & (dt <= GAP_MS))
+    jumps = []
+    for k in cand:
+        if jumps and t_ev[k] - jumps[-1]["_t"] < 1e6:          # one event per second
+            continue
+        i, j = max(0, k - 5), min(len(t_ev) - 1, k + 6)
+        jumps.append({"_t": t_ev[k], "t_s": float((t_ev[k] - t_ev[i0]) / 1e6),
+                      "pos_err_change_m": float(np.linalg.norm(perr[j, :2] - perr[i, :2])),
+                      "speed_mps": float(np.linalg.norm(vg[k, :2])), "yaw_rate_dps": float(np.degrees(abs(wg[k, 2])))})
+    for jmp in jumps:
+        jmp.pop("_t")
+    rep["pose_jumps"] = {"count": len(jumps), "jumps": jumps,
+                         "worst_m": max((jmp["pos_err_change_m"] for jmp in jumps), default=0.0)}
+
+    # ---- what made this flight's error (the largest SDK event; drift when none stands out) ---------------------------
+    fg = rep["frame_gaps"]
+    causes = {"pose jump (no gap)": rep["pose_jumps"]["worst_m"] / 0.1,
+              "slip at a frame gap": fg["worst_slip_m"] / 0.1,
+              "yaw slip at a frame gap": fg["worst_yaw_slip_deg"] / 3.0,
+              "yaw slip in a rotation": rep["yaw_steps"]["worst_ev_err_added_deg"] / 3.0}
+    top = max(causes, key=causes.get)
+    rep["dominant_event"] = top if causes[top] >= 1.0 else "none (drift)"
 
     # ---- tilt of the EV frame (roll/pitch vs truth; a pure heading offset does not change them) ---------------------
     (re_, pe_), (rt_, pt_) = roll_pitch(q_ev), roll_pitch(qg)

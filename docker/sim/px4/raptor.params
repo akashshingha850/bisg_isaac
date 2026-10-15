@@ -27,8 +27,8 @@ MC_YAWRATE_I    0.02    9   # 0.1
 # Keep equal to the mounts in docker/sim/assets/vehicles/raptor/raptor.yaml (FLU there: FRD = [x, -y, -z]) and, for the camera, to
 # `positional_tracking.initial_base_pose` in docker/zed/zed.yaml. EKF2 removes the rotation-induced motion of each sensor with these;
 # they only act when that source is fused (ekf2_vio_flow_range, ekf2_flow_range).
-EKF2_EV_POS_X   0.1205  9   # ZED Mini (zed_camera_link): FLU [0.1205, -0.0011, 0.0527]
-EKF2_EV_POS_Y   0.0011  9
+EKF2_EV_POS_X   0.1205  9   # ZED Mini (zed_camera_link): FLU [0.1205, 0, 0.0527]. Centred on the real drone (forward offset only);
+EKF2_EV_POS_Y   0.0     9   # hover-yaw-step fit over 20 sim flights: camera within 2 mm of these values (docs/vio.md)
 EKF2_EV_POS_Z  -0.0527  9
 EKF2_RNG_POS_X -0.0645  9   # LW20/C bottom face: FLU [-0.0645, 0.0011, -0.0353]
 EKF2_RNG_POS_Y -0.0011  9

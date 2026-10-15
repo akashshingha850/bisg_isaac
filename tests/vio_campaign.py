@@ -292,7 +292,10 @@ def main():
     os.makedirs(os.path.join(camp, "runs"), exist_ok=True)
     global LOG
     LOG = open(os.path.join(camp, "campaign.log"), "a")
-    plan = {**cfg, "selected_configs": names}
+    plan = {**cfg, "selected_configs": names,
+            # the sim calibration under test, read now (the files may change later; the report must compare to what was flown)
+            "restamp_latency_ms": float(first(r"^\s*restamp_latency_ms:\s*([0-9.]+)\s*#\s*measured",
+                                              open(os.path.join(ROOT, "docker", "zed", "zed.yaml")).read(), "nan"))}
     if not os.path.exists(os.path.join(camp, "campaign.json")):
         json.dump(plan, open(os.path.join(camp, "campaign.json"), "w"), indent=1)
         shutil.copy(a.config, os.path.join(camp, "campaign.yaml"))

@@ -78,7 +78,7 @@ positional_tracking:
   imu_fusion: true                  # true on the real camera (400 Hz IMU); the sim cannot supply that stream -> see `sim:`
   publish_tf: true
   publish_map_tf: false             # MAVROS/PX4 owns `map`; the wrapper publishes odom -> zed_camera_link only (map -> odom: zed_drone.launch.py)
-  initial_base_pose: [0.1205, -0.0011, 0.0527, 0.0, 0.0, 0.0]   # camera mount base_link -> zed_camera_link [x y z roll pitch yaw] (m, rad):
+  initial_base_pose: [0.1205, 0.0, 0.0527, 0.0, 0.0, 0.0]      # camera mount base_link -> zed_camera_link [x y z roll pitch yaw] (m, rad):
                                     # tracking starts here, and zed_drone.launch.py publishes its inverse zed_camera_link -> base_link.
                                     # Keep equal to the sim's sensors.zed.mount_xyz_rpy: the raptor (CAD, assets/vehicles/raptor/raptor.yaml),
                                     # which is also the real drone (measured value -> docs/hardware.md). Iris scenarios mount it at
@@ -205,7 +205,8 @@ sim:
       odometry:                     # on, as on the drone (no `enabled` delta): the sim default is GPS-denied since 2026-10-15
                                     # (sim.yaml px4_params ekf2_vio_flow_range). GPS scenarios ignore it: EKF2_EV_CTRL defaults to 0
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
-        restamp_latency_ms: 85.0    # measured 2026-10-10 (rtf 0.52): ZED odom reaches the bridge 85 ms of SIM time after the true
-                                    # motion (cross-correlated with ground truth). Without it EKF2 fuses every sample 85 ms late
-                                    # (B17). It is wall-clock latency x rtf: re-measure if the sim speed changes a lot
+        restamp_latency_ms: 95.0    # measured: ZED odom reaches the bridge this much SIM time after the true motion (cross-correlated
+                                    # with ground truth). Without it EKF2 fuses every sample late (B17). 85 (2026-10-10, rtf 0.52);
+                                    # 95 since 2026-10-15: `./bisg vio bench` left +10.8 +- 3.1 ms over 18 flights at rtf 0.56-0.59.
+                                    # It is wall-clock latency x rtf: `./bisg vio check` prints the correction for this machine
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low
