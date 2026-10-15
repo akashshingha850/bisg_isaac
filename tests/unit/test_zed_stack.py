@@ -36,8 +36,9 @@ class CompileTests(unittest.TestCase):
         sim = config.load(sim=True)
         self.assertFalse(sim.wrapper_params()["pos_tracking"]["imu_fusion"])
         self.assertTrue(sim.wrapper_params()["sensors"]["sensors_image_sync"])
-        self.assertNotIn("odometry", config.load(sim=True).bridge_modules())
-        self.assertIn("odometry", config.load().bridge_modules())
+        # odometry runs in both (the sim default is GPS-denied since 2026-10-15); only the sim restamps (PX4 is on sim time)
+        self.assertTrue(sim.bridge_modules()["odometry"]["restamp"])
+        self.assertFalse(config.load().bridge_modules()["odometry"]["restamp"])
 
     def test_unknown_key_is_rejected_with_a_suggestion(self):
         with self.assertRaisesRegex(config.ConfigError, "did you mean 'max_depth'"):

@@ -9,6 +9,7 @@ comments allowed). Names and ranges are checked against the pinned PX4 tag (`PX4
 | `raptor.params` | **vehicle file**, the raptor twin: the same collision prevention + **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer) |
 | `ekf2_vision.params` | overlay: GPS-denied flight on the ZED visual odometry (EKF2 external vision, GPS and magnetometer off) |
 | `ekf2_flow_range.params` | overlay: GPS-denied flight on the downward ToF + optical flow (docs/range-flow.md) |
+| `ekf2_vio_flow_range.params` | overlay: **the real drone's GPS-denied mode**: baro height reference + LW20 + ZED VIO + PMW3901, no GPS/mag (docs/range-flow.md "GPS-denied on all sensors"). Needs the vehicle's lever arms and `EKF2_MIN_RNG` (raptor.params) |
 
 A scenario lists **its vehicle's file first, then any overlays** (later wins): `px4.params: [iris]`, `[iris, ekf2_vision]`,
 `[raptor]`. Everything a vehicle always flies with goes in its vehicle file; only a sensing mode that switches EKF2 sources

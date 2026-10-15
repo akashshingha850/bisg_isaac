@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 """
-Hover-stability test: arm -> takeoff to ALT m -> settle -> record ATTITUDE for --hold SIM seconds -> land.
+Hover-stability test: arm -> takeoff to ALT m -> settle -> record ATTITUDE for --hold SIM seconds -> land. OFFBOARD
+(tests/mav_offboard.py): works with GPS and GPS-denied alike.
 Reports the spread of roll/pitch and of the body rates in the hover. A healthy Iris hovers with attitude std < ~1 deg
 and rate std < ~10 deg/s; a rate-loop limit cycle (e.g. physics too slow for PX4's 250 Hz tuning) shows up as
 tens of deg/s on the rates and a few degrees on attitude.
 
 Time is PX4's own clock (time_boot_ms = sim time), so it is valid at any real-time factor.
 
-    docker exec -i bisg-sim /isaac-sim/python.sh - --instance 0 --alt 2 --hold 15 < tests/hover_stability.py
-    (or: docker exec bisg-sim /isaac-sim/python.sh /workspace/tests/hover_stability.py ...)
+    docker exec bisg-sim /isaac-sim/python.sh /workspace/tests/hover_stability.py --instance 0 --alt 2 --hold 15
 Exit 0 = PASS.
 """
 import argparse
 import math
+import os
 import statistics as stats
 import sys
 import time
 
 from pymavlink import mavutil
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mav_offboard import Offboard  # noqa: E402
 
 
 def main():
@@ -41,54 +45,30 @@ def main():
         print("[hover] TIMEOUT: no autopilot heartbeat")
         return 1
     m.target_system, m.target_component = hb.get_srcSystem(), hb.get_srcComponent()
-    st = {"armed": False, "alt": 0.0, "t": 0.0}
+    st = {"t": 0.0}
     att = []
     recording = [False]
 
-    def pump(sec):
-        end = time.time() + sec
-        while time.time() < end:
-            msg = m.recv_match(blocking=True, timeout=0.2)
-            if msg is None:
-                continue
-            t = msg.get_type()
-            if t == "HEARTBEAT" and msg.get_srcSystem() == m.target_system:
-                st["armed"] = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
-            elif t == "LOCAL_POSITION_NED":
-                st["alt"], st["t"] = -msg.z, msg.time_boot_ms / 1000.0
-            elif t == "ATTITUDE" and recording[0]:
-                att.append(msg)
+    def on_msg(msg):
+        t = msg.get_type()
+        if t == "LOCAL_POSITION_NED":
+            st["t"] = msg.time_boot_ms / 1000.0
+        elif t == "ATTITUDE" and recording[0]:
+            att.append(msg)
 
-    def cmd(c, *p):
-        m.mav.command_long_send(m.target_system, m.target_component, c, 0, *([float(x) for x in p] + [0.0] * (7 - len(p))))
-
-    def wait(cond, timeout, what):
-        end = time.time() + timeout * a.patience
-        while time.time() < end:
-            pump(0.5)
-            if cond():
-                return True
-        print(f"[hover] TIMEOUT waiting for {what}")
-        return False
-
-    pump(5)
-    if not st["armed"]:
-        m.mav.param_set_send(m.target_system, m.target_component, b"MIS_TAKEOFF_ALT", a.alt, mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
-        pump(0.5)
-        cmd(mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 1)
-        if not wait(lambda: st["armed"], 20, "armed"):
-            return 2
-        cmd(mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, float("nan"), float("nan"), float("nan"), float("nan"))
-    if not wait(lambda: st["alt"] >= 0.95 * a.alt, 120, f"altitude >= {0.95 * a.alt:.1f} m"):
-        return 3
-    pump(5)  # settle after the climb
+    ob = Offboard(m, "hover", on_msg=on_msg, patience=a.patience)
+    if not ob.takeoff(a.alt, reach=0.95):
+        return 2
+    ob.pump(5)  # settle after the climb
     recording[0] = True
     t_start = st["t"]
     end_wall = time.time() + a.hold / 0.05 + 60
     while st["t"] - t_start < a.hold and time.time() < end_wall:
-        pump(0.5)
+        ob.pump(0.5)
     recording[0] = False
-    cmd(mavutil.mavlink.MAV_CMD_NAV_LAND)
+    st["alt"] = ob.rel_alt()
+    if not ob.land():
+        print("[hover] landing did not complete (results below are still valid)")
     if len(att) < 20:
         print(f"[hover] FAIL: only {len(att)} ATTITUDE messages")
         return 4

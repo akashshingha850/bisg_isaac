@@ -202,9 +202,8 @@ sim:
     sensors_image_sync: true
   services:
     px4_bridge:
-      odometry:
-        enabled: false              # sim default: the drone flies on GPS and the SDK is only observed. true = closed loop on the
-                                    # SDK's VIO (GPS-denied scenario, start `zed up` while `./bisg all` waits): works, accuracy 0.5 m, docs/bugs.md B17
+      odometry:                     # on, as on the drone (no `enabled` delta): the sim default is GPS-denied since 2026-10-15
+                                    # (sim.yaml px4_params ekf2_vio_flow_range). GPS scenarios ignore it: EKF2_EV_CTRL defaults to 0
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
         restamp_latency_ms: 85.0    # measured 2026-10-10 (rtf 0.52): ZED odom reaches the bridge 85 ms of SIM time after the true
                                     # motion (cross-correlated with ground truth). Without it EKF2 fuses every sample 85 ms late

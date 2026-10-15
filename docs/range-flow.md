@@ -76,6 +76,39 @@ Findings (not twin bugs, but they matter on the real drone):
 5. The flow twin is analytic. These numbers check the kinematics, signs, timing and the PX4/EKF2 path, not texture, lighting or the PMW3901's real noise.
    The real sensors need the same benchmark against ZED VIO or motion capture.
 
+## GPS-denied on all sensors: ZED + LW20 + PMW3901 + baro (2026-10-15)
+
+The real drone's mode and **the sim default since 2026-10-15** (`docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range]`; the
+bridge's ZED odometry is on in the sim as on the drone). Raptor in
+Simple Room, `tests/vio_flight.py --alt 1.2`, errors = EKF2 vs Pegasus ground truth (displacement from the pre-flight pose).
+
+**Why the Iris VIO run failed with 0.85 m of z error:** the sim's ZED drifts in z (raw odometry 13-15 cm in 50 s of flight; the SDK
+tracks without its IMU in the sim, `sim.positional_tracking.imu_fusion: false`) and `single_iris_vio` has no ToF or flow, so EKF2's
+vision height reference followed it. Not a regression of the IMU fix (same error on the pre-fix image). The ZED velocity is not the
+problem: its speed matches the truth (ratio 1.02) despite the SDK running on the wall clock.
+
+**The takeoff offset (fixed): `EKF2_MIN_RNG`.** On the floor the LW20 twin sits ~6.5 cm up, just above its 5 cm minimum, so ~6 % of
+readings come out invalid. EKF2 replaces each invalid sample while landed with `EKF2_MIN_RNG` (default **0.01 m**, i.e. "the floor is
+9 cm closer"), and the one at the takeoff transition left a 9-13 cm height offset for the whole flight, carried by the terrain estimate
+(`EKF2_TERR_NOISE` defaults to 5 m/s). `EKF2_MIN_RNG 0.10` in raptor.params (the real on-ground value) removed it. **On the drone,
+check the LW20/C's minimum range in its datasheet:** if it is above the mount height, every on-ground reading is invalid and
+`EKF2_MIN_RNG` is all EKF2 sees before takeoff.
+
+| Height reference (+ `MIN_RNG` fix unless noted) | Flat floor, 60 s hover + 1 m square: max x / y / z | Over the 0.78 m table edge |
+|---|---|---|
+| range, default `MIN_RNG` | 1.7 / 1.3 / 10.5 cm | |
+| range, default `MIN_RNG`, baro aiding off | 2.6 / 2.3 / 16.5 cm | |
+| baro, default `MIN_RNG` | 1.5 / 1.1 / 6.8 cm | |
+| range | 1.8 / 1.9 / 3.7 cm | **0.60 m error, the drone climbed 0.53 m** leaving the table |
+| range + `EKF2_TERR_NOISE 0.5`, `TERR_GRAD 0` | 1.7 / 1.3 / 2.7 cm (within run-to-run noise) | |
+| **baro (chosen)** | **1.5 / 1.1 / 2.1 cm** | **6.6 / 1.8 / 3.2 cm** |
+
+Baro is the reference because range (and vision) references assume a flat floor (PX4 docs) and fail over furniture; the range still
+fuses as an aid and teaches EKF2 the baro's bias. **Caveat:** the sim's barometer is idealised (Pegasus: 1 Pa noise, `drift_pa_per_sec`
+0, no prop wash; its drift line also adds the rate instead of the accumulated drift), so watch the real drone's height near the floor
+(prop wash on the Pixracer's baro: foam over it). Stiffer terrain was not adopted: the gain is noise-level, and a loose terrain estimate
+is what absorbs furniture steps.
+
 ## Notes
 - **ROS topic for the flow** (2026-10-14): `px4flow` is in the lean MAVROS list, so `/drone_N/mavros/px4flow/raw/optical_flow_rad` (`mavros_msgs/OpticalFlowRad`, 10 Hz)
   carries PX4's `vehicle_optical_flow` (`OPTICAL_FLOW_RAD` on the onboard link), the same path as the real PMW3901 on the Pixracer. MAVROS turns it into

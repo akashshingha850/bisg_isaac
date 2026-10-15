@@ -1,0 +1,26 @@
+# PX4 params for GPS-denied flight on the drone's own sensors (the real drone's mode, sim and Pixracer):
+#   barometer (on the FC)            -> height REFERENCE
+#   LW20/C downward rangefinder      -> height aid + height above the floor; EKF2 learns the baro's bias from it over flat floor
+#   ZED Mini VIO (external vision)   -> horizontal position, 3D velocity, yaw
+#   PMW3901 optical flow             -> horizontal velocity
+# No GPS, no magnetometer (indoors: EV supplies yaw). Lever arms + EKF2_MIN_RNG are in the vehicle file (raptor.params). Scenario:
+# `px4_params: [raptor, ekf2_vio_flow_range]` + `services.px4_bridge.odometry.enabled` in docker/zed/zed.yaml (sim:).
+#
+# Height reference, measured 2026-10-15 on the raptor in Simple Room (docs/range-flow.md "GPS-denied on all sensors"):
+#   vision (ekf2_vision): the sim's ZED drifts in z (13-15 cm in 50 s: the SDK tracks without the IMU in the sim) and nothing else
+#                         anchors height. The Iris VIO scenario (no ToF/flow) failed vio_flight with 0.85 m of z error this way.
+#   range  (2)          : 3.7 cm on a flat floor, but crossing the 0.78 m table edge the drone CLIMBED 0.53 m (0.60 m error):
+#                         PX4 warns range/vision references assume a flat floor.
+#   baro   (0, chosen)  : 2.1 cm flat, 3.2 cm over the table. Caveat: the sim's baro has no drift or prop wash (Pegasus barometer,
+#                         drift 0); on the drone the range aid corrects slow drift, but check prop-wash height jumps near the floor.
+# Names/semantics checked against /opt/PX4-Autopilot/src/modules/ekf2/*.yaml (PX4 v1.17.0).
+
+EKF2_GPS_CTRL  0   6   # GPS fusion off
+EKF2_MAG_TYPE  5   6   # magnetometer off: EV yaw instead (indoor magnetic fields, and two yaw sources would fight)
+EKF2_HGT_REF   0   6   # height reference = baro (0 Baro 1 GPS 2 Range 3 Vision). Reboot-required: applied at SITL boot
+EKF2_BARO_CTRL 1   6   # baro fusion on (the default; stated because it is the reference)
+EKF2_RNG_CTRL  2   6   # range fusion always on (1 = only low and slow): height aid + terrain; it also learns the baro bias
+EKF2_EV_CTRL   13  6   # bit0 horizontal position + bit2 3D velocity + bit3 yaw; NOT bit1 vertical position (the drifting z)
+EKF2_EV_DELAY  0   9   # ms. Samples are stamped at capture (sim: zed-bridge restamp, zed.yaml; drone: wrapper capture time)
+EKF2_OF_CTRL   1   6   # optical flow fusion on
+EKF2_OF_DELAY  0   9   # ms. The twin stamps at the end of its integration window (docs/range-flow.md)

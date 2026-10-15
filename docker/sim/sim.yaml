@@ -9,8 +9,9 @@ scenario: configs/raptor_scenario.yaml         # app, render, physics, PX4 airfr
 vehicle: assets/vehicles/raptor/raptor.yaml    # the `vehicles:` entry: spawn pose, ZED/ToF mounts, chase cam
 model: assets/vehicles/raptor/raptor.usd       # drone USD for every vehicle without its own usd_path (null = the vehicle's `model:`)
 world: Simple Room                             # Pegasus preset name (pegasus.simulator.params.SIMULATION_ENVIRONMENTS) or a .usd path
-px4_params: [raptor]                           # docker/sim/px4/<name>.params: the vehicle file (iris | raptor), then overlays
-                                               # (ekf2_vision, ekf2_flow_range), later wins
+px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: the vehicle file (iris | raptor), then overlays, later wins.
+                                               # ekf2_vio_flow_range = the real drone's GPS-denied mode (baro height, LW20, ZED VIO, flow;
+                                               # docs/range-flow.md). [raptor] alone = GPS (the default until 2026-10-15)
 
 # Simple Room (Isaac 6.0 asset, measured 2026-10-11): floor top z = -0.77, ceiling 3.41, inner walls x -4.41..4.41,
 # y -3.31..4.77 (window wall), `table_low` at the origin: x -1.59..1.59, y -0.81..0.81, top z = 0.01. The default

@@ -20,5 +20,6 @@
       - distance_sensor
       - px4flow                      # OPTICAL_FLOW_RAD (PMW3901) -> mavros/px4flow/raw/optical_flow_rad (docs/range-flow.md)
       - landing_target
+      - manual_control               # mavros/manual_control/send: virtual sticks for Position mode (tests/collision_prevention.py)
       - onboard_computer_status
       - debug_value
