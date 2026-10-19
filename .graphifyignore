@@ -4,4 +4,6 @@ docker/zed/zed-ros2-wrapper/
 docker/zed/zed-isaac-sim/
 docker/ros/ros2_ws/*.stale/
 archive/
-.claude/skills/ros2-engineering-skills/
+
+# Claude Skills
+.claude/skills
