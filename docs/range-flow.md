@@ -80,7 +80,7 @@ Findings (not twin bugs, but they matter on the real drone):
 
 The real drone's mode and **the sim default since 2026-10-15** (`docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range]`; the
 bridge's ZED odometry is on in the sim as on the drone). Raptor in
-Simple Room, `tests/vio_flight.py --alt 1.2`, errors = EKF2 vs Pegasus ground truth (displacement from the pre-flight pose).
+Simple Room (the default world until 2026-10-17), `tests/vio_flight.py --alt 1.2`, errors = EKF2 vs Pegasus ground truth (displacement from the pre-flight pose).
 
 **Why the Iris VIO run failed with 0.85 m of z error:** the sim's ZED drifts in z (raw odometry 13-15 cm in 50 s of flight; the SDK
 tracks without its IMU in the sim, `sim.positional_tracking.imu_fusion: false`) and `single_iris_vio` has no ToF or flow, so EKF2's

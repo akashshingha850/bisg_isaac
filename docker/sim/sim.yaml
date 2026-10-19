@@ -8,19 +8,30 @@
 scenario: configs/raptor_scenario.yaml         # app, render, physics, PX4 airframe
 vehicle: assets/vehicles/raptor/raptor.yaml    # the `vehicles:` entry: spawn pose, ZED/ToF mounts, chase cam
 model: assets/vehicles/raptor/raptor.usd       # drone USD for every vehicle without its own usd_path (null = the vehicle's `model:`)
-world: Simple Room                             # Pegasus preset name (pegasus.simulator.params.SIMULATION_ENVIRONMENTS) or a .usd path
+world: Warehouse                               # Pegasus preset name (pegasus.simulator.params.SIMULATION_ENVIRONMENTS) or a .usd path
 px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: the vehicle file (iris | raptor), then overlays, later wins.
                                                # ekf2_vio_flow_range = the real drone's GPS-denied mode (baro height, LW20, ZED VIO, flow;
                                                # docs/range-flow.md). [raptor] alone = GPS (the default until 2026-10-15)
 
-# Simple Room (Isaac 6.0 asset, measured 2026-10-11): floor top z = -0.77, ceiling 3.41, inner walls x -4.41..4.41,
-# y -3.31..4.77 (window wall), `table_low` at the origin: x -1.59..1.59, y -0.81..0.81, top z = 0.01. The default
-# spawn (0, 0, 0.11) would be ON the table, so the drone starts on the floor west of it, facing the table (+x).
-spawn:                                         # first vehicle's start pose (overrides its `position` / `yaw_deg`)
-  position: [-2.5, 0.0, -0.66]                 # world ENU m: floor -0.77 + 0.11 rest height (raptor.yaml). PX4's map origin = here
-  yaw_deg: 0.0                                 # facing +x, the table
+light_scale: 0.5                               # x every light's intensity in the world asset (launch.py scale_world_lights); 1 = as authored
+ambient_light: 2.0                             # RTX ambient fill (/rtx/sceneDb/ambientLightIntensity; launch.py set_ambient_light); null = 0
 
-# Scan target for Kinetix (kinetix/config/scenes/simple_room_blocks.yaml): two blocks on the table, world ENU, static.
-objects:
-  - {name: kx_block, type: cuboid, position: [0.0, 0.0, 0.16], size: [0.40, 0.30, 0.30], color: [0.85, 0.35, 0.10]}
-  - {name: kx_tower, type: cuboid, position: [0.08, 0.04, 0.435], size: [0.15, 0.15, 0.25], color: [0.15, 0.45, 0.85]}
+# Warehouse (Isaac 6.0 Simple_Warehouse/warehouse.usd, measured 2026-10-17 with PhysX scene queries, 0.25 m grid):
+# floor top z = 0.00, ceiling ~9.0 (lowest overhead 5.8 over the open floor), inner walls x -10.5..9.5, y -12..18,
+# pallet racks along the west wall (x < -8.5, y -4..12.5). Obstacle-free floor x -8.5..9.0, y -12.0..12.75. Kinetix
+# scans the whole room (no scan object), so the lighting is tuned for the room's surfaces, not an object.
+# Lighting probe 2026-10-17 (72 ZED-like views: 3 positions x 1.5/4.5 m x 4 yaws x pitch -30/0/+35, plus the ZED's own
+# spawn view, which matched the real ZED frames within 3 grey levels): the lamps (1 DistantLight + 1 RectLight; 16
+# RectLights hidden) over-light the walls and leave the ceiling black. As authored: 84 % usable (luminance 12..243),
+# 15 % crushed; the white brick sits on the tonemapper's shoulder (ZED view: 15-22 % of its 8 px blocks textured).
+# Scaling the lamps alone trades one for the other (x0.5: brick 93 % textured but 32 % crushed; x2-x6: ceiling up,
+# walls wash out, clipping to 14 %). Lamps x0.5 + ambient 2 maximises the worse of bright-surface texture (47 %) and
+# dark-surface texture (42 %; plateau 0.4-0.6 x, ambient 2): 97.7 % usable, 1.8 % crushed, 0.5 % clipped (the lamps),
+# worst view 82 %; ZED view brick 42 % textured, ceiling mean 9 -> 46. vio check PASS at x0.5+0, x1+2 and x0.5+2.
+# Back to Simple Room (default until 2026-10-17): world: Simple Room, light_scale: 1.0, ambient_light: null, spawn z -0.66.
+spawn:                                         # first vehicle's start pose (overrides its `position` / `yaw_deg`)
+  position: [-2.5, 0.0, 0.11]                  # world ENU m: floor 0.00 + 0.11 rest height (raptor.yaml). PX4's map origin = here
+  yaw_deg: 0.0                                 # facing +x, along the hall
+
+# objects: static cuboids added to the world (world.objects, launch.py spawn_objects), e.g.
+#   - {name: box, type: cuboid, position: [0.0, 0.0, 0.5], size: [1.0, 1.0, 1.0], color: [0.5, 0.5, 0.5]}

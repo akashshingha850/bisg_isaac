@@ -205,8 +205,9 @@ sim:
       odometry:                     # on, as on the drone (no `enabled` delta): the sim default is GPS-denied since 2026-10-15
                                     # (sim.yaml px4_params ekf2_vio_flow_range). GPS scenarios ignore it: EKF2_EV_CTRL defaults to 0
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
-        restamp_latency_ms: 95.0    # measured: ZED odom reaches the bridge this much SIM time after the true motion (cross-correlated
+        restamp_latency_ms: 100.0   # measured: ZED odom reaches the bridge this much SIM time after the true motion (cross-correlated
                                     # with ground truth). Without it EKF2 fuses every sample late (B17). 85 (2026-10-10, rtf 0.52);
-                                    # 95 since 2026-10-15: `./bisg vio bench` left +10.8 +- 3.1 ms over 18 flights at rtf 0.56-0.59.
+                                    # 95 (2026-10-15: `./bisg vio bench` left +10.8 +- 3.1 ms over 18 flights at rtf 0.56-0.59);
+                                    # 100 since 2026-10-17: Warehouse campaign left +5 ms median (3.9 +- 2.1) over 18 flights at rtf 0.60.
                                     # It is wall-clock latency x rtf: `./bisg vio check` prints the correction for this machine
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low

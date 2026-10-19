@@ -60,6 +60,8 @@ in `docker/sim/assets/README.md` when that work starts.
 
 ## Where the time goes now: camera renders (2026-10-14, raptor, Simple Room, 120 Hz physics) — read this first
 
+Measured in Simple Room. The Warehouse default (2026-10-17) boots in the same ~36 s and flies at RTF 0.59-0.60 (VIO campaigns).
+
 Measured on the RTX 4500 box with `./bisg up <view> -c <variant>` + the ros tools (as `./bisg all`), mean of 7–15 heartbeats after a 100–120 s
 settle; base repeated three times (0.547 / 0.549 / 0.548). Variants were copies of `sim.yaml` + `raptor.yaml` with one key changed.
 

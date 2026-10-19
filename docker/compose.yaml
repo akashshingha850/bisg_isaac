@@ -158,6 +158,8 @@ services:
   # `./bisg zed up` starts the wrapper plus exactly the services the YAML enables. ZED_STACK_SIM=1 = apply the YAML's `sim:` deltas.
   #
   # zed: the ZED SDK wrapper, the SAME launch file as the real drone (docker/zed/zed_drone.launch.py), reading the ZED Mini twin the sim streams.
+  # R9 hunt (docs/todo.md): docker/zed/debug/terminate_bt.cpp is built and LD_PRELOADed at start, so an uncaught C++ exception
+  # prints its throw-site stack (`[terminate_bt]` lines in `docker logs`) before the usual abort.
   # Start it AFTER the sim is up: the wrapper connects once and the stream must already be live. `restart: on-failure`
   # re-tries a connect timeout. ipc: host = the extension and the SDK exchange frames through shared memory (/dev/shm/sl_local_*).
   zed:
@@ -186,6 +188,8 @@ services:
       - >
         source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed &&
         python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
+        { g++ -O1 -g -shared -fPIC -o /tmp/libterminate_bt.so debug/terminate_bt.cpp -lpthread &&
+          export LD_PRELOAD=/tmp/libterminate_bt.so || echo "[zed] terminate_bt not built: R9 backtraces off"; } &&
         exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
         sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params.yaml
     restart: on-failure

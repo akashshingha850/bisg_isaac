@@ -3,15 +3,16 @@
 What EKF2 takes from the ZED in the sim default (`docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range]`): horizontal
 position, 3D velocity and yaw (`EKF2_EV_CTRL 13`). Height is baro + LW20, horizontal velocity also comes from the PMW3901
 ([range-flow.md](range-flow.md#gps-denied-on-all-sensors-zed--lw20--pmw3901--baro-2026-10-15)). Analysed 2026-10-15 on the RTX 4500 box,
-raptor in Simple Room, RTF 0.55-0.58.
+raptor in Simple Room, RTF 0.55-0.58. Since 2026-10-17 the default world is the Warehouse; the campaigns there and the
+recalibration to `restamp_latency_ms` 100 are in [vio-campaign.md](vio-campaign.md).
 
-Path: `zed_wrapper` odom (pose of `zed_camera_link`, twist in the camera frame) -> zed-bridge (`restamp`, stamp = arrival - 85 ms) ->
+Path: `zed_wrapper` odom (pose of `zed_camera_link`, twist in the camera frame) -> zed-bridge (`restamp`, stamp = arrival - `restamp_latency_ms`, 100 ms on Workstation A) ->
 MAVROS `odometry/out` (`MAV_FRAME_LOCAL_FRD` pose, `BODY_FRD` velocity) -> EKF2 (`EKF2_EV_POS_*` removes the camera lever arm).
 
 ## Tools
 | | |
 |---|---|
-| `tests/vio_bench.py` | OFFBOARD profile that fits Simple Room: 20 s hover, altitude steps 0.6/2.0/1.2 m, x/y legs +-1.5 m at 0.5 and 1 m/s (x+ crosses the table edge), four 90 deg yaw steps, the x legs again yawed 90 deg, a 1.5 m square, 20 s hover, landing. ~250 s wall |
+| `tests/vio_bench.py` | OFFBOARD profile sized for Simple Room (fits the Warehouse unchanged): 20 s hover, altitude steps 0.6/2.0/1.2 m, x/y legs +-1.5 m at 0.5 and 1 m/s, four 90 deg yaw steps, the x legs again yawed 90 deg, a 1.5 m square, 20 s hover, landing. ~250 s wall |
 | `tests/unit/test_vio_eval.py` | numpy only, any PC: `python3 -m unittest tests.unit.test_vio_eval -v` (~2 s). Synthetic flights with injected faults (latency, lever arm, yaw slip, frame gap, tilt, no VIO) must be recovered; the archived flights must still show the findings below; the calibrated params must stay in the files |
 | `tests/vio_eval.py` | From the PX4 log (`--ulog`) or an archived extract (`--npz`): `vehicle_visual_odometry` (what EKF2 got) vs the twin's `*_groundtruth` (`sensors.ground_truth`, now on in `raptor.yaml`), one clock. Latency, velocity scale/RMSE, yaw drift and per-yaw-step slip, position drift and short-term noise, lever-arm fit, frame gaps, EV frame tilt, EKF2 fusion stats and error; for a log without EV, whether EKF2 still called the position valid. `--save-npz` writes the fields it reads (for the archive). `--plot` needs matplotlib (the host's apt one is broken against numpy 2: use a venv) |
 
@@ -25,6 +26,9 @@ python3 tests/vio_eval.py --ulog $D/flight.ulg --out $D        # exit 0 = gates 
 Data of the runs below: [`archive/vio-2026-10-15/`](../archive/vio-2026-10-15/README.md) (log extracts, reports, plots: in git); the full `.ulg` files: `/opt/docker-archive/vio/` (Workstation A). Save a new run the same way: `--save-npz <dir>/topics.npz --plot`.
 
 ## Calibration + benchmark + ablation on any machine: `./bisg vio`
+
+The campaign's purpose, design, every campaign run so far and their results, with the data as JSON for figures
+(`docs/data/vio_campaigns.json`, `tests/vio_export.py`): [vio-campaign.md](vio-campaign.md).
 
 ```
 ./bisg vio check                 # ~7 min: one calibrated flight on a fresh sim -> verdict "is the VIO right on this PC"

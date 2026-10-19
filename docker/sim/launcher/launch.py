@@ -34,7 +34,8 @@ def parse_args():
 def expand_locator(cfg, path):
     """The locator keys of docker/sim/sim.yaml (what the sim runs) -> the plain scenario keys. `scenario` and `vehicle` are
     files loaded first (like `extends`), `model` is paths.drone, `world` a Pegasus preset name or a .usd path, `px4_params`
-    is px4.params, `objects` is world.objects. Relative paths are relative to the locator file."""
+    is px4.params, `objects` / `light_scale` / `ambient_light` are world.<same key>. Relative paths are relative to the
+    locator file."""
     here = os.path.dirname(path)
 
     def where(p):
@@ -56,8 +57,9 @@ def expand_locator(cfg, path):
         cfg["world"] = world
     if "px4_params" in cfg:
         cfg.setdefault("px4", {})["params"] = cfg.pop("px4_params")
-    if "objects" in cfg:
-        cfg.setdefault("world", {})["objects"] = cfg.pop("objects")
+    for key in ("objects", "light_scale", "ambient_light"):
+        if key in cfg:
+            cfg.setdefault("world", {})[key] = cfg.pop(key)
     if cfg.get("spawn"):
         cfg.setdefault("paths", {})["spawn"] = cfg["spawn"]
     cfg.pop("spawn", None)
@@ -372,6 +374,43 @@ def resolve_vehicle_usd(v_cfg):
     return ROBOTS[model]
 
 
+def scale_world_lights(scale, root="/World/layout"):
+    """Multiply the intensity of every UsdLux light in the world asset by `scale` (`world.light_scale`).
+
+    Each world asset ships its own, arbitrary light calibration; this brings it to the renderer's fixed exposure
+    (tonemapper ISO 100, 1/50 s, f/5, no auto-exposure) without touching the camera or the asset files. The override
+    goes into the session's root layer. 1.0 / null = the asset as authored.
+    """
+    if scale is None or float(scale) == 1.0:
+        return
+    from pxr import Usd, UsdLux  # noqa: WPS433
+
+    stage = omni.usd.get_context().get_stage()
+    n = 0
+    for prim in Usd.PrimRange(stage.GetPrimAtPath(root)):
+        if prim.HasAPI(UsdLux.LightAPI):
+            attr = UsdLux.LightAPI(prim).GetIntensityAttr()
+            if attr.Get() is not None:
+                attr.Set(float(attr.Get()) * float(scale))
+                n += 1
+    LOG.info("world lights: %d intensities x %.3f", n, float(scale))
+
+
+def set_ambient_light(intensity):
+    """RTX global ambient fill (`world.ambient_light` -> /rtx/sceneDb/ambientLightIntensity, renderer default 0).
+
+    Stands in for the indirect bounce a real room gets: lifts surfaces the world's lamps leave in shadow (a warehouse
+    ceiling, corners) without pushing lit walls into clipping, which scaling the lamps cannot do. Applies to every
+    camera (viewport, ZED twin). null = renderer default.
+    """
+    if intensity is None:
+        return
+    import carb  # noqa: WPS433
+
+    carb.settings.get_settings().set_float("/rtx/sceneDb/ambientLightIntensity", float(intensity))
+    LOG.info("ambient light %.2f", float(intensity))
+
+
 def spawn_objects(objects):
     """Static test objects from the scenario (`world.objects`), e.g. a box to check ZED depth against.
 
@@ -493,6 +532,8 @@ class App:
         LOG.info("loading world %s", world_usd)
         self.pg.load_asset(world_usd, "/World/layout")   # synchronous (load_environment defers to the first update)
         phase("world asset referenced")
+        scale_world_lights(world_cfg.get("light_scale"))
+        set_ambient_light(world_cfg.get("ambient_light"))
         if world_cfg.get("add_ground_plane", False):
             from isaacsim.core.experimental.objects import GroundPlane  # noqa: WPS433
             GroundPlane("/World/bisg_ground", sizes=500.0, positions=[[0.0, 0.0, float(world_cfg.get("ground_z", 0.0))]])

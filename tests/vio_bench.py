@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 ZED VIO benchmark flight for the GPS-denied default (docs/vio.md): excites what EKF2 takes from the ZED (horizontal position,
-3D velocity, yaw) inside Simple Room, in OFFBOARD like tests/vio_flight.py (Flight / range_flow_bench.Bench are reused).
+3D velocity, yaw) in the default world, in OFFBOARD like tests/vio_flight.py (Flight / range_flow_bench.Bench are reused).
 
-Profile (all relative to the start pose on the floor west of the table, facing +x; fits the room with >= 1 m to the walls):
+Profile (all relative to the start pose on the floor, facing +x; sized for Simple Room with >= 1 m to the walls, so it fits the
+Warehouse default unchanged):
   ground -> takeoff 1.2 m + 20 s hover -> altitude steps 0.6 / 2.0 / 1.2 m -> velocity legs x and y +-1.5 m at 0.5 / 1.0 m/s
   -> yaw 90 deg steps -> the x legs again yawed 90 deg (camera looking sideways: body-frame velocity check) -> 1.5 m square
   -> 20 s hover -> OFFBOARD descent, land, disarm.
-The x+ legs cross the table edge (0.78 m step under the drone).
+In Simple Room the x+ legs crossed the table edge (0.78 m step under the drone); the Warehouse floor is flat.
 
 Analysis is offline from PX4's log (`vehicle_visual_odometry` + the twin's `*_groundtruth`, one clock): tests/vio_eval.py.
 

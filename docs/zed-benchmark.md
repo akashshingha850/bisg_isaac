@@ -4,6 +4,8 @@
 data (function), at what rate, and what it costs. `./bisg zed bench --quick` skips the AI models; `--streaming` adds the streaming server (see B19).
 Host-side micro-benchmarks of our own code: `python3 tests/zed_bench_offline.py`. Raw data: [data/zed_bench_2026-10-05.json](data/zed_bench_2026-10-05.json).
 
+Measured before the default world became the Warehouse (2026-10-17); not re-run there.
+
 **Setup (2026-10-05):** Isaac Sim 6.0 headless, `single_iris` (Simple Room), real ZED SDK 5.4.1 (`ZED_SOURCE=sdk`) on the Isaac ZED Mini twin, HD720 / 30 fps, `NEURAL_LIGHT`
 depth, RTX 4500 Ada. The drone sits on the ground (static scene, nothing in view but the room). 20 s measured window per phase after a 6 s warm-up; each phase
 subscribes only to its own module's topics. Every other `publish_*` switch is on (the wrapper only computes a product while it has a subscriber).

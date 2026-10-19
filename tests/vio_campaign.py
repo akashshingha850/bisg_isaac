@@ -126,6 +126,9 @@ def stack_versions():
     v["isaac_sim"] = sh(f"docker exec {SIM} bash -c 'cat /isaac-sim/VERSION 2>/dev/null | head -1'", 20)[1].strip()
     v["zed_sdk"] = first(r"ZED SDK Version: (\S+)", sh(f"docker logs {ZED} 2>&1 | grep -m1 'ZED SDK Version'", 20)[1])
     v["px4_param_files"] = first(r"px4 params from (\[.*?\])", sh(f"docker logs {SIM} 2>&1 | grep 'px4 params from' | head -1", 20)[1])
+    v["world"] = first(r"loading world (\S+)", sh(f"docker logs {SIM} 2>&1 | grep -m1 'loading world'", 20)[1])
+    v["world_lights"] = first(r"world lights: (.+)", sh(f"docker logs {SIM} 2>&1 | grep -m1 'world lights:'", 20)[1])
+    v["ambient_light"] = first(r"ambient light (\S+)", sh(f"docker logs {SIM} 2>&1 | grep -m1 'ambient light'", 20)[1])
     return v
 
 

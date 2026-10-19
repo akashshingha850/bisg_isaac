@@ -128,6 +128,37 @@ class Report(unittest.TestCase):
             dump(plan, os.path.join(tmp, "campaign.json"))
             self.assertEqual(vio_report.build(tmp, quiet=True), "INCOMPLETE")
 
+    def test_export_matches_the_report_and_is_strict_json(self):
+        """tests/vio_export.py (docs/vio-campaign.md): same numbers as summary.json, no NaN tokens, infra flights kept."""
+        import vio_export
+
+        def strict(path):
+            with open(path) as fh:
+                return json.load(fh, parse_constant=lambda c: self.fail(f"{c} in {path}"))
+        with tempfile.TemporaryDirectory() as tmp:
+            camp = os.path.join(tmp, "c")
+            os.makedirs(camp)
+            campaign(camp, [("calibrated", 1, "3-yawrate60-eva001-live"), ("px4_defaults", 1, "1-baseline"),
+                            ("calibrated", 2, "4-confirm-fromfile")], infra=[("px4_defaults", 2)])
+            verdict = vio_report.build(camp, quiet=True)
+            out = os.path.join(tmp, "x.json")
+            vio_export.main([camp, "--out", out])
+            d, ser, s = strict(out), strict(os.path.join(tmp, "x_series.json")), load(os.path.join(camp, "summary.json"))
+            c = d["campaigns"][0]
+            self.assertEqual((c["verdict"], c["kind"], d["history"][0]["flights"]), (verdict, "ablation", 3))
+            for n in ("calibrated", "px4_defaults"):
+                self.assertAlmostEqual(c["per_config"][n]["stats"]["ekf_h_max"]["mean"], s["stats"][n]["ekf_h_max"]["mean"], places=5)
+            self.assertAlmostEqual(c["per_config"]["px4_defaults"]["delta_mean_vs_calibrated"]["ekf_h_max"],
+                                   s["stats"]["px4_defaults"]["ekf_h_max"]["mean"] - s["stats"]["calibrated"]["ekf_h_max"]["mean"],
+                                   places=5)
+            self.assertEqual({f["status"] for f in c["flights"]}, {"done", "infra_failed"})
+            self.assertEqual(c["reliability"]["flights_given_up"], 1)
+            self.assertEqual(set(d["metric_definitions"]), set(vio_report.METRICS))
+            flights = ser["campaigns"][c["id"]]
+            self.assertEqual(len(flights), 3)
+            for f in flights.values():
+                self.assertEqual(len({len(v) for v in f.values()}), 1)                       # column arrays of one length
+
     def test_campaign_config_is_complete(self):
         import yaml
         with open(os.path.join(ROOT, "tests", "vio_bench.yaml")) as fh:
