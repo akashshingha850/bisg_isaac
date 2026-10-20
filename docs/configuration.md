@@ -126,12 +126,15 @@ warned about before the container starts.
 | `GCS_URL` | empty → no second link | MAVROS `gcs_url:=` (QGroundControl, logger) |
 | `MAVLINK_GCS_PORT` | `14550` | `./bisg debug mavlink` probe |
 | `ROS_DOMAIN_ID` | `0` | every container |
+| `FCU_BAUD` | `921600` | Jetson FCU auto-detect when `FCU_URL` is empty (`scripts/jetson.sh`, `scripts/fcu_probe.py`) |
+| `FOXGLOVE_PORT` | `8765` | Jetson `foxglove` service (foxglove_bridge WebSocket) |
+| `TS_HOSTNAME` | empty → `bisg-drone-<DRONE_ID>` | Jetson `tailscale` service; `TS_AUTHKEY` (secret) goes in `docker/.env` only |
 
 Port math lives in `docs/interface-contract.md`; changing it is a contract change, not a config tweak.
 
 ## Pins and links
 
-`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
+`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `TAILSCALE_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
 `scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `PX4_REPO` feed `scripts/fetch_third_party.sh`.
 Pins are an ADR decision (`docs/plan.md` §4, ADR-003/005) — change the file *and* the ADR, then
 `./bisg setup --rebuild`.

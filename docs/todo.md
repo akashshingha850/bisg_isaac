@@ -138,7 +138,13 @@ Phase 4 — Digital-twin assets and models
 
 Phase 5 — Hardware single drone (Orin NX, JetPack 7.2, ZED Mini)
 - [x] ZED SDK pinned 5.4.1; `docker/zed/build.sh` (Stereolabs scripts, desktop + l4t-r38 targets); `deploy/jetson/compose.yaml` skeleton with `mavros` (serial) + `zed` services and `zed_params.yaml` overlay (2026-09-12)
-- [ ] Record L4T/CUDA on the device (`cat /etc/nv_tegra_release`); confirm `l4t-r38.4` matches JetPack 7.2; build `bisg/zed:l4t-r38` on the Jetson
+- [x] Device recorded (2026-10-16): Orin NX 16 GB dev kit "Super", **L4T R39.2.1** (not r38 as plan/hardware docs assumed). Stereolabs publishes `5.4.1-devel-l4t-r39.2`, so the SDK pin is unchanged; `docker/zed/build.sh` now reads L4T from `/etc/nv_tegra_release` and tags `bisg/zed:jetson`. **Docs still say r38** in plan.md §4, hardware.md, setup.md, ADR-005, jetson-deploy skill — fix in one pass
+- [x] Built on the Jetson (2026-10-16): `bisg/ros:arm64` natively (~1 min), `bisg/zed:jetson` (33 GB) + `docker/zed/rmw.Dockerfile` (Stereolabs image lacks `rmw_cyclonedds_cpp`)
+- [x] `zed` service fixed (2026-10-16): the `command: >` block dropped every launch arg (deeper-indented lines keep newlines); now `deploy/jetson/zed_ns.launch.py` pushes `/drone_<N>` so topics are `/drone_1/zed/zed_node/*` per contract and the override yaml applies (verified: GEN 2 tracking). `init: true` added
+- [x] `./bisg up|down|status|logs|shell` auto-route to `scripts/jetson.sh` (deploy/jetson/compose.yaml) on aarch64 (`uname -m`; x86_64 keeps the sim), so the Jetson never builds/pulls `bisg/sim`; `./bisg jetson …` forces it (2026-10-20). FCU is dynamic: `FCU_URL` empty → `/dev/px4` → USB PX4 → first `ttyTHS*` where `scripts/fcu_probe.py` sees chained MAVLink frames at `FCU_BAUD`. On this board it finds the Pixracer on **/dev/ttyTHS1 @ 921600** (verified: MAVROS `connected: true`, PX4, AUTO.LOITER). udev `/dev/px4` rule still optional
+- [x] Jetson `foxglove` (foxglove_bridge on `FOXGLOVE_PORT` 8765, verified listening) + `tailscale` (`tailscale/tailscale:v1.102.5`, host netns + /dev/net/tun, state in volume `tailscale-state`, `TS_AUTHKEY` in docker/.env or one-time login URL) services in `deploy/jetson/compose.yaml` (2026-10-20)
+- [ ] Foxglove can't decode `zed_msgs` types (not in `bisg/ros`) — add `ros-jazzy-zed-msgs` to `docker/ros/Dockerfile` if those topics/services are needed in Foxglove
+- [ ] **ZED Mini sensors MCU fails** on this Jetson: kernel `usbhid 1-3.1: probe failed -110` on the HID interface (USB 2 hub), SDK "MCU not responding" → "invalid serial number". Video interface enumerates fine on USB 3. Try replug / other port / cable, then host `ZED_Diagnostic`; `-r` (recovery) only with the user's OK
 - [ ] arm64 image pulls, `deploy/jetson/compose.yaml`, udev `/dev/px4`, Pixracer flash + params, `real_drone.launch.py`, `vio_relay`, bench checklist
 - [ ] Feed bench numbers back into the Phase 4 vehicle model
 

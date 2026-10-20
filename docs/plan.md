@@ -91,6 +91,7 @@ Key properties:
 | PX4 ↔ ROS 2 bridge | **MAVROS 2.15.1** (apt `ros-jazzy-mavros` + extras, amd64 + arm64 verified) | user requirement; serial-friendly on Pixracer; uxrce_dds_client availability on fmu-v4 flash is uncertain | ADR-001 |
 | DDS | **CycloneDDS** (`rmw_cyclonedds_cpp`) everywhere; zenoh-bridge-ros2dds across WiFi | reliable across containers with `network_mode: host`; multicast over WiFi is not | ADR-004 |
 | ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r38.4` for JetPack 7, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images and wrapper `v5.4.1` verified to exist; built with Stereolabs' own docker scripts | — |
+| Tailscale | **v1.102.5** (`tailscale/tailscale`, Jetson only) | remote access to the drone (SSH, Foxglove, MAVLink GCS) without port forwarding; `docs/remote-access.md` | — |
 | ZED camera | **ZED Mini** | USB, no capture card; not covered by Stereolabs' Isaac streaming integration (ZED X only) → topic-contract approach | — |
 | ZED ROS 2 wrapper | `zed-ros2-wrapper` matching SDK, Jazzy | its topic/frame names define our ZED contract | — |
 | Docker | Compose v2, nvidia runtime | present on host | ADR-002 |

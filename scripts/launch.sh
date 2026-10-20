@@ -209,9 +209,9 @@ cmd_config(){
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
-  show "ros 2"      ROS_DOMAIN_ID
-  show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ISAAC_IMAGE ROS_BASE_IMAGE
+  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_PORT TS_HOSTNAME
+  show "endpoints"  DRONE_ID FCU_URL FCU_BAUD GCS_URL MAVLINK_GCS_PORT
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK TAILSCALE_TAG ISAAC_IMAGE ROS_BASE_IMAGE
   show "links"      PEGASUS_REPO ZED_WRAPPER_REPO PX4_REPO ARCHIVE_DIR
   info "resolved for the next ./bisg up"
   view_parse

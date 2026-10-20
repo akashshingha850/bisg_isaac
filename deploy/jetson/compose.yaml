@@ -7,6 +7,7 @@ x-common: &common
   network_mode: host
   ipc: host
   restart: unless-stopped
+  init: true                    # reap children; a ZED SDK process hung on USB left a zombie that blocked `stop`
   environment: &common-env
     ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
     RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
@@ -23,16 +24,17 @@ services:
     environment:
       <<: *common-env
       DRONE_ID: ${DRONE_ID:-1}
-      # Pixracer TELEM2 <-> Orin NX UART (udev rule -> /dev/px4), 921600 baud (hardware.md)
+      # Pixracer TELEM2 <-> Orin NX UART, 921600 baud (hardware.md). `./bisg up` auto-detects the
+      # port (scripts/jetson.sh fcu_detect) and exports FCU_URL + FCU_DEV; defaults are the udev name.
       FCU_URL: ${FCU_URL:-serial:///dev/px4:921600}
     devices:
-      - /dev/px4:/dev/px4
+      - ${FCU_DEV:-/dev/px4}:${FCU_DEV:-/dev/px4}
     group_add: ["dialout"]
     command: ["mavros"]
 
   zed:
     <<: *common
-    image: bisg/zed:l4t-r38
+    image: bisg/zed:jetson      # docker/zed/build.sh jetson (base matched to the board L4T)
     container_name: bisg-zed
     profiles: ["jetson"]
     runtime: nvidia
@@ -41,15 +43,42 @@ services:
       <<: *common-env
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
+      DRONE_ID: ${DRONE_ID:-1}
     volumes:
       - ../..:/workspace:rw
       - /dev/bus/usb:/dev/bus/usb
       - /usr/local/zed/resources:/usr/local/zed/resources   # AI model cache persists across restarts
       - /usr/local/zed/settings:/usr/local/zed/settings     # factory calibration downloads
-    command: >
-      bash -lc "source /root/ros2_ws/install/setup.bash &&
-                ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zedm
-                namespace:=drone_${DRONE_ID:-1}
-                ros_params_override_path:=/workspace/deploy/jetson/zed_params.yaml"
+    # One line on purpose: in a `>` block, deeper-indented continuation lines keep their newlines,
+    # so bash ran the launch without its arguments. Topics -> /drone_<N>/zed/zed_node/* (contract).
+    command: ["bash", "-lc", "source /root/ros2_ws/install/setup.bash && exec ros2 launch /workspace/deploy/jetson/zed_ns.launch.py"]
+
+  foxglove:
+    <<: *common
+    image: bisg/ros:arm64       # ros-jazzy-foxglove-bridge is in the image
+    container_name: bisg-foxglove
+    profiles: ["jetson"]
+    # Foxglove app -> ws://<jetson ip>:FOXGLOVE_PORT (Tailscale 100.x or LAN)
+    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=${FOXGLOVE_PORT:-8765}"]
+
+  tailscale:
+    image: tailscale/tailscale:${TAILSCALE_TAG:-v1.102.5}
+    container_name: bisg-tailscale
+    profiles: ["jetson"]
+    network_mode: host          # kernel tun on the host netns: the whole Jetson gets its 100.x address
+    restart: unless-stopped
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}              # docker/.env only; empty -> login URL in the logs
+      TS_HOSTNAME: ${TS_HOSTNAME:-bisg-drone-${DRONE_ID:-1}}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
 
   # vehicle (bisg_vehicle: offboard controller, vio_relay, health) is added in Phase 2/5.
+
+volumes:
+  tailscale-state:
