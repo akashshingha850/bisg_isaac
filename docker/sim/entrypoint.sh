@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Entrypoint for bisg/sim. Modes:
-#   launch            run sim/launcher/launch.py with $SIM_CONFIG (default)
+#   launch            run docker/sim/launcher/launch.py with $SIM_CONFIG (default)
 #   shell | bash      interactive shell with the Isaac env
 #   python <args>     run Isaac's python with args
 #   check             Isaac compatibility check (no window, quits after 10 s)
 #   <anything else>   exec as-is
 set -euo pipefail
 
-export SIM_CONFIG="${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}"
+export SIM_CONFIG="${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}"
 if [[ "${SIM_HEADLESS:-0}" == "1" ]]; then
   export SIM_HEADLESS=1
 fi
@@ -32,7 +32,7 @@ isaac_python_exec() {
 case "${1:-launch}" in
   launch)
     echo "[entrypoint] SIM_CONFIG=${SIM_CONFIG} SIM_HEADLESS=${SIM_HEADLESS:-0} SIM_STREAM=${SIM_STREAM:-off} ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
-    isaac_python_exec /workspace/sim/launcher/launch.py --config "${SIM_CONFIG}"
+    isaac_python_exec /workspace/docker/sim/launcher/launch.py --config "${SIM_CONFIG}"
     ;;
   shell|bash)
     exec bash

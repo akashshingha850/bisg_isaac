@@ -9,7 +9,7 @@ unreproducible. The same stack must later run on Jetsons.
 
 ## Decision
 Every runtime component ships as a Docker image; `docker/compose.yaml` profiles compose them:
-`sim`, `sim-headless`, `ros`, `jetson`. Isaac Sim runs from `nvcr.io/nvidia/isaac-sim:5.1.0`
+`sim`, `sim-headless`, `ros`, `jetson`. Isaac Sim runs from `nvcr.io/nvidia/isaac-sim:6.0.0` (5.1.0 until the 2026-10 migration, tag `isaac-5.1-baseline`)
 with Pegasus and PX4 SITL layered on top (`bisg/sim`). ROS 2 code lives in `bisg/ros`,
 built for amd64 and arm64. ZED SDK in `bisg/zed`.
 

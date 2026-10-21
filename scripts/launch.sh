@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch / operate the sim stack. Usually called through ./bisg.
 #
-#   launch.sh up [gui|headless|web|webrtc|both] [-c SCENARIO] [--attach] [--no-wait]
+#   launch.sh up [gui|headless|web|webrtc|both] [-c SCENARIO] [--attach] [--no-wait] [--no-bridge]
 #                                      start the sim (view defaults to SIM_VIEW in config/bisg.conf)
 #   launch.sh view [--addr IP]         how to watch the running sim (browser URL / WebRTC client)
 #   launch.sh wait [TIMEOUT_S]         block until "[launch] sim ready" + PX4 "Ready for takeoff"
@@ -11,24 +11,28 @@
 #   launch.sh shell [sim|ros]          interactive shell (sim: running container or a fresh one)
 #   launch.sh smoke [--alt 2] [--timeout 300]   arm / takeoff / land test against SITL instance 0
 #   launch.sh mavros up|down|logs|state|restart [--drone N]
-#   launch.sh vehicle up|down|logs|restart [--drone N]   vio_mock (sim VIO source, Phase 3)
-#   launch.sh ros up|down|shell        dev container with ROS 2 Jazzy tools
-#   launch.sh all [gui|headless]       sim + mavros + vehicle + ros, then wait
+#   launch.sh build [sim|ros|px4-bridge|zed|all] [--no-cache] [--force]   build the images (default: all) and the ZED Isaac extension
+#   launch.sh ros up|down|shell|tools|enable N|disable N|start N|stop N|restart N   dev container + the GUI tools in docker/ros/tools.yaml (rviz, rqt, ...)
+#   launch.sh zed plan|set|up|services|enable|status|logs|check|test|bench|down|build|image   the ZED Mini stack (scripts/zed.sh, docs/zed-stack.md)
+#   launch.sh px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   the PX4 bridge(s), chosen by PX4_BRIDGE (scripts/px4-bridge.sh, docs/px4-bridge.md)
+#   launch.sh drone up|down|status|logs|check|build   the real drone: MAVROS on the Pixracer + the ZED stack (scripts/drone.sh; Jetson or bench)
+#   launch.sh all [gui|headless]       sim + mavros + ros, then wait
 #   launch.sh stop | down | restart    stop keeps volumes; down removes containers (both keep caches)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
-usage(){ sed -n 2,18p "$0"; }
+usage(){ sed -n 2,21p "$0"; }
 
 cmd_up(){
-  local cfg="" attach=0 wait=1 win="" str=""
+  local cfg="" attach=0 wait=1 win="" str="" bridge=1
   # A window word and a stream word are both accepted, in either order; each one replaces only
   # its half of SIM_VIEW, so `./bisg up headless` keeps the configured stream.
   while [[ $# -gt 0 ]]; do case "$1" in
     gui|headless|auto) win=$1;; web|webrtc|both) str=$1;; *+*) win=""; str=""; export SIM_VIEW=$1;;
-    -c|--config) cfg=$2; shift;; --attach) attach=1;; --no-wait) wait=0;;
+    -c|--config) cfg=$2; shift;; --attach) attach=1;; --no-wait) wait=0;; --no-bridge) bridge=0;;
     --stream) str=webrtc;; --web) str=web;; --both) str=both;; --no-stream) str=off;;
     *) die "up: unknown arg $1";; esac; shift; done
+  [[ "$BISG_ARCH" == x86_64 ]] || die "the sim (Isaac Sim) is x86_64 only; this is ${BISG_ARCH}. On the Jetson use ./bisg drone"
   view_parse                                       # validates SIM_VIEW -> VIEW_MODE / VIEW_STREAM
   [[ -n "$win" ]] && VIEW_MODE="$win"
   [[ -n "$str" ]] && VIEW_STREAM="$str"
@@ -41,6 +45,9 @@ cmd_up(){
   local profile=sim; [[ $mode == headless ]] && profile=sim-headless
   if container_running "$SIM_NAME"; then warn "$SIM_NAME already running (./bisg status). Use restart."; return 0; fi
   gpu_preflight || exit 1
+  "$(dirname "$0")/tailscale.sh" follow on || true    # TAILSCALE_WITH_SIM=1: the tailnet comes up with the sim (before the address below)
+  # SIM_VIEW_ADDR=tailscale -> this host's tailnet IP (what WebRTC advertises); only matters when something is served
+  if [[ "$VIEW_STREAM" != off ]]; then resolve_view_addr; elif [[ "${SIM_VIEW_ADDR:-}" == tailscale ]]; then export SIM_VIEW_ADDR=""; fi
   # scenario: -c flag > SIM_CONFIG exported in the shell > SIM_SCENARIO (config file) > compose default
   if [[ -n "$cfg" ]]; then export SIM_CONFIG="$(scenario_path "$cfg")"
   elif [[ "${BISG_SRC[SIM_CONFIG]:-}" != environment && -n "${SIM_SCENARIO:-}" ]]; then
@@ -50,21 +57,47 @@ cmd_up(){
   info "starting sim (view=$SIM_VIEW) config=${SIM_CONFIG:-default}"
   compose --profile "$profile" up -d --remove-orphans "$profile"
   ok "container $SIM_NAME started"
+  # the PX4 bridge(s) PX4_BRIDGE names (MAVROS by default) come up with the sim; it reconnects until PX4 is ready
+  [[ $bridge == 1 ]] && "$(dirname "$0")/px4-bridge.sh" up
   if [[ $attach == 1 ]]; then exec docker logs -f "$SIM_NAME"; fi
   [[ $wait == 1 ]] && cmd_wait "$SIM_WAIT_TIMEOUT"
   view_on && cmd_view
   echo "  follow logs: ./bisg logs -f     stop: ./bisg down"
 }
 
+# ZED_AUTOSTART=1: once the sim streams the ZED twin, start the wrapper (+ the services zed.yaml enables) in the background.
+# The wrapper connects once per sim run (B18) and must start after the stream is live, so this runs from cmd_wait, not from cmd_up.
+zed_autostart(){
+  [[ "${ZED_AUTOSTART:-1}" == 1 ]] || return 0
+  local log; log=$(docker logs "$SIM_NAME" 2>&1)
+  [[ "$log" == *"ZED SDK twin attached"* ]] || return 0                                  # the scenario has no ZED
+  container_running "bisg-zed-${DRONE_ID}" && return 0
+  # "sim ready" comes before the streamer opens its UDP port: a wrapper that gets there first takes the port and the sim's
+  # streamer then fails ("failed to create RTP Session"), leaving no ZED topics. Wait until the sim itself holds the port.
+  local port=$(( 30000 + 2 * (DRONE_ID - 1) )) w=0
+  until ss -uan 2>/dev/null | grep -q ":${port}\b"; do
+    docker logs "$SIM_NAME" 2>&1 | grep -q "Streamer initialization failed" && { warn "the sim's ZED streamer failed: restart the sim (./bisg restart)"; return 0; }
+    (( w >= 90 )) && { warn "ZED stream port ${port} not open after ${w}s; start the wrapper later: ./bisg zed up"; return 0; }
+    sleep 2; w=$(( w + 2 ))
+  done
+  # The open port is not enough either: a wrapper started ~3 s after it logged "receiving port 30000 is not available ...
+  # switching to port 30002" and never connected (2 of 3 autostarts on 2026-10-10); started 60 s later it always did. The SDK
+  # connects once per sim run (B18), so there is no retry: wait before the first start.
+  sleep 30
+  info "starting the ZED wrapper (ZED_AUTOSTART=1; first start optimises the depth model, ~6 min)"
+  "$(dirname "$0")/zed.sh" up -d >/dev/null 2>&1 && ok "bisg-zed-${DRONE_ID} started in the background (./bisg zed status)" \
+    || warn "ZED wrapper did not start: ./bisg zed up"
+}
+
 cmd_wait(){
   local timeout="${1:-${SIM_WAIT_TIMEOUT:-600}}" t0=$(date +%s) shown_ready=0
   container_running "$SIM_NAME" || die "$SIM_NAME is not running (./bisg up)"
-  info "waiting for sim ready + PX4 ready (timeout ${timeout}s; boot is ~4–5 min)"
+  info "waiting for sim ready + PX4 ready (timeout ${timeout}s; warm boot ~1 min, first boot ~3 min)"
   while true; do
     local el=$(( $(date +%s) - t0 ))
     if sim_failed; then fail "launcher error after ${el}s:"; docker logs "$SIM_NAME" 2>&1 | grep -E -A3 "Traceback|Failed to create any GPU" | tail -12; return 1; fi
     if ! container_running "$SIM_NAME"; then fail "container exited (code $(docker inspect -f '{{.State.ExitCode}}' "$SIM_NAME")) — ./bisg logs"; return 1; fi
-    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; fi
+    if [[ $shown_ready == 0 ]] && sim_ready; then ok "[launch] sim ready after ${el}s"; shown_ready=1; zed_autostart; ros_tools_autostart; "$(dirname "$0")/bag.sh" autostart; fi
     if px4_ready; then ok "PX4 'Ready for takeoff' after ${el}s"; return 0; fi
     (( el > timeout )) && { fail "timeout after ${el}s (last lines below)"; docker logs --tail 5 "$SIM_NAME" 2>&1 | cut -c1-140; return 1; }
     sleep 3
@@ -120,25 +153,66 @@ cmd_mavros(){
   while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; *) die "mavros: unknown arg $1";; esac; shift; done
   local name="bisg-mavros-${DRONE_ID}"
   case $sub in
-    up) info "MAVROS for drone ${DRONE_ID} (ns /drone_${DRONE_ID}, fcu ${FCU_URL:-udp instance $((DRONE_ID-1))})"; compose --profile ros up -d mavros ros; ok "$name started";;
-    down) compose --profile ros stop mavros; compose --profile ros rm -f mavros >/dev/null; ok "$name stopped";;
-    restart) compose --profile ros restart mavros;;
+    up) info "MAVROS for drone ${DRONE_ID} (ns /drone_${DRONE_ID}, fcu ${FCU_URL:-udp instance $((DRONE_ID-1))})"; "$(dirname "$0")/px4-bridge.sh" up mavros; compose --profile tools up -d ros >/dev/null;;
+    down) "$(dirname "$0")/px4-bridge.sh" down mavros;;
+    restart) docker restart "$name";;
     logs) exec docker logs -f --tail 100 "$name";;
     state) container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
            ros_exec "ros2 daemon stop >/dev/null 2>&1; timeout 30 ros2 topic echo --no-daemon /drone_${DRONE_ID}/mavros/state --once 2>/dev/null | grep -E '^(connected|armed|guided|mode|system_status)'" || fail "no state from /drone_${DRONE_ID}/mavros/state (is the sim + PX4 up? ./bisg status)";;
     *) die "mavros: up|down|restart|logs|state [--drone N]";; esac
 }
 
-cmd_vehicle(){
-  local sub="${1:-up}"; shift || true
-  while [[ $# -gt 0 ]]; do case "$1" in --drone) export DRONE_ID=$2; shift;; *) die "vehicle: unknown arg $1";; esac; shift; done
-  local name="bisg-vehicle-${DRONE_ID}"
-  case $sub in
-    up) info "vio_mock for drone ${DRONE_ID} (ns /drone_${DRONE_ID})"; compose --profile ros up -d vehicle; ok "$name started";;
-    down) compose --profile ros stop vehicle; compose --profile ros rm -f vehicle >/dev/null; ok "$name stopped";;
-    restart) compose --profile ros restart vehicle;;
-    logs) exec docker logs -f --tail 100 "$name";;
-    *) die "vehicle: up|down|restart|logs [--drone N]";; esac
+cmd_build(){
+  local nc=() force=() targets=()
+  for a in "$@"; do case "$a" in --no-cache) nc=(--no-cache);; --force) force=(--force);; sim|ros|px4-bridge|zed|all) targets+=("$a");; *) die "build: [sim|ros|px4-bridge|zed|all] [--no-cache] [--force]";; esac; done
+  if [[ ${#targets[@]} -eq 0 || " ${targets[*]} " == *" all "* ]]; then
+    targets=(ros px4-bridge); [[ "$BISG_ARCH" == x86_64 ]] && targets=(sim ros px4-bridge zed)
+  fi
+  local z="$(dirname "$0")/zed.sh"
+  for t in "${targets[@]}"; do case $t in
+    sim) info "building bisg/sim:${ISAAC_TAG}"; compose build "${nc[@]}" sim;;
+    ros) info "building bisg/ros:jazzy"; compose --profile ros build "${nc[@]}" ros;;
+    px4-bridge) info "building bisg/px4-bridge:jazzy (the agent compile takes ~10 min the first time)"; compose --profile px4-bridge build "${nc[@]}" px4-bridge;;
+    zed) "$z" image "${force[@]}" && "$z" build "${force[@]}";;     # bisg/zed image + the Stereolabs Isaac extension; each skips if its sources are unchanged
+  esac; done
+  ok "build done: ${targets[*]}"
+}
+
+# ROS 2 tools from docker/ros/tools.yaml, detached in bisg-ros on the host display. Extra args replace the yaml ones.
+ros_tool_start(){
+  local name=$1; shift || true; [[ -n "$name" ]] || die "ros start NAME  (./bisg ros tools lists them)"
+  local tp="$ROOT/scripts/ros_tools.py" exe line
+  exe=$("$tp" exe "$name") || exit 1; line=$("$tp" cmd "$name" "$@")
+  container_running "$ROS_NAME" || compose --profile tools up -d ros >/dev/null
+  if [[ $exe == rviz2 || $exe == rqt* ]] && ! docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; command -v $exe" >/dev/null 2>&1; then
+    info "$exe is not in the bisg/ros image yet: rebuilding it (one time, a few minutes)"
+    compose --profile tools build ros && compose --profile tools up -d --force-recreate ros >/dev/null || die "ros image build failed"
+  fi
+  if docker exec "$ROS_NAME" bash -c "kill -0 \$(cat /tmp/bisg-tool-$name.pid 2>/dev/null) 2>/dev/null"; then ok "$name is already running"; foxglove_ui "$name" up; return 0; fi
+  command -v xhost >/dev/null && xhost +local: >/dev/null 2>&1 || true   # let the container draw on the host display
+  docker exec -d -e DISPLAY="${DISPLAY:-:0}" "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; echo \$\$ >/tmp/bisg-tool-$name.pid; exec $line >/tmp/$name.log 2>&1"
+  ok "$name started in the background (log: docker exec $ROS_NAME cat /tmp/$name.log; stop: ./bisg ros stop $name)"
+  foxglove_ui "$name" up
+}
+# The foxglove tool (the bridge, ws://:8765) brings its web UI along: the `lichtblick` service on FOXGLOVE_UI_PORT, for VS Code's Simple Browser.
+foxglove_ui(){
+  [[ $1 == foxglove ]] || return 0
+  if [[ $2 == down ]]; then compose --profile tools stop lichtblick >/dev/null 2>&1; compose --profile tools rm -f lichtblick >/dev/null 2>&1; return 0; fi
+  compose --profile tools up -d lichtblick >/dev/null 2>&1 || { warn "foxglove web UI (lichtblick) did not start"; return 0; }
+  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/${FOXGLOVE_LAYOUT}.json; all addresses: ./bisg info):"
+  echo "         $(foxglove_url localhost)"
+}
+ros_tool_stop(){
+  [[ -n "${1:-}" ]] || die "ros stop NAME"
+  # kill, then wait for the process to be gone (a restart right after must not see the old pid)
+  docker exec "$ROS_NAME" bash -c "p=\$(cat /tmp/bisg-tool-$1.pid 2>/dev/null); kill -0 \$p 2>/dev/null || exit 1; kill \$p; for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 \$p 2>/dev/null || exit 0; sleep 0.5; done; kill -9 \$p" \
+    && ok "$1 stopped" || info "$1 is not running"
+  foxglove_ui "$1" down
+}
+# ROS_TOOLS_AUTOSTART=1: the tools enabled in docker/ros/tools.yaml start when the sim is ready (display tools need a desktop).
+ros_tools_autostart(){
+  [[ "${ROS_TOOLS_AUTOSTART:-1}" == 1 ]] || return 0
+  local n; for n in $("$ROOT/scripts/ros_tools.py" enabled); do ros_tool_start "$n" || warn "ros tool $n did not start"; done
 }
 
 cmd_ros(){
@@ -146,13 +220,21 @@ cmd_ros(){
     up) compose --profile tools up -d ros; ok "$ROS_NAME up";;
     down) compose --profile tools stop ros; compose --profile tools rm -f ros >/dev/null;;
     shell) cmd_shell ros;;
+    tools|list) "$ROOT/scripts/ros_tools.py" list;;
+    enable|disable) [[ -n "${2:-}" ]] || die "ros $1 NAME  (./bisg ros tools lists them)"
+        "$ROOT/scripts/ros_tools.py" set "$2" "$([[ $1 == enable ]] && echo on || echo off)" && ok "$2 ${1}d in docker/ros/tools.yaml";;
+    start) shift; ros_tool_start "${1:-}" "${@:2}";;
+    stop) shift; ros_tool_stop "${1:-}";;
+    restart) shift; ros_tool_stop "${1:-}" || true; ros_tool_start "${1:-}" "${@:2}";;
+    rviz|rqt) local n=$1; shift
+        case "${1:-}" in start) ros_tool_start "$n" "${@:2}";; stop) ros_tool_stop "$n";; restart) ros_tool_stop "$n" || true; ros_tool_start "$n" "${@:2}";; *) ros_tool_start "$n" "$@";; esac;;   # shortcuts
     build) compose --profile tools run --rm ros build;;
-    *) die "ros: up|down|shell|build";; esac
+    *) die "ros: up|down|shell|tools|enable|disable|start|stop|restart|build";; esac
 }
 
 # How to watch a run. Two very different transports (docs/remote-access.md):
 #   web    one TCP port serving still frames  -> survives a VS Code / SSH port forward
-#   webrtc TCP 49100 + UDP 47998, interactive -> needs real UDP (LAN or VPN), not a tunnel
+#   webrtc TCP 49100 + UDP 47998, interactive -> needs real UDP (LAN or Tailscale), not a tunnel
 cmd_view(){
   while [[ $# -gt 0 ]]; do case "$1" in --addr) export SIM_VIEW_ADDR=$2; shift;; *) die "view: --addr IP";; esac; shift; done
   local addr; addr="$(stream_addr)" running=0 mode=""
@@ -185,8 +267,8 @@ cmd_view(){
     fi
     echo "  1. install the Isaac Sim WebRTC Streaming Client (NVIDIA download; the viewing machine needs no GPU)"
     echo "  2. connect it to:  ${C_B}${addr}${C_0}     (same machine: 127.0.0.1)"
-    echo "  3. needs TCP ${STREAM_SIGNAL_PORT} + UDP ${STREAM_MEDIA_PORT} — UDP will not pass a VS Code/SSH tunnel; use a VPN (Tailscale) or the browser view"
-    [[ -z "${SIM_VIEW_ADDR:-}" ]] && echo "  remote clients also need SIM_VIEW_ADDR=${addr} in config/bisg.conf (it is what the server advertises)"
+    echo "  3. needs TCP ${STREAM_SIGNAL_PORT} + UDP ${STREAM_MEDIA_PORT} — UDP will not pass a VS Code/SSH tunnel; use a Tailscale or the browser view"
+    [[ -z "${SIM_VIEW_ADDR:-}" ]] && echo "  remote clients also need SIM_VIEW_ADDR=${addr} in docker/.env (it is what the server advertises); another network: SIM_VIEW_ADDR=tailscale + ./bisg tailscale up"
   fi
 
   ss -ltnup 2>/dev/null | grep -E ":(${STREAM_SIGNAL_PORT}|${STREAM_MEDIA_PORT}|${SIM_WEB_PORT}) " | awk '{print "  listening: "$1, $5}' | sort -u || true
@@ -208,15 +290,17 @@ cmd_config(){
   local k v
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
+  show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS TAILSCALE_MODE TAILSCALE_WITH_SIM
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
-  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_PORT TS_HOSTNAME
-  show "endpoints"  DRONE_ID FCU_URL FCU_BAUD GCS_URL MAVLINK_GCS_PORT
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK TAILSCALE_TAG ISAAC_IMAGE ROS_BASE_IMAGE
-  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO PX4_REPO ARCHIVE_DIR
+  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_UI_PORT FOXGLOVE_LAYOUT
+  show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
+  show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_WRAPPER_REF ZED_ISAAC_EXT_TAG TAILSCALE_TAG LICHTBLICK_TAG ISAAC_IMAGE ROS_BASE_IMAGE
+  show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR BAG_DIR
   info "resolved for the next ./bisg up"
   view_parse
   echo "  view      $(view_label)$( [[ "${SIM_VIEW}" == auto ]] && { have_x11 && echo "   (auto: X server on $DISPLAY)" || echo "   (auto: no X server)"; } )"
-  echo "  scenario  $( [[ -n "${SIM_SCENARIO:-}" ]] && scenario_path "$SIM_SCENARIO" || echo "${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}" )"
+  echo "  scenario  $( [[ -n "${SIM_SCENARIO:-}" ]] && scenario_path "$SIM_SCENARIO" || echo "${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}" )"
   echo "  fcu_url   ${FCU_URL:-udp://:$((14540 + DRONE_ID - 1))@127.0.0.1:$((14580 + DRONE_ID - 1))  (derived from DRONE_ID)}"
   local _v=""
   [[ "$VIEW_STREAM" =~ ^(web|both)$ ]]    && _v="http://$(stream_addr):${SIM_WEB_PORT}/"
@@ -225,15 +309,28 @@ cmd_config(){
   echo "  edit: ./bisg config --edit   (machine-only values: ${ENV_FILE#$ROOT/})"
 }
 
-cmd_all(){ cmd_up "${1:-headless}" --no-wait; compose --profile ros up -d mavros vehicle ros >/dev/null; ok "mavros + vehicle + ros started"; cmd_wait "$SIM_WAIT_TIMEOUT"; cmd_mavros state; }
-cmd_stop(){ info "stopping"; compose "${ALL_PROFILES[@]}" stop; }
-cmd_down(){ info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; }
-cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }
+cmd_all(){
+  cmd_up "${1:-headless}" --no-wait                    # starts the bridge(s) PX4_BRIDGE names (MAVROS by default) too
+  compose --profile ros up -d ros >/dev/null; ok "ros started"   # odometry comes from the ZED SDK (./bisg zed up)
+  cmd_wait "$SIM_WAIT_TIMEOUT"
+  if [[ ",$PX4_BRIDGE," == *,mavros,* ]]; then cmd_mavros state; else "$(dirname "$0")/px4-bridge.sh" status; fi
+}
+bag_close(){ container_running "$ROS_NAME" && "$(dirname "$0")/bag.sh" stop || true; }   # a bag must be closed before its recorder dies
+tailnet_off(){ "$(dirname "$0")/tailscale.sh" follow off || true; }   # TAILSCALE_WITH_SIM=1: the tailnet goes down with the sim
+cmd_stop(){ bag_close; info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; tailnet_off; }
+# down --keep-tailscale: restart must not cut a session that came in over the tailnet
+cmd_down(){ bag_close; info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null
+            [[ "${1:-}" == --keep-tailscale ]] || tailnet_off; }
+cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down --keep-tailscale; cmd_up ${m:-} "$@"; }
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;
-  shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; vehicle) shift; cmd_vehicle "$@";; ros) shift; cmd_ros "$@";;
+  build) shift; cmd_build "$@";; shell) shift; cmd_shell "$@";; smoke) shift; cmd_smoke "$@";; mavros) shift; cmd_mavros "$@";; ros) shift; cmd_ros "$@";; rviz|rqt) cmd_ros "$@";;
   config) shift; cmd_config "$@";;
+  zed) shift; exec "$(dirname "$0")/zed.sh" "$@";;
+  bag) shift; exec "$(dirname "$0")/bag.sh" "$@";;
+  drone) shift; exec "$(dirname "$0")/drone.sh" "$@";;
+  px4-bridge) shift; exec "$(dirname "$0")/px4-bridge.sh" "$@";;
   view|stream) shift; cmd_view "$@";;
   all) shift; cmd_all "$@";; stop) cmd_stop;; down) cmd_down;; restart) shift; cmd_restart "$@";;
   -h|--help|help|"") usage;; *) die "unknown command: $1";;

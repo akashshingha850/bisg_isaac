@@ -3,7 +3,7 @@
 #
 #   scripts/setup.sh                 # check host, write .env, xhost, pull, build sim + ros
 #   scripts/setup.sh --arm64         # also cross-build bisg/ros:arm64 for the Jetson (qemu, ~15 min)
-#   scripts/setup.sh --third-party   # also clone Pegasus + zed-ros2-wrapper into third_party/
+#   scripts/setup.sh --third-party   # also clone Pegasus + zed-ros2-wrapper into docker/sim/ and docker/zed/
 #   scripts/setup.sh --rebuild       # force rebuild images (--no-cache)
 #   scripts/setup.sh --no-build      # stop after pulls (e.g. to run builds later)
 #   scripts/setup.sh --save-images   # docker save the Isaac base image to the SSD (risk R7)
@@ -34,7 +34,7 @@ docker pull -q "nvcr.io/nvidia/isaac-sim:${ISAAC_TAG}" >/dev/null && ok "nvcr.io
 docker pull -q ros:jazzy-ros-base >/dev/null && ok "ros:jazzy-ros-base"
 if [[ $SAVE == 1 ]]; then "$ROOT/scripts/pull_images.sh" --save; fi
 
-if [[ $THIRD == 1 ]]; then info "5/7 third_party clones"; "$ROOT/scripts/fetch_third_party.sh"; else info "5/7 third_party clones (skipped; --third-party)"; fi
+if [[ $THIRD == 1 ]]; then info "5/7 upstream sources"; "$ROOT/scripts/fetch_sources.sh"; else info "5/7 upstream sources (skipped; --third-party)"; fi
 
 if [[ $NOBUILD == 1 ]]; then info "6/7 build skipped (--no-build)"; exit 0; fi
 info "6/7 build images (sim: PX4 ${PX4_TAG} SITL + Pegasus ${PEGASUS_TAG} on Isaac ${ISAAC_TAG}; ros: Jazzy + MAVROS)"

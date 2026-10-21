@@ -1,0 +1,20 @@
+# ROS 2 GUI/debug tools that run in the bisg-ros container, drawn on your desktop (X11). One block per tool.
+#   enabled  true = started in the background when the sim is ready (./bisg up | all | wait, ROS_TOOLS_AUTOSTART=1)
+#   exec     the command (sourced ROS 2 Jazzy, inside bisg-ros)
+#   args     appended to exec
+# Toggle:  ./bisg ros tools            list      ./bisg ros enable rviz|disable rqt     edit this file
+# Run one now (any tool, enabled or not):  ./bisg ros start rviz     stop:  ./bisg ros stop rviz
+# The drone namespace is /drone_1 (frames drone_1/*); change the topics below for another drone.
+tools:
+  rviz:
+    enabled: false
+    exec: rviz2
+    args: [-d, /workspace/docker/ros/rviz/drone.rviz]
+  rqt:                        # opens on the Node Graph; other plugins from its Plugins menu
+    enabled: false
+    exec: rqt
+    args: [--perspective-file, /workspace/docker/ros/rqt/node_graph.perspective]
+  foxglove:                   # Foxglove bridge (ws://localhost:8765) + its web UI (compose service lichtblick, http://localhost:FOXGLOVE_UI_PORT); docker/ros/foxglove/README.md
+    enabled: true
+    exec: ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+    args: []

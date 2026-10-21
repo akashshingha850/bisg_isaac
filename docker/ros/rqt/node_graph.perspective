@@ -1,0 +1,14 @@
+{
+    "groups": {
+        "pluginmanager": {
+            "groups": {},
+            "keys": {
+                "running-plugins": {
+                    "repr": "{'rqt_graph/RosGraph': [1]}",
+                    "type": "repr"
+                }
+            }
+        }
+    },
+    "keys": {}
+}

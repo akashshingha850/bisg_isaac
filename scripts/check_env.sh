@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Host preflight for the sim profile. Exit 0 = ready. Run from anywhere.
 set -u
-ok=0; warn=0; fail=0
+warn=0; fail=0
 pass(){ echo "  [ok]   $*"; }
 wrn(){ echo "  [warn] $*"; warn=$((warn+1)); }
 die(){ echo "  [FAIL] $*"; fail=$((fail+1)); }
@@ -27,8 +27,8 @@ if command -v nvidia-smi >/dev/null; then
   vram_free=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1)
   vram_total=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
   pass "GPU: $gpu, driver $drv, VRAM free ${vram_free}/${vram_total} MiB"
-  [[ ${drv%%.*} -ge 570 ]] || die "driver ${drv} < 570 (Isaac Sim 5.1 needs >= 570)"
-  # R590 branch (595.x) segfaults Isaac 5.1's RTX renderer in librtx.scenedb.plugin.so right after
+  [[ ${drv%%.*} -ge 570 ]] || die "driver ${drv} < 570 (Isaac Sim 5.1/6.0 need >= 570)"
+  # R590 branch (595.x) segfaults Isaac 5.1's RTX renderer (NOT re-tested on Isaac 6.0 — keep the guard until it is) in librtx.scenedb.plugin.so right after
   # "app ready" on Ada/Blackwell GPUs (isaac-sim/IsaacSim#648, #619, #651, #537) — confirmed on this
   # host 2026-09-21. Validated branch is 580.x (580.178.04 confirmed good on two different GPUs).
   [[ ${drv%%.*} -ge 590 && ${drv%%.*} -lt 600 ]] && die "driver ${drv} is on the R590 branch — known to crash Isaac Sim 5.1's RTX renderer on startup. Downgrade to 580.x: sudo apt install nvidia-driver-580-open"
@@ -61,6 +61,10 @@ free_gb=$(df -BG --output=avail "$(cd "$(dirname "$0")/.." && pwd)" | tail -1 | 
 [[ ${free_gb} -ge 60 ]] && pass "disk free ${free_gb} GB" || die "need >= 60 GB free for the Isaac image + caches (have ${free_gb} GB)"
 docker_root=$(docker info 2>/dev/null | awk -F': ' '/Docker Root Dir/{print $2}')
 [[ -n "$docker_root" ]] && echo "  [info] docker root: $docker_root ($(df -h "$docker_root" 2>/dev/null | tail -1 | awk '{print $4}') free)"
+# UDP receive buffer: a 1280x720 ZED image is 42 UDP fragments; below ~10 MB no image/depth/cloud ever arrives over
+# CycloneDDS (small topics still flow, so nothing errors). docs/setup.md, docs/bugs.md B2.
+rmem=$(sysctl -n net.core.rmem_max 2>/dev/null || echo 0)
+[[ ${rmem} -ge 10485760 ]] && pass "net.core.rmem_max=${rmem}" || wrn "net.core.rmem_max=${rmem} (< 10 MB): ZED images/depth/clouds will not arrive over CycloneDDS. Fix: echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system  (or run the wrapper with ZED_RMW=rmw_fastrtps_cpp)"
 # Ports
 for p in 4560 14540 14550 14580; do
   ss -lun 2>/dev/null | grep -q ":$p " && wrn "UDP port $p already in use (old PX4/QGC?)"; done

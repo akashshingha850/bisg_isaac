@@ -9,6 +9,7 @@ All commands from the repo root. The `./bisg` CLI wraps everything below (`./bis
 ./bisg view                                       # watch a headless run (browser URL / WebRTC client)
 ./bisg up [gui|headless|web|webrtc|both] [-c <scenario>]   ./bisg wait  ./bisg status  ./bisg logs -f
 ./bisg smoke            ./bisg mavros up|state|logs|down     ./bisg ros shell     ./bisg shell
+./bisg px4-bridge plan|up|down|status|logs|params|build [mavros|mavsdk|xrce|none]   # the PX4 bridge: one service, PX4_BRIDGE in config/bisg.conf (docs/px4-bridge.md)
 ./bisg all headless     # sim + mavros + ros, wait, print mavros state
 ./bisg down | stop | restart
 ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
@@ -36,12 +37,12 @@ Raw compose (no `config/bisg.conf`, only `docker/.env` + compose defaults):
 ```
 docker compose -f docker/compose.yaml --profile sim up            # window on $DISPLAY
 docker compose -f docker/compose.yaml --profile sim-headless up   # no window
-SIM_CONFIG=/workspace/sim/configs/<other>.yaml docker compose -f docker/compose.yaml --profile sim up
+SIM_CONFIG=/workspace/docker/sim/configs/<other>.yaml docker compose -f docker/compose.yaml --profile sim up
 ```
 ### Watching a headless run
 ```
 ./bisg up web                   # browser view on TCP 8899 — works through a VS Code / SSH tunnel
-./bisg up webrtc                # interactive WebRTC — needs UDP 47998, so LAN or VPN only
+./bisg up webrtc                # interactive WebRTC — needs UDP 47998, so LAN or Tailscale only
 ./bisg up gui+webrtc            # local window and a remote viewer at the same time
 ./bisg view                     # URLs / client address for whatever is running
 ```
@@ -52,7 +53,7 @@ it. Either forces rendering on, so do not use them for timing runs. Set the defa
 Details: [remote-access.md](remote-access.md).
 
 Ready markers: launcher prints `[launch] sim ready`; PX4 prints `INFO  [commander] Ready for takeoff!`.
-Boot ~4–5 min headless or GUI (measured; see below). QGroundControl on the host connects on UDP 14550 automatically.
+Boot ~1 min warm, ~3 min on the first boot (shader cache). QGroundControl on the host connects on UDP 14550 automatically.
 
 ## Smoke test (sim running)
 ```
@@ -80,16 +81,26 @@ docker volume rm bisg_isaac-cache-main     # shader cache reset (last resort; sl
 | PX4 (tag `PX4_TAG`) | `/opt/PX4-Autopilot`, SITL binary `build/px4_sitl_default/bin/px4`, logs under the temp rootfs of each instance |
 | Pegasus (tag `PEGASUS_TAG`) | `/opt/PegasusSimulator/extensions/pegasus.simulator` (editable install, `config/configs.yaml`) |
 | Repo | `/workspace` (bind mount) |
-| Kit text log (`kit_*.log`) | volume `isaac-kit-logs` → `/isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1/` (`./bisg debug kitlog`); `isaac-logs` only holds structured telemetry json |
+| Kit text log (`kit_*.log`) | volume `isaac-kit-logs` → `/isaac-sim/kit/logs/Kit/Isaac-Sim Python/<version>/` (`./bisg debug kitlog`); `isaac-logs` only holds structured telemetry json |
 
 ## Verified on this workstation (2026-09-12)
 - Headless boot to `[launch] sim ready`: ~4.3 min cold and warm alike (Kit startup + warehouse USD load dominate, not the shader cache); PX4 "Ready for takeoff" ~10 s later. `docker compose stop`: 1.4 s, exit 0, no stray PX4.
 - `tests/smoke_takeoff.py`: PASS. MAVROS: `connected: true`, 155 topics, pose ~14 Hz, IMU ~24 Hz (default PX4 onboard stream rates).
 
+## Real ZED SDK in the sim
+
+```
+./bisg zed build && ./bisg zed image          # once (docs/setup.md)
+./bisg up headless && ./bisg wait  # the sim streams the ZED Mini twin
+./bisg zed up && ./bisg zed check                 # real zed_wrapper + SDK checks; ./bisg zed status | logs | down
+```
+Start the wrapper after the sim and keep both alive together: the SDK connects once per sim run (B18), so after restarting either, restart both.
+Full explanation, differences from the real drone and troubleshooting: `docs/zed-sdk-sim.md`.
+
 ## Common failures
 - **`docker compose stop` takes the full grace period and exits 137**: the launcher must be PID 1. `/isaac-sim/python.sh` is a bash wrapper that runs Python as a child and ignores SIGTERM; `docker/sim/entrypoint.sh` therefore replicates its environment and `exec`s `/isaac-sim/kit/python/bin/python3` directly. Do not switch the entrypoint back to `python.sh`.
 - **`rmw_create_node: failed to create domain` / "failed to increase socket receive buffer"**: a CycloneDDS profile asked for a buffer larger than `net.core.rmem_max`. Our `docker/cyclonedds.xml` sets no minimum; optionally `sudo sysctl -w net.core.rmem_max=10485760` for large point clouds later.
-- **ZED `camera_info` publishes but `image_rect_color` / `depth_registered` never arrive**: host `net.core.rmem_max` too small for 2.7 MB images — see `docs/setup.md` (sysctl, required).
+- **ZED `camera_info` publishes but the `left/color/rect/image` / `depth_registered` images never arrive**: host `net.core.rmem_max` too small for 2.7 MB images — see `docs/setup.md` (sysctl, required).
 - **GPS-denied: estimate diverges / height runs away once airborne**: something ROS-side is on the wall clock. PX4 SITL runs on sim time; check `/clock` is published, `use_sim_time` on MAVROS plugin nodes and vio_mock (`docs/interface-contract.md` /clock row, mavros-ops skill), and that PX4's `vehicle_visual_odometry.timestamp_sample` differs from `timestamp`.
 - **GPS-denied: arming refused in Hold / "global position invalid"**: expected with EV in FRD — arm and fly in OFFBOARD (`tests/vio_flight.py`).
 - **`ros2 topic list` shows nothing although MAVROS runs**: stale ROS 2 daemon in the `ros` container; `ros2 daemon stop` then retry (or `--no-daemon`).

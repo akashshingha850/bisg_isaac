@@ -15,6 +15,68 @@ one you can use depends on whether UDP reaches you.
 `SIM_VIEW=both` runs the two at once, and `gui+web` / `gui+webrtc` add a stream on top of the local
 window. Either transport forces rendering on, so never use one for a timing or regression run.
 
+`./bisg info` lists every way into the host on one screen (sim view, WebRTC, Foxglove, QGroundControl MAVLink + ZED video,
+ssh, Tailscale), each with its live state and its link for this machine, the LAN and the tailnet. It only reads; it starts nothing.
+
+## You are on another network: the `tailscale` service
+
+A Tailscale node runs as a compose service (`tailscale`, ADR-009) on the host network. This server gets a
+`100.x.y.z` tailnet address, and everything listening here (browser view, WebRTC, SSH, MAVLink) is reachable from
+your other devices on the same tailnet. It makes outbound connections only: no port forwarding, no public IP,
+and it works behind NAT and campus firewalls (falling back to Tailscale's HTTPS relays when UDP is blocked).
+Nothing is exposed to the internet. Only devices logged into your tailnet can connect.
+
+**On the sim server, once:**
+
+```
+echo SIM_VIEW_ADDR=tailscale >> docker/.env     # WebRTC advertises this host's tailnet IP
+./bisg tailscale up                             # starts the node; in a terminal it goes straight into the login below
+./bisg tailscale login                          # sign in from the terminal: prints a URL, open it on ANY device (phone is fine), waits
+./bisg tailscale login --qr                     # same, plus a QR code in the terminal to scan with a phone
+```
+
+**Tailscale already installed on the host?** Then `./bisg tailscale up|status|ip` uses the host's node and does not start the container:
+two Tailscale daemons cannot share one host (the container dies with `TUN device tailscale0 is busy`). Nothing to log in: the host
+is already on your tailnet, `SIM_VIEW_ADDR=tailscale` resolves to its address, `up`/`down` connect/disconnect the host node when you
+are its operator (else they leave it alone), and `logout` leaves the host's login alone
+(re-login there: `sudo tailscale up --force-reauth`, which prints a URL). `TAILSCALE_MODE` in `config/bisg.conf`: `auto` (default),
+`host` or `container`.
+
+The login is kept in the `bisg-tailscale_tailscale-state` volume, and the container restarts with the machine
+(`restart: unless-stopped`), so later runs need nothing. Auth keys (`tskey-auth-...`) are deliberately not supported: a key
+stored on a shared machine is a standing secret that lets anyone who reads it join your tailnet. The browser login is the only path.
+The service runs plain `tailscaled`, not the image's `containerboot`. containerboot gives an interactive login 60 s and then
+restarts the container with a new URL, so an unattended link expired before anyone could open it.
+
+**On the machine you watch from:** install Tailscale (Windows/macOS/Linux/iOS/Android app) and log in with the
+same account. If that machine is a Linux box with this repo, `./bisg tailscale up` there works too.
+
+**Then:**
+
+```
+./bisg up webrtc        # or: ./bisg up web     (on the sim server)
+./bisg tailscale status       # prints the address and what to open
+```
+
+| From the remote machine | Open |
+|---|---|
+| Interactive Isaac UI | Isaac Sim WebRTC Streaming Client → the server's `100.x` address |
+| Still frames in a browser | `http://100.x.y.z:8899/` |
+| Shell | `ssh <user>@100.x.y.z` (or the MagicDNS name, `TAILSCALE_HOSTNAME`, default `bisg-<hostname>`) |
+| QGroundControl | on the server `GCS_URL=udp://@<remote's 100.x IP>:14550` in `docker/.env`, then `./bisg mavros up`; QGC listens on 14550 by default |
+
+**The tailnet follows the sim** (`TAILSCALE_WITH_SIM=1`, default since 2026-10-20): `./bisg up` / `./bisg all` connect this host,
+`./bisg down` / `./bisg stop` disconnect it, `./bisg restart` leaves it up (so a restart over a Tailscale SSH session does not cut
+itself off). While the sim is down this host is not reachable over Tailscale; a VS Code tunnel is a separate path and stays. With
+the host's own Tailscale this is `tailscale up` / `tailscale down` on the host node (same name and IP; a `down` survives a reboot),
+which needs the user as the daemon's operator once: `sudo tailscale set --operator=$USER` (until then the sim commands only warn
+and leave it as it is). In container mode the container is started / stopped. `TAILSCALE_WITH_SIM=0` = the old behaviour: only
+`./bisg tailscale up|down` switch it. If the machine reboots while the sim runs, the tailnet is back after the reboot; the next
+`./bisg down` switches it off. `./bisg tailscale down` disconnects (the host node too, when you are its operator);
+`./bisg tailscale logout` also forgets the login. `--accept-dns=false` is set, so the host's DNS is not touched
+(this matters on a shared machine). ROS 2 DDS discovery does not cross the tailnet (no multicast); use the views above or
+`./bisg shell` over SSH.
+
 ## You are on a VS Code tunnel (this workstation's usual case)
 
 ```
@@ -58,9 +120,7 @@ connect it to that address, and open TCP 49100 + UDP 47998 on the host firewall.
 needs no GPU. Without `SIM_VIEW_ADDR` a remote client connects to the signalling port and then
 receives no video, which looks like a hang.
 
-[Tailscale](https://tailscale.com) is the least-effort option here: install it on both machines, read the
-workstation's `100.x.y.z` address off `tailscale ip -4`, put it in `SIM_VIEW_ADDR`. WireGuard and
-ZeroTier work the same way.
+From another network, use the `tailscale` service above (`SIM_VIEW_ADDR=tailscale`). On a LAN, the LAN IP is enough.
 
 ## What does not work
 
@@ -70,7 +130,7 @@ ZeroTier work the same way.
   simpler. `cloudflared` *is* a reasonable way to expose the **web** view (one TCP port) to the internet;
   put authentication in front of it, because that page has no access control of its own.
 - **A browser URL for WebRTC.** NVIDIA removed the in-browser WebRTC client after Isaac Sim 4.0, and this
-  image ships only the server extensions (`omni.services.livestream.nvcf`, `omni.kit.livestream.webrtc`).
+  image ships only the server extensions (Isaac Sim 6.0: `omni.kit.livestream.app` + `omni.kit.livestream.webrtc`; 5.1 used `omni.services.livestream.nvcf`, which no longer exists).
   The browser route is the `web` mode above.
 - **Forwarding UDP 47998 over SSH or VS Code.** Both forward TCP. `socat`/`udp-over-tcp` bridges exist and
   are not worth the trouble; use a VPN.
@@ -82,7 +142,11 @@ All in the "What you see" block of [`config/bisg.conf`](../config/bisg.conf):
 | Key | Default | Meaning |
 |---|---|---|
 | `SIM_VIEW` | `auto` | `gui` \| `headless` \| `web` \| `webrtc` \| `both` \| `auto`, combined with `+` |
-| `SIM_VIEW_ADDR` | empty | address advertised to remote clients; required for remote WebRTC |
+| `SIM_VIEW_ADDR` | empty | address advertised to remote clients; required for remote WebRTC; `tailscale` = this host's tailnet IP. Per machine: `docker/.env` |
+| `TAILSCALE_HOSTNAME` | `bisg-<hostname>` | this host's name on the tailnet (`tailscale` service) |
+| `TAILSCALE_TAG` | `v1.102.5` | image pin of the `tailscale` service (ADR-009) |
+| `TAILSCALE_EXTRA_ARGS` | empty | extra `tailscale up` flags for `./bisg tailscale login`, e.g. `--ssh` |
+| `TAILSCALE_WITH_SIM` | `1` | the tailnet follows the sim (`./bisg up|all` connect, `down|stop` disconnect); host mode needs `sudo tailscale set --operator=$USER` once |
 | `SIM_WEB_PORT` | `8899` | TCP port of the browser view |
 | `SIM_WEB_INTERVAL` | `1.0` | seconds between captured frames |
 
@@ -93,9 +157,11 @@ Per-run overrides: `./bisg up web`, `webrtc`, `both`, `gui+webrtc`, or the flags
 
 | Symptom | Cause |
 |---|---|
-| "waiting for the first frame" forever | the world is still loading (~4–5 min cold), or `./bisg logs` shows `web view: capture failed` — the viewport was not available |
+| "waiting for the first frame" forever | the world is still loading (~3 min cold), or `./bisg logs` shows `web view: capture failed` — the viewport was not available |
 | `ERR_CONNECTION_REFUSED` on `http://127.0.0.1:8899/` | nothing is listening: the sim is not running (`./bisg status`), still booting, or was started with no web view. `./bisg view` says which. A GPU/driver problem stops the container before any port opens — `./bisg up` reports that case directly |
 | Page does not load at all | port not forwarded, or the sim was started with no web view: `./bisg view` says which |
 | WebRTC client connects, black window | no UDP path, or `SIM_VIEW_ADDR` unset/wrong |
+| `SIM_VIEW_ADDR=tailscale but the tailscale service has no address` | `./bisg tailscale up` (and finish the login), then `./bisg up` again |
+| Remote machine cannot reach `100.x` | it is not on the same tailnet (`tailscale status` there), or the server's node is logged out (`./bisg tailscale status`) |
 | Everything is slower | expected: a view forces rendering; use `SIM_VIEW=headless` for tests |
 | Frames look stale | `SIM_WEB_INTERVAL` is the refresh rate; lower it, at the cost of GPU time |

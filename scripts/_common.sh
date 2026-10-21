@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Shared helpers for bisg scripts. Source, do not execute.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="$ROOT/docker/compose.yaml"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT/docker/compose.yaml}"
 ENV_FILE="$ROOT/docker/.env"
 SIM_NAME=bisg-sim
 ROS_NAME=bisg-ros
-ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools)
+ALL_PROFILES=(--profile sim --profile sim-headless --profile ros --profile tools --profile zed --profile drone --profile px4-bridge)
 
 # --- output -------------------------------------------------------------------
 if [[ -t 1 ]]; then C_G=$'\e[32m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_0=$'\e[0m'; else C_G=; C_Y=; C_R=; C_B=; C_0=; fi
@@ -38,6 +38,7 @@ load_conf(){
     val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     [[ ${#val} -ge 2 && ${val:0:1} == '"' && ${val: -1} == '"' ]] && val="${val:1:${#val}-2}"
     [[ ${#val} -ge 2 && ${val:0:1} == "'" && ${val: -1} == "'" ]] && val="${val:1:${#val}-2}"
+    [[ "$val" == "~/"* ]] && val="$HOME/${val:2}"                    # ~/path = this user's home (portable defaults)
     if [[ -n "${!key:-}" ]]; then
       [[ -n "${BISG_SRC[$key]:-}" ]] || BISG_SRC[$key]="$([[ -n "${_BISG_ENV0[$key]:-}" ]] && echo environment || echo "$label")"
       continue
@@ -50,18 +51,40 @@ conf_default(){ local k="$1"; [[ -n "${!k:-}" ]] && return 0; export "$k=$2"; BI
 load_conf "$ENV_FILE" "docker/.env"
 while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_files)
 # Fallbacks so the scripts still work with no config file at all; keep in sync with config/bisg.conf.
-conf_default SIM_VIEW auto;        conf_default SIM_SCENARIO single_iris;  conf_default SIM_WAIT_TIMEOUT 600
-conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
-conf_default ROS_DOMAIN_ID 0;      conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550
-conf_default FCU_BAUD 921600
-conf_default FOXGLOVE_PORT 8765;    conf_default TAILSCALE_TAG v1.102.5
-conf_default ISAAC_TAG 5.1.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG v5.1.0
-conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
+conf_default SIM_VIEW gui+webrtc;        conf_default SIM_SCENARIO /workspace/docker/sim/sim.yaml;  conf_default SIM_WAIT_TIMEOUT 600
+conf_default SIM_GPU all;         conf_default ZED_GPU all;         conf_default ZED_AUTOSTART 1;     conf_default ROS_TOOLS_AUTOSTART 1;     conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
+conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550;  conf_default FOXGLOVE_UI_PORT 8080;  conf_default FOXGLOVE_LAYOUT raptor
+# ROS_DOMAIN_ID=auto: one stable domain per machine (1..99, from the hostname), so two workstations on one LAN never see each other's
+# /drone_N topics (CycloneDDS multicast discovery crosses the LAN). A number set in docker/.env or the environment wins.
+if [[ "$ROS_DOMAIN_ID" == auto ]]; then
+  ROS_DOMAIN_ID=$(( 1 + $(printf '%s' "$(hostname -s 2>/dev/null || echo sim)" | cksum | cut -d' ' -f1) % 99 )); export ROS_DOMAIN_ID
+  BISG_SRC[ROS_DOMAIN_ID]="${BISG_SRC[ROS_DOMAIN_ID]:-built-in} (auto from hostname)"
+fi
+conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG local-08c9954
+conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF b19902daf0136b6e841b5e415c2d01f425411c45;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
+conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
+conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto; conf_default TAILSCALE_WITH_SIM 1
+conf_default PX4_BRIDGE mavros
+conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
-conf_default ARCHIVE_DIR /media/ubuntu/ssd/docker-archive
-conf_default PEGASUS_REPO https://github.com/PegasusSimulator/PegasusSimulator.git
+# One compose file serves the x86_64 workstation and the arm64 Jetson; the only per-arch thing is the ZED image tag.
+case "$(uname -m)" in
+  aarch64|arm64) conf_default BISG_ARCH arm64;  conf_default ZED_VARIANT jetson;;    # Jetson, JetPack 7 (docker/zed/build.sh jetson; L4T from the board)
+  *)             conf_default BISG_ARCH x86_64; conf_default ZED_VARIANT desktop;;    # workstation (docker/zed/build.sh desktop)
+esac
+conf_default ARCHIVE_DIR "$HOME/bisg-archive"
+conf_default BAG_DIR "${ARCHIVE_DIR}/bags"
+BAG_DIR="${BAG_DIR/#\~/$HOME}"; export BAG_DIR   # compose bind-mounts it into bisg-ros as /bags
+conf_default PEGASUS_REPO https://github.com/akashshingha850/PegasusSimulator.git
+conf_default PEGASUS_UPSTREAM https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
+conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
 conf_default PX4_REPO https://github.com/PX4/PX4-Autopilot.git
+# The PX4 bridge on the real drone: the Pixracer's serial port instead of the sim's UDP, wall-clock time (docker/bridge/*.yaml read these).
+bridge_env_drone(){
+  local ser="${DRONE_FCU_URL:-serial:///dev/px4:921600}"
+  export BRIDGE_DEVICE=/dev/px4 BRIDGE_SIM_TIME=false FCU_URL="$ser" MAVSDK_URL="$ser" XRCE_TRANSPORT=serial
+}
 export FCU_URL="${FCU_URL:-}" GCS_URL="${GCS_URL:-}"      # empty = derived / disabled
 export SIM_VIEW_ADDR="${SIM_VIEW_ADDR:-}"                 # empty = local viewers only
 
@@ -76,11 +99,42 @@ done
 
 STREAM_SIGNAL_PORT=49100      # TCP, hardcoded in the Isaac Sim WebRTC Streaming Client
 STREAM_MEDIA_PORT=47998       # UDP, likewise
+TAILSCALE_NAME=bisg-tailscale
+# This host's tailnet IPv4 from the `tailscale` service (./bisg tailscale up); empty when it is not up or not logged in.
+# A Tailscale daemon already running on the host owns tailscale0 and its routes, so the container cannot share the host with it
+# (tailscaled: "TUN device tailscale0 is busy"). TAILSCALE_MODE=auto (config/bisg.conf) then uses the host's node instead.
+host_tailscale(){
+  case "${TAILSCALE_MODE:-auto}" in
+    container) return 1;;
+    host) return 0;;
+    *) command -v tailscale >/dev/null 2>&1 && [[ -S /run/tailscale/tailscaled.sock ]];;
+  esac
+}
+tailscale_ip(){
+  if host_tailscale; then tailscale ip -4 2>/dev/null | head -1 || true
+  else container_running "$TAILSCALE_NAME" && docker exec "$TAILSCALE_NAME" tailscale ip -4 2>/dev/null | head -1 || true; fi
+}
+# SIM_VIEW_ADDR=tailscale means "this host's tailnet IP". Resolve it to an address before anything uses it.
+resolve_view_addr(){
+  [[ "${SIM_VIEW_ADDR:-}" == vpn ]] && die "SIM_VIEW_ADDR=vpn was renamed: set SIM_VIEW_ADDR=tailscale in docker/.env"
+  [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] || return 0
+  local ip; ip="$(tailscale_ip)"
+  [[ -n "$ip" ]] || die "SIM_VIEW_ADDR=tailscale but the tailscale service has no address: ./bisg tailscale up (then ./bisg tailscale status)"
+  export SIM_VIEW_ADDR="$ip"
+}
 # Where a viewer should connect: SIM_VIEW_ADDR, else this host's LAN IP, else loopback.
 stream_addr(){
+  [[ "${SIM_VIEW_ADDR:-}" == tailscale ]] && { local v; v="$(tailscale_ip)"; echo "${v:-<tailscale not up>}"; return; }
   if [[ -n "${SIM_VIEW_ADDR:-}" ]]; then echo "$SIM_VIEW_ADDR"; return; fi
-  local ip; ip=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+  local ip; ip="$(lan_ip)"
   echo "${ip:-127.0.0.1}"
+}
+lan_ip(){ ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1 || true; }
+# Foxglove web UI link for a host (localhost, LAN or tailnet address): connects to the bridge and loads docker/ros/foxglove/$FOXGLOVE_LAYOUT.json.
+export FOXGLOVE_BRIDGE_PORT=8765   # foxglove_bridge's default port (docker/ros/tools.yaml); the UI proxies it at /ws (docker/ros/foxglove/Caddyfile)
+foxglove_url(){
+  local h="${1:-localhost}"; local ui="http://${h}:${FOXGLOVE_UI_PORT:-8080}"
+  echo "${ui}/?ds=foxglove-websocket&ds.url=ws://${h}:${FOXGLOVE_UI_PORT:-8080}/ws&layoutUrl=${ui}/layouts/${FOXGLOVE_LAYOUT:-raptor}.json"
 }
 # SIM_VIEW is the one knob for the window and the remote view. It resolves into the two things
 # the container actually takes: which compose profile (SIM_HEADLESS) and what the launcher serves
@@ -99,7 +153,7 @@ view_parse(){
       web|browser)          web=1;;
       webrtc|stream|livestream) rtc=1;;
       both)                 web=1; rtc=1;;
-      remote) die "SIM_VIEW=remote is ambiguous: 'web' survives a VS Code/SSH tunnel, 'webrtc' is interactive but needs UDP on a LAN or VPN (docs/remote-access.md)";;
+      remote) die "SIM_VIEW=remote is ambiguous: 'web' survives a VS Code/SSH tunnel, 'webrtc' is interactive but needs UDP on a LAN or Tailscale (docs/remote-access.md)";;
       *) die "SIM_VIEW: unknown value '$tok' (gui|headless|web|webrtc|both|auto, combined with '+'; got '$raw')";;
     esac
   done
@@ -128,15 +182,15 @@ have_x11(){
 }
 # gui|headless from an explicit SIM_VIEW value, else the configured one.
 sim_mode(){ view_parse "${1:-}"; echo "$VIEW_MODE"; }
-# Scenario name (sim/configs/<name>.yaml) or a path -> the /workspace path the container sees.
+# Scenario name (docker/sim/configs/<name>.yaml) or a path -> the /workspace path the container sees.
 scenario_path(){
   local s="$1"
-  [[ "$s" == */* || "$s" == *.yaml || "$s" == *.yml ]] || s="$ROOT/sim/configs/$s.yaml"
+  [[ "$s" == */* || "$s" == *.yaml || "$s" == *.yml ]] || s="$ROOT/docker/sim/configs/$s.yaml"
   [[ -f "$s" || -f "$ROOT/${s#/workspace/}" ]] || warn "scenario file not found on the host: $s"
   to_ws "$s"
 }
 
-compose(){ docker compose -f "$COMPOSE_FILE" "$@"; }
+compose(){ mkdir -p "$BAG_DIR" 2>/dev/null || true; docker compose -f "$COMPOSE_FILE" "$@"; }   # BAG_DIR made by us, not by docker as root
 
 # Every GPU container fails at `docker start` when the loaded nvidia module and the installed
 # userspace disagree (apt upgraded the driver under a running kernel module). Catch it here: the
@@ -168,6 +222,12 @@ sim_ready(){ _sim_log_has "\[launch\] sim ready"; }
 px4_ready(){ _sim_log_has "Ready for takeoff"; }
 sim_failed(){ _sim_log_has "Traceback|\[launch\] .*(unknown|FATAL)|Failed to create any GPU devices"; }
 # Run a command in the ros container with ROS 2 (and the ros2_ws overlay) sourced.
-ros_exec(){ docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; [ -f /workspace/ros2_ws/install/setup.bash ] && source /workspace/ros2_ws/install/setup.bash; $*"; }
+ros_exec(){ docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; [ -f /workspace/docker/ros/ros2_ws/install/setup.bash ] && source /workspace/docker/ros/ros2_ws/install/setup.bash; $*"; }
 # host path (inside repo) -> /workspace path
 to_ws(){ local p="$1"; [[ "$p" = /workspace/* ]] && { echo "$p"; return; }; p="$(realpath -m "$p")"; echo "/workspace${p#"$ROOT"}"; }
+
+# zed_stack (docker/zed/zed.yaml compiler/validator) is plain python + PyYAML: host python when it has yaml, else the ros image.
+zs(){
+  if python3 -c 'import yaml' 2>/dev/null; then PYTHONPATH="$ROOT/docker/zed" python3 -m zed_stack "$@"
+  else docker run --rm -v "$ROOT":/workspace:ro -e PYTHONPATH=/workspace/docker/zed --entrypoint python3 bisg/ros:jazzy -m zed_stack "$@"; fi
+}

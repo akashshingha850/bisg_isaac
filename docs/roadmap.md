@@ -37,10 +37,10 @@ Exit test
 **Goal:** one command brings up Isaac Sim + Pegasus + PX4 SITL with one drone that can be flown from QGroundControl.
 
 Deliverables
-- `docker/sim/Dockerfile` (Isaac 5.1 base, Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
+- `docker/sim/Dockerfile` (Isaac 6.0 base since the 2026-10 migration — was 5.1; Pegasus installed, PX4 SITL built at the pinned tag), cache volumes, X11 + headless variants.
 - `docker/compose.yaml` profiles `sim` and `sim-headless`.
-- `sim/launcher/launch.py` + `sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
-- `third_party/` submodules pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
+- `docker/sim/launcher/launch.py` + `docker/sim/configs/single_iris.yaml`: world preset, vehicle, PX4 backend (autolaunch), instance/port derivation.
+- submodules (`docker/sim/PegasusSimulator`, `docker/zed/zed-ros2-wrapper`) pinned (Pegasus tag, PX4 tag) — ADR-003 filled in after the compatibility run.
 - `scripts/check_env.sh`: driver, nvidia runtime, X11, disk, VRAM.
 
 Exit test
@@ -52,7 +52,7 @@ Exit test
 
 Deliverables
 - `docker/ros/Dockerfile` (ROS 2 **Jazzy** on Ubuntu 24.04, MAVROS + extras, geographiclib, CycloneDDS, colcon build of `ros2_ws`), amd64 + arm64 buildx.
-- `ros2_ws/src/bisg_msgs` (`VehicleState`, `VehicleCmd`, `Task`), `bisg_vehicle` (`offboard_controller` node + Python API), `bisg_bringup/launch/sim_drone.launch.py`.
+- `docker/ros/ros2_ws/src/bisg_msgs` (`VehicleState`, `VehicleCmd`, `Task`), `bisg_vehicle` (`offboard_controller` node + Python API), `bisg_bringup/launch/sim_drone.launch.py`.
 - MAVROS per-drone launch wrapper with namespace + `fcu_url` derivation; `use_sim_time` wiring; Isaac `/clock` (Isaac bridge set to Jazzy libs).
 - Smoke test that the `ros` container sees Isaac bridge topics (ADR-004 validated).
 
@@ -67,7 +67,7 @@ Deliverables
 - `bisg_vehicle/vio_mock`: Pegasus ground truth + noise + latency → `mavros/odometry/out`.
 - PX4 params file for EV fusion (`EKF2_EV_CTRL`, `EKF2_HGT_REF`, `EKF2_EV_DELAY`, GPS disabled) loaded into SITL.
 - Contract checker: `tests/check_contract.py` compares live topic list/types/rates against `interface-contract.md`.
-- (Not planned: running the ZED SDK against Isaac's simulated stream — Stereolabs' Isaac integration targets ZED X, not ZED Mini.)
+- Optional (done 2026-10-03, `docs/zed-sdk-sim.md`): the real ZED SDK + wrapper against Isaac's streamed ZED Mini twin (`ZED_SOURCE=sdk`, `./bisg zed up|check`), so downstream code is identical in sim and on the Jetson. Needs Isaac Sim 6.0.
 
 Exit test
 - With GPS disabled in SITL, the square mission from Phase 2 completes on mock VIO; `mavros/local_position/pose` vs ground truth error < 0.3 m.
@@ -77,21 +77,21 @@ Exit test
 **Goal:** the sim vehicle and the sim world are faithful models of the real quad and the real site.
 
 Deliverables
-- **Vehicle model** `sim/assets/vehicles/bisg_quad/`: USD of the real frame (mass, inertia, arm length, motor/prop placement, ZED Mini mount pose, Pixracer IMU position), Pegasus thrust curve fitted to the real motor/prop/battery, registered as a Pegasus vehicle preset. Documented measurement procedure in `docs/hardware.md`.
-- **Site world** `sim/worlds/<site>/`: capture route chosen (3DGS/NuRec via nerfstudio/Postshot, or photogrammetry mesh), render asset + invisible collision proxies (floor, walls, obstacles) + spawn points + geofence.
+- **Vehicle model** `docker/sim/assets/vehicles/raptor/`: USD of the real frame (mass, inertia, arm length, motor/prop placement, ZED Mini mount pose, Pixracer IMU position), Pegasus thrust curve fitted to the real motor/prop/battery, registered as a Pegasus vehicle preset. Documented measurement procedure in `docs/hardware.md`.
+- **Site world** `docker/sim/worlds/<site>/`: capture route chosen (3DGS/NuRec via nerfstudio/Postshot, or photogrammetry mesh), render asset + invisible collision proxies (floor, walls, obstacles) + spawn points + geofence.
 - Geo-reference: PX4 `LAT/LON/ALT` home = real site origin so GPS and local frames match hardware.
 - Asset pipeline docs: how to re-capture, re-export, and validate scale (a known 1 m reference in the scene).
 - Scenario YAMLs for one drone: `hover_check`, `square`, `survey_strip`, `inspect_structure`.
 
 Exit test
-- Phase 3 exit test runs with the `bisg_quad` model in the site world with the same task YAML; measured hover thrust / climb rate in sim within 15 % of the real quad's bench numbers (or of the spec sheet until Phase 5 provides bench data).
+- Phase 3 exit test runs with the `raptor` model in the site world with the same task YAML; measured hover thrust / climb rate in sim within 15 % of the real quad's bench numbers (or of the spec sheet until Phase 5 provides bench data).
 
 ## Phase 5 — Hardware single drone
 **Goal:** one real drone (Jetson Orin NX, JetPack 7.2, Pixracer, ZED Mini) runs the Phase 2/3 stack.
 
 Deliverables
-- `deploy/jetson/compose.yaml` profile `jetson`: `mavros`, `zed`, `vehicle` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
-- Pixracer: PX4 pinned tag flashed, `deploy/px4_params/drone_1.params` (TELEM2 921600 onboard mode, EV fusion, safety).
+- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, via `./bisg px4-bridge up --hw`), `drone-zed`, `zed-bridge`, `zed-video` services (arm64 images from Phase 2/3; ZED image on the L4T r38 base).
+- Pixracer: PX4 pinned tag flashed, `docker/sim/px4/drone_1.params` (TELEM2 921600 onboard mode, EV fusion, safety).
 - `bisg_bringup/launch/real_drone.launch.py`: ZED wrapper + `vio_relay` (zed odom → `mavros/odometry/out`).
 - Bench procedure (`hardware.md`): props off, MAVROS heartbeat, EKF2 EV fusion healthy (`ekf2 status`), offboard on bench.
 - udev rules, boot-time service, log collection. Bench numbers fed back into the Phase 4 vehicle model.

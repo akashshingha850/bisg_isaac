@@ -1,0 +1,95 @@
+# raptor (Raptor 5" cinewhoop) — inputs of docker/sim/tools/build_raptor.py. Run it again after any change here or in the CAD.
+# Every position is in the CAD-FLU frame: the Onshape model rotated 90 deg about Z so that x = forward, y = left, z = up
+# (Onshape: forward = -y, left = +x, up = +z), metres, origin = the Onshape origin. The script moves the body origin to the
+# centre of mass and prints the numbers the scenario needs (zed mount, tof mount, spawn height).
+
+cad:
+  raw_usd: raptor_visual.usd           # step_to_usd.py output (docker/sim/tools/step_to_usd.py), copied next to this file
+  rotate_z_deg: 90
+  exclude: [ZEDMSTEP]                  # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh
+
+# Motors in PX4 quad-X order (rotor0..3 = motor 1..4: front-right, rear-left, front-left, rear-right); spin direction is the
+# Pegasus default [-1,-1,1,1] = PX4's. Positions fitted to the 4 duct holes of the frame (inner radius 68.6 mm => 5" props):
+# centres at fwd 0.0431/0.1832, left -0.0315/0.1700.
+motors:
+  z: -0.05                              # thrust plane height. PLACEHOLDER: prop/motor are not in the CAD (duct skirt spans -0.155..-0.058)
+  positions:                            # [fwd, left]
+    - [0.1832, -0.0315]                 # rotor0  front-right
+    - [0.0431,  0.1700]                 # rotor1  rear-left
+    - [0.1832,  0.1700]                 # rotor2  front-left
+    - [0.0431, -0.0315]                 # rotor3  rear-right
+  rotor_mass: 0.002                     # kg, only the spinning placeholder; the motor's real mass is in `mass_groups`
+
+# Collision proxy: one solid cylinder per duct (the real landing contact is the duct rim). Not rendered.
+collision:
+  duct_radius: 0.072
+  z_bottom: -0.155
+  z_top: -0.018
+
+# PLACEHOLDER masses (kg) and boxes [fwd, left, up size, m] — weigh the real drone and replace (Phase 4, docs/hardware.md).
+# The script sums these into total mass, centre of mass and the diagonal inertia (boxes + parallel axis).
+mass_groups:
+  - {name: frame+ducts,  mass: 0.150, centre: [0.1131, 0.0693, -0.090], size: [0.294, 0.368, 0.100]}
+  - {name: jetson,       mass: 0.090, centre: [0.1340, 0.0780, -0.093], size: [0.058, 0.041, 0.018]}
+  - {name: zed_mini,     mass: 0.063, centre: [0.2450, 0.0700, -0.002], size: [0.030, 0.125, 0.027]}
+  - {name: lw20,         mass: 0.020, centre: [0.0600, 0.0715, -0.065], size: [0.030, 0.030, 0.050]}
+  - {name: battery_fc,   mass: 0.340, centre: [0.1131, 0.0693, -0.040], size: [0.100, 0.040, 0.030]}   # battery + FC + ESC + wiring: location unknown
+  - {name: motor_fr,     mass: 0.035, centre: [0.1832, -0.0315, -0.050], size: [0.030, 0.030, 0.030]}
+  - {name: motor_rl,     mass: 0.035, centre: [0.0431,  0.1700, -0.050], size: [0.030, 0.030, 0.030]}
+  - {name: motor_fl,     mass: 0.035, centre: [0.1832,  0.1700, -0.050], size: [0.030, 0.030, 0.030]}
+  - {name: motor_rr,     mass: 0.035, centre: [0.0431, -0.0315, -0.050], size: [0.030, 0.030, 0.030]}
+
+# Sensor mounts, CAD-FLU, for the scenario YAML (the script converts them to body-frame offsets).
+sensors:
+  zed_camera_link: [0.2450, 0.0693, -0.002]   # centre of the ZED M body in the CAD
+  tof: [0.0600, 0.0715, -0.090]               # Lightware LW20 bottom face
+
+# --- the raptor as a scenario vehicle (read by the launcher through docker/sim/sim.yaml `vehicle:`; build_raptor.py ignores it) ----
+# Mounts are the body-frame offsets from raptor_summary.json (CoM = body origin); rest height 0.100 m above the duct rims.
+vehicles:
+  - id: 0
+    model: raptor                      # label only: the USD is set by paths.drone / usd_path (launch.py resolve_vehicle_usd)
+    usd_path: null                     # the drone USD is `model:` in docker/sim/sim.yaml
+    position: [0.0, 0.0, 0.11]         # body origin = CoM, 0.100 m above the duct rims (on a z=0 floor; sim.yaml `spawn:` wins)
+    yaw_deg: 0.0
+    ros2:
+      enabled: true
+      pub_state: true
+      pub_sensors: false
+      pub_graphical_sensors: false
+    sensors:
+      zed:
+        enabled: true
+        mount_xyz_rpy: [0.1205, 0.0, 0.0527, 0, 0, 0]      # base_link -> zed_camera_link, relative to the CoM: on the centreline (real drone:
+                                                            # centred, forward offset only; y was the placeholder CoM's -1.1 mm)
+        baseline: 0.063
+        resolution: [1280, 720]
+        fps: 30.0
+        imu_rate: 200.0
+        depth_range: [0.1, 15.0]
+      tof:                             # Lightware LW20/C under the frame, facing down
+        enabled: true
+        mount_xyz: [-0.0645, 0.0011, -0.0353]               # LW20 bottom face relative to the CoM
+        min_m: 0.05
+        max_m: 100.0
+        rate_hz: 50.0
+        noise_std_m: 0.01
+      optical_flow:                    # Holybro PMW3901 under the frame, facing down (docker/sim/launcher/range_flow.py -> PX4 HIL_OPTICAL_FLOW)
+        enabled: true                  # EKF2 fuses it (EKF2_OF_CTRL defaults to 1), as on a Pixracer with the sensor attached
+        mount_xyz: [-0.0645, 0.0011, -0.0353]               # PLACEHOLDER: the CAD has no PMW3901, so it shares the LW20's spot. ~7.5 cm
+                                                            # above the floor when landed, under the 8 cm min_m: quality 0 until takeoff
+        min_m: 0.08
+        max_m: 5.0                     # beyond this the sensor reports quality 0
+        rate_hz: 50.0
+        noise_std_rad_s: 0.02
+      ground_truth:                    # exact pose/velocity -> PX4 (HIL_STATE_QUATERNION) -> ulog *_groundtruth on PX4's clock; test-only,
+        enabled: true                  # PX4 does not fuse it. Read by tests/range_flow_eval.py and tests/vio_eval.py
+        rate_hz: 100.0
+      chase_cam:
+        enabled: true
+        resolution: [640, 360]
+        hfov_deg: 90.0
+        offset: [-1.0, 0.0, 0.5]       # smaller than the Iris view: the whoop is 0.3 m across
+        look_height: 0.0
+        smooth_s: 0.3
+        rate_hz: 10.0                  # render + publish rate, sim time (0 = every frame: costs ~9 % RTF at 20 Hz, docs/performance.md)

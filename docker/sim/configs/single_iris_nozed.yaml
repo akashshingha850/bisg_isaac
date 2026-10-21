@@ -1,0 +1,19 @@
+# Scenario: single_iris without the ZED rig (and without a ROS 2 graph of any kind in the sim).
+# Isolates Isaac + Pegasus + PX4 from the sensor layer: used by the Isaac Sim 6.0 migration
+# (archive/docs/migration-report.md stage A) and handy any time a sensor bug needs ruling out.
+extends: single_iris.yaml
+
+vehicles:
+  - id: 0
+    model: Iris
+    usd_path: null
+    position: [0.0, 0.0, 0.07]
+    yaw_deg: 0.0
+    ros2:
+      enabled: true
+      pub_state: true
+      pub_sensors: false
+      pub_graphical_sensors: false
+    sensors:
+      zed:
+        enabled: false

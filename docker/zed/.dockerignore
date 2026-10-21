@@ -1,0 +1,3 @@
+# Dockerfile.overlay copies nothing: keep the 450 MB extension tree and the wrapper out of the build context.
+*
+!Dockerfile.overlay

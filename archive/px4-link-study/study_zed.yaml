@@ -1,0 +1,113 @@
+# STUDY scenario (docs/study-vo-perception.md): one Iris + real ZED SDK, Warehouse, no GUI extras, GPS flight (offboard script).
+# Scenario: one Iris quadrotor, PX4 SITL. Consumed by sim/launcher/launch.py.
+# Override at run time:  SIM_CONFIG=/workspace/sim/configs/<file>.yaml  and  SIM_HEADLESS=1
+
+app:
+  headless: false            # SIM_HEADLESS=1 overrides to true
+  render: true               # false = physics only (fastest headless tests)
+  log_level: INFO            # DEBUG | INFO | WARNING
+  heartbeat_steps: 500       # print vehicle position every N steps; 0 = off
+  viewport_hud: false        # Kit's built-in viewport HUD (FPS, device/host memory) on at start
+  exit_after_s: 0            # >0 = stop the sim after N seconds (used by tests)
+  stream: off                # off | webrtc — WebRTC livestream for headless runs (SIM_VIEW overrides).
+                             # Forces rendering on; watch with the Isaac Sim WebRTC Streaming Client
+                             # (TCP 49100 / UDP 47998). See docs/configuration.md.
+  # viewport_eye / viewport_target: [x, y, z] pins the GUI start view; unset = auto-framed on the vehicles
+  ros_clock: true            # publish /clock (sim time) every physics step; PX4 SITL runs on sim time,
+                             # so MAVROS + our nodes need use_sim_time:=true (docs/interface-contract.md)
+  follow_cam:                    # Gazebo-style follow camera for the GUI viewport (sim/launcher/follow_cam.py)
+    enabled: false                # live panel "Follow camera" changes everything below; replaces the fixed start view
+    drone: 1                     # which vehicle to follow (1-based)
+    smooth_s: 0.3                # follow smoothing, s (0 = rigid)
+    follow_yaw: false            # true = chase view that turns with the drone's heading
+    offset: [-2.0, 0.0, 1.0]     # "Reset view": camera position in the drone body frame FLU, m (Simple Room is small: a camera
+                                 # outside its walls sees black; sliders in the panel change this live)
+    look_height: 0.0             # aim this far above the drone's centre, m
+  third_eye:                     # extra camera rendered into the ZED preview window (costs real-time factor; the follow
+    enabled: false               # camera replaces it)
+    position: [-3.0, 0.0, 1.0]   # body-local FLU: farther behind and above the drone
+    pitch_deg: 15.0
+    resolution: [640, 360]
+    fps: 15.0
+    preview_hz: 8.0
+
+# --- Performance (docs/performance.md) ----------------------------------------
+# Only non-null keys are passed to SimulationApp / Kit. Defaults here are the safe,
+# visually-correct ones; sim/configs/headless_fast.yaml is the stripped-down test profile.
+perf:
+  disable_viewport_updates: null   # null = auto (true when headless). No viewport work in headless runs.
+  limit_cpu_threads: 16            # handbook: 16-32 is the sweet spot; this host has 12 cores
+  sync_loads: null                 # true (default) = pause rendering until assets are loaded
+  renderer: null                   # RaytracedLighting (RTX real-time, default) | PathTracing (offline quality)
+  width: null                      # render resolution; lower = less VRAM per camera (risk R1)
+  height: null
+  active_gpu: null                 # pin a GPU index on multi-GPU hosts
+  skip_material_loading: false     # true = much faster load, but untextured — physics-only tests only
+  min_frame_rate: null             # --/persistent/simulation/minFrameRate: PhysX catch-up clamp (e.g. 60)
+  physx_threads: null              # --/persistent/physics/numThreads (default 8; 0 = main thread)
+  pegasus_fast: true               # cache Pegasus's per-step RigidPrim wrappers (sim/launcher/pegasus_fast.py); faster, same physics
+  extra_args: []                   # raw Kit args, e.g. ["--/app/renderer/skipMaterialLoading=true"]
+
+world:
+  # Select the active world here. Use any key from pegasus.simulator.params.SIMULATION_ENVIRONMENTS:
+  #   "Default Environment", "Curved Gridroom", "Warehouse", "Warehouse with Shelves",
+  #   "Full Warehouse", "Simple Room", "Office", "Hospital", "Flat Plane", ...
+  preset: "Warehouse"
+  usd_path: null             # absolute /workspace/sim/worlds/... path wins over preset (Phase 4)
+  add_ground_plane: false    # only for render-only worlds without collision (3DGS)
+  # 120 Hz physics (= PX4 IMU rate), 6 steps per 20 Hz rendered frame. Do not go lower: at 60 Hz PX4's rate loop
+  # (tuned for ~250 Hz) limit-cycles - hover roll std 6.3 deg, yaw rate +-160 deg/s; at 120 Hz it is 0.08 deg
+  # (tests/hover_stability.py, docs/performance.md). Default null = 250 Hz, slowest and the original tuning.
+  physics_dt: 0.0083333333
+  rendering_dt: 0.05
+  physics_device: null       # "cpu" | "cuda" (GPU dynamics; one GPU only)
+
+px4:
+  autolaunch: true
+  airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
+  enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
+  params_file: null   # deploy/px4/<file>.params, applied at PX4 boot via PX4_PARAM_*
+                                  # env vars (so reboot_required params work). single_iris_vio sets it.
+
+vehicles:
+  - id: 0                    # PX4 instance = id; MAV_SYS_ID = id+1; MAVROS ns = /drone_{id+1}
+    model: Iris              # key in pegasus.simulator.params.ROBOTS (custom USD via usd_path)
+    usd_path: null
+    position: [0.0, 0.0, 0.07]         # world ENU metres
+    yaw_deg: 0.0
+    ros2:                              # Pegasus ROS2Backend: ground-truth state on /drone_{id+1}/state/*
+      enabled: true                    # consumed only by vio_mock (ros2_ws) — parity rule, plan.md §8
+      pub_state: true
+      pub_sensors: false               # FC IMU comes from MAVROS, not this backend (interface-contract.md)
+      pub_graphical_sensors: false     # cameras are the custom ZED rig below, not Pegasus's writer path
+    sensors:
+      zed:                             # ZED Mini rig (sim/launcher/zed_rig.py); matches interface-contract.md
+        enabled: true
+        mount_xyz_rpy: [0.18, 0.0, -0.02, 0, 0, 0]   # base_link -> zed_camera_link (TBD, docs/hardware.md).
+                                       # Iris body mesh ends at x=0.156: at the old 0.10 the lens sat inside the
+                                       # nose and saw only fuselage. 0.18 clears it; props stay outside the
+                                       # 84-90 deg HFOV. Re-check the view if this or the airframe changes.
+        baseline: 0.063                # metres, ZED Mini
+        resolution: [1280, 720]        # HD720
+        fps: 30.0
+        imu_rate: 200.0
+        depth_range: [0.1, 15.0]
+        preview: false                 # GUI/WebRTC: extra window with the ZED left image + depth (red near,
+        preview_hz: 5.0                # blue far). Ignored headless. sim/launcher/drone_views.py
+        preview_stride: 2              # show every 2nd pixel (640x360): 4x less CPU/upload, ~+0.15 real-time factor
+        # ZED SDK features (depth products, mapping, OD, ...): switched in the real zed_wrapper overlay,
+        # read by the sim too so both run the same set. docs/zed-features.md lists them.
+        features: {}                   # per-scenario overrides, same nesting, e.g. {mapping: {mapping_enabled: true}}
+        view:                          # GUI/WebRTC overlay over the main viewport (sim/launcher/zed_depth.py)
+          accumulate: false             # map that GROWS as the drone flies: each depth frame is placed with the camera
+                                       # pose and voxel-deduplicated (zed mapping.resolution / max_mapping_range)
+          map_draw_hz: 1.0             # redraw the map at most this often (only when it gained voxels)
+          fov_grid: false               # translucent frustum grid = what the ZED sees right now
+          fov_range: 3.0               # metres the grid reaches (<= depth_range)
+          point_cloud: false           # old single-frame live cloud (replaced by the grid; costs RTF)
+          draw_hz: 5.0
+          draw_stride: 8               # 160x90 = 14k live points
+          draw_color: depth            # depth (red near -> blue far) | rgb (camera colours)
+          point_size: 4.0
+          map_point_size: 3.0
+          map_draw_max_points: 60000

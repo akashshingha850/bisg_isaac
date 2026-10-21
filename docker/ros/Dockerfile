@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-mavros ros-jazzy-mavros-extras ros-jazzy-mavros-msgs \
         ros-jazzy-rmw-cyclonedds-cpp \
         ros-jazzy-tf2-tools ros-jazzy-rqt-graph ros-jazzy-foxglove-bridge \
+        ros-jazzy-rviz2 ros-jazzy-rqt ros-jazzy-rqt-image-view ros-jazzy-rqt-topic \
         python3-pip python3-colcon-common-extensions python3-rosdep python3-vcstool \
         python3-numpy python3-scipy python3-yaml \
         udev usbutils iproute2 net-tools less nano \
@@ -28,9 +29,9 @@ RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 RUN rosdep init 2>/dev/null || true && rosdep update --rosdistro jazzy || true
 
 # Every interactive/`docker exec` bash gets ROS 2 + the overlay sourced (entrypoint does it for CMD).
-RUN printf '%s\n' 'source /opt/ros/jazzy/setup.bash' '[ -f /workspace/ros2_ws/install/setup.bash ] && source /workspace/ros2_ws/install/setup.bash' >> /etc/bash.bashrc
+RUN printf '%s\n' 'source /opt/ros/jazzy/setup.bash' '[ -f /workspace/docker/ros/ros2_ws/install/setup.bash ] && source /workspace/docker/ros/ros2_ws/install/setup.bash' >> /etc/bash.bashrc
 
-WORKDIR /workspace/ros2_ws
+WORKDIR /workspace/docker/ros/ros2_ws
 COPY docker/ros/entrypoint.sh /usr/local/bin/ros-entrypoint.sh
 COPY docker/ros/mavros_sim_time.py /usr/local/lib/bisg/mavros_sim_time.py
 RUN chmod +x /usr/local/bin/ros-entrypoint.sh

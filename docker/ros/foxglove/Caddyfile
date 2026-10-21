@@ -1,0 +1,17 @@
+# The `lichtblick` service (docker/compose.yaml): the Lichtblick web UI and the foxglove_bridge websocket on ONE port, so a single
+# forwarded port (VS Code tunnel / Remote-SSH forward only the page's port by themselves) carries both. ws://<host>:<port>/ws is the
+# bridge (ws://<host>:8765 still works directly, e.g. for the Foxglove desktop app). README.md in this folder.
+{
+	admin off
+}
+
+:{$FOXGLOVE_UI_PORT}
+
+handle_path /ws* {
+	reverse_proxy 127.0.0.1:{$FOXGLOVE_BRIDGE_PORT}
+}
+
+handle {
+	root * /src
+	file_server
+}

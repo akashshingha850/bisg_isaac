@@ -1,0 +1,43 @@
+# PX4 params for the raptor twin (sim). One file per vehicle: everything this vehicle always flies with. Mode overlays
+# (ekf2_vision, ekf2_flow_range) are listed AFTER it in the scenario (`px4.params: [raptor, ekf2_vision]`, later wins).
+# Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32). Names/ranges checked against the pinned PX4 tag (PX4_TAG, ADR-003).
+
+# --- Collision prevention (Position mode), same as iris.params ---------------------------------------------------------
+CP_DIST        1.5  9   # m. Minimum distance PX4 keeps to an obstacle in Position mode; <= 0 turns collision prevention off
+CP_DELAY       0.4  9   # s. Sensor + actuation delay PX4 allows for when braking
+CP_GUIDE_ANG   30.0 9   # deg. Tolerance for slipping past an obstacle instead of stopping dead
+CP_GO_NO_DATA  0    6   # 0 = allow flight where the map has no data; 1 = forbid it
+
+# --- Rate loop: SIM ONLY. Never load these rows onto the real Pixracer (QGC) -------------------------------------------
+# They fit the sim's placeholder plant (Pegasus' Iris thrust curve on the raptor's 0.8 kg / 7x smaller inertia / ~half
+# arms), not the real 5" whoop; the real tune is Phase 4 (docs/todo.md). The gazebo-classic_iris gains limit-cycled on this
+# body at takeoff (tests/hover_stability.py 2026-10-11: rate std roll 31 / pitch 106 / yaw 96 deg/s). Per unit of PX4 output
+# the raptor gets ~2.5x the Iris' roll, ~3x pitch, ~6x yaw angular acceleration, so the Iris values (in the comment) are
+# divided by about that: rate std 0.3 deg/s, attitude std < 0.1 deg (PASS).
+MC_ROLLRATE_P   0.06    9   # 0.15
+MC_ROLLRATE_I   0.08    9   # 0.2
+MC_ROLLRATE_D   0.0012  9   # 0.003
+MC_PITCHRATE_P  0.05    9   # 0.15
+MC_PITCHRATE_I  0.067   9   # 0.2
+MC_PITCHRATE_D  0.001   9   # 0.003
+MC_YAWRATE_P    0.04    9   # 0.2
+MC_YAWRATE_I    0.02    9   # 0.1
+
+# --- Sensor positions (EKF2 lever arms), body FRD, m, from the CoM: the same on the Pixracer --------------------------
+# Keep equal to the mounts in docker/sim/assets/vehicles/raptor/raptor.yaml (FLU there: FRD = [x, -y, -z]) and, for the camera, to
+# `positional_tracking.initial_base_pose` in docker/zed/zed.yaml. EKF2 removes the rotation-induced motion of each sensor with these;
+# they only act when that source is fused (ekf2_vio_flow_range, ekf2_flow_range).
+EKF2_EV_POS_X   0.1205  9   # ZED Mini (zed_camera_link): FLU [0.1205, 0, 0.0527]. Centred on the real drone (forward offset only);
+EKF2_EV_POS_Y   0.0     9   # hover-yaw-step fit over 20 sim flights: camera within 2 mm of these values (docs/vio.md)
+EKF2_EV_POS_Z  -0.0527  9
+EKF2_RNG_POS_X -0.0645  9   # LW20/C bottom face: FLU [-0.0645, 0.0011, -0.0353]
+EKF2_RNG_POS_Y -0.0011  9
+EKF2_RNG_POS_Z  0.0353  9
+EKF2_OF_POS_X  -0.0645  9   # PMW3901: PLACEHOLDER, shares the LW20's spot (raptor.yaml)
+EKF2_OF_POS_Y  -0.0011  9
+EKF2_OF_POS_Z   0.0353  9
+# Height of the body above the floor when landed, as EKF2 sees it (LW20 reading on the ground ~0.065 + EKF2_RNG_POS_Z). EKF2 uses this
+# value in place of every INVALID range sample while landed and at rest. The default 0.01 told EKF2 the floor was 9 cm closer on each
+# dropout (the twin: ~6 % of ground samples fall below its 5 cm minimum), and the sample at the takeoff transition left a 9-13 cm
+# height offset for the whole flight (2026-10-15, docs/range-flow.md). Real drone: LW20 on the ground + RNG_POS_Z, measured.
+EKF2_MIN_RNG    0.10    9

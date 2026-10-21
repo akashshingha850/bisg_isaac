@@ -1,0 +1,56 @@
+# ZED VIO calibration + benchmark + ablation campaign (docs/vio.md). Read by tests/vio_campaign.py (`./bisg vio bench`).
+#
+#   ./bisg vio bench                         every config below x `reps`, on THIS machine; ~6.5 min per flight
+#   ./bisg vio bench --configs calibrated --reps 1     quick "is VIO right on this PC" check (~7 min)
+#   ./bisg vio report <campaign dir>         rebuild summary.md / .json / .csv + figures/*.svg from the runs
+#
+# Every flight gets a FRESH sim (the ZED SDK connects once per sim run, B18, and its tracking errors persist within a run),
+# the config's PX4 params set live on top of the scenario's files, the ZED verified fused by EKF2, then tests/vio_bench.py,
+# then tests/vio_eval.py on the PX4 log. Configs are interleaved per repetition (rep 1 of every config, then rep 2, ...), so
+# slow changes of the machine do not line up with one config.
+
+scenario: default            # SIM_SCENARIO for the flights (default = docker/sim/sim.yaml: raptor, GPS-denied, ekf2_vio_flow_range)
+view: headless               # SIM_VIEW for the flights (headless: no window/stream; the cameras render either way)
+reps: 3                      # flights per config
+max_attempts: 3              # per flight: restart the sim when the ZED wrapper dies or never connects (counted as infra failures)
+timeouts_s: {boot: 600, zed: 360, ekf_ev: 90, flight: 900}
+flight_args: ""              # extra tests/vio_bench.py arguments (e.g. "--hover 10")
+
+# The calibration this campaign checks (the values live in docker/sim/px4/*.params and docker/zed/zed.yaml; listed here only so the
+# report can say what was under test). `params` of a config = the PX4 params set live for it, on top of those files.
+configs:
+  calibrated:
+    about: "the shipped GPS-denied mode: ekf2_vio_flow_range.params as is (MC_YAWRATE_MAX 60, EKF2_EVA_NOISE 0.01, EKF2_OF_QMIN_GND 1)"
+    params: {}
+  no_yaw_limit:
+    about: "ablation: PX4's default yaw-rate cap (fast yaw steps slip the sim ZED's yaw)"
+    params: {MC_YAWRATE_MAX: 200.0}
+  no_eva_fix:
+    about: "ablation: PX4's default EV yaw noise (0.1 = 18 deg effective with the v1.17 quirk: EKF2 heading lags the ZED)"
+    params: {EKF2_EVA_NOISE: 0.1}
+  px4_defaults:
+    about: "ablation: all three calibrations undone (the state before 2026-10-15)"
+    params: {MC_YAWRATE_MAX: 200.0, EKF2_EVA_NOISE: 0.1, EKF2_OF_QMIN_GND: 0}
+  no_flow:
+    about: "sensor ablation: PMW3901 optical flow off (ZED + baro + LW20 only)"
+    params: {EKF2_OF_CTRL: 0}
+  ev_no_position:
+    about: "fusion ablation: ZED velocity + yaw only, no ZED position (EKF2_EV_CTRL 12); position from velocity + flow"
+    params: {EKF2_EV_CTRL: 12}
+default_configs: [calibrated, no_yaw_limit, no_eva_fix, px4_defaults, no_flow, ev_no_position]
+
+# Verdict of `./bisg vio bench` / `./bisg vio report` (exit 0 = PASS) = is the VIO pipeline CALIBRATED on this machine:
+#   pipeline checks over every flight that reached the air (they do not depend on the EKF2 params), and the `calibrated` flights
+#   with no SDK event (frame-gap slip, pose jump, yaw slip: tests/vio_eval.py `dominant_event`) inside `event_free_horiz_max_m`
+#   (an error without an SDK event means the configuration, not the SDK, is wrong).
+# Performance (how often a flight stays inside `performance_horiz_max_m`, events per config) is reported, not gated: in the sim it is
+# set by random SDK events of the IMU-less tracking (docs/vio.md), which no parameter here removes.
+verify:
+  latency_abs_ms: 20         # |median residual EV latency|; else the report suggests a new zed.yaml sim restamp_latency_ms
+  vel_scale_err: 0.03        # |median EV velocity scale - 1|, x and y
+  lever_arm_m: 0.03          # |median lever-arm fit| (EKF2_EV_POS_* in raptor.params), flights without a gap slip
+  event_free_horiz_max_m: 0.25   # every event-free `calibrated` flight: EKF2 horizontal max (there must be at least one). From data:
+                                 # 2026-10-15, 22 flights fusing ZED position: event-free max 0.19 m, with an SDK event 0.14-0.64 m.
+                                 # (0.15 m, a first guess from 3 flights, failed a flight whose 2.0 deg yaw slip was under the 3 deg
+                                 # event threshold.) A wrong config (latency, frame, lever arm) is caught by the pipeline checks.
+  performance_horiz_max_m: 0.30  # the Phase 3 bound (tests/vio_flight.py): pass rate per config, reported

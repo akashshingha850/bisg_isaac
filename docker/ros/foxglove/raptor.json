@@ -1,0 +1,532 @@
+{
+  "configById": {
+    "3D!flight": {
+      "lichtblickPanelTitle": "3D (follows base_link)",
+      "followTf": "base_link",
+      "followMode": "follow-position",
+      "cameraState": {
+        "distance": 6,
+        "perspective": true,
+        "phi": 60,
+        "thetaOffset": 45,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "fovy": 45,
+        "near": 0.05,
+        "far": 500
+      },
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.6,
+          "lineWidth": 1
+        },
+        "backgroundColor": "#15171c"
+      },
+      "transforms": {
+        "frame:odom": {
+          "visible": true
+        },
+        "frame:base_link": {
+          "visible": true
+        },
+        "frame:map": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/drone_1/zed/zed_node/odom": {
+          "visible": true,
+          "type": "arrow",
+          "color": "#3fb950ff",
+          "arrowScale": [
+            0.8,
+            0.12,
+            0.12
+          ]
+        },
+        "/drone_1/mavros/local_position/pose": {
+          "visible": true,
+          "type": "arrow",
+          "color": "#58a6ffff",
+          "arrowScale": [
+            0.8,
+            0.12,
+            0.12
+          ]
+        },
+        "/drone_1/state/pose": {
+          "visible": true,
+          "type": "axis",
+          "axisScale": 0.5
+        },
+        "/drone_1/zed/zed_node/point_cloud/cloud_registered": {
+          "visible": false,
+          "pointSize": 2,
+          "colorMode": "rgb",
+          "colorField": "rgb",
+          "decayTime": 0
+        },
+        "/drone_1/zed/zed_node/mapping/fused_cloud": {
+          "visible": true,
+          "pointSize": 2,
+          "colorMode": "rgb",
+          "colorField": "rgb",
+          "decayTime": 0
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "grid",
+          "layerId": "foxglove.Grid",
+          "frameId": "odom",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#248eff40",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      }
+    },
+    "Plot!altitude": {
+      "lichtblickPanelTitle": "Altitude z [m]: EKF2 vs ZED vs ground truth vs ToF",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/local_position/pose.pose.position.z",
+          "label": "EKF2 (mavros)",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/zed/zed_node/odom.pose.pose.position.z",
+          "label": "ZED odom",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/state/pose.pose.position.z",
+          "label": "ground truth (world frame)",
+          "color": "#e6edf3",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/hrlv_ez4_pub{range<40}.range",
+          "label": "ToF range (valid only)",
+          "color": "#d29922",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m",
+      "sidebarDimension": 124
+    },
+    "Plot!xy": {
+      "lichtblickPanelTitle": "Position x / y [m]: EKF2 (from takeoff) vs ground truth (world)",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/local_position/pose.pose.position.x",
+          "label": "EKF2 x",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/state/pose.pose.position.x",
+          "label": "truth x (world)",
+          "color": "#a5d6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/local_position/pose.pose.position.y",
+          "label": "EKF2 y",
+          "color": "#f78166",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/state/pose.pose.position.y",
+          "label": "truth y (world)",
+          "color": "#ffc8b8",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m",
+      "sidebarDimension": 124
+    },
+    "Image!camleft": {
+      "lichtblickPanelTitle": "ZED left (raw)",
+      "imageMode": {
+        "imageTopic": "/drone_1/zed/zed_node/left/color/rect/image"
+      }
+    },
+    "Image!chase": {
+      "lichtblickPanelTitle": "Chase cam (sim only)",
+      "imageMode": {
+        "imageTopic": "/drone_1/chase/image"
+      }
+    },
+    "Image!depth": {
+      "lichtblickPanelTitle": "ZED depth [0.3-10 m, turbo; script depth_mm]",
+      "imageMode": {
+        "imageTopic": "/studio_script/depth_mm",
+        "colorMode": "colormap",
+        "colorMap": "turbo",
+        "minValue": 300,
+        "maxValue": 10000
+      }
+    },
+    "Image!confidence": {
+      "lichtblickPanelTitle": "Depth confidence [blue good - red bad; script confidence_u16]",
+      "imageMode": {
+        "imageTopic": "/studio_script/confidence_u16",
+        "colorMode": "colormap",
+        "colorMap": "turbo",
+        "minValue": 0,
+        "maxValue": 10000
+      }
+    },
+    "Plot!imu": {
+      "lichtblickPanelTitle": "FC IMU acceleration [m/s^2]",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/imu/data.linear_acceleration.x",
+          "label": "accel x",
+          "color": "#f85149",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/imu/data.linear_acceleration.y",
+          "label": "accel y",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/imu/data.linear_acceleration.z",
+          "label": "accel z",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m/s^2",
+      "sidebarDimension": 94
+    },
+    "Plot!gyro": {
+      "lichtblickPanelTitle": "FC gyro [rad/s]",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/imu/data.angular_velocity.x",
+          "label": "roll rate (x)",
+          "color": "#f85149",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/imu/data.angular_velocity.y",
+          "label": "pitch rate (y)",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/imu/data.angular_velocity.z",
+          "label": "yaw rate (z)",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "rad/s",
+      "sidebarDimension": 94
+    },
+    "Plot!zedimu": {
+      "lichtblickPanelTitle": "ZED IMU acceleration [m/s^2] (camera frame)",
+      "paths": [
+        {
+          "value": "/drone_1/zed/zed_node/imu/data.linear_acceleration.x",
+          "label": "accel x",
+          "color": "#f85149",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/zed/zed_node/imu/data.linear_acceleration.y",
+          "label": "accel y",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/zed/zed_node/imu/data.linear_acceleration.z",
+          "label": "accel z",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m/s^2",
+      "sidebarDimension": 94
+    },
+    "Plot!range": {
+      "lichtblickPanelTitle": "Down range [m]: ToF vs flow distance",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/hrlv_ez4_pub{range<40}.range",
+          "label": "ToF range (LW20)",
+          "color": "#d29922",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/px4flow/ground_distance{range>0}.range",
+          "label": "flow distance (PMW3901)",
+          "color": "#a5d6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m",
+      "sidebarDimension": 64
+    },
+    "Plot!flowplot": {
+      "lichtblickPanelTitle": "PMW3901 flow [rad per sample] (forward = -y, left = +x)",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/px4flow/raw/optical_flow_rad.integrated_x",
+          "label": "flow x (left +)",
+          "color": "#f85149",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/px4flow/raw/optical_flow_rad.integrated_y",
+          "label": "flow y (forward -)",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "rad",
+      "sidebarDimension": 64
+    },
+    "Plot!baro": {
+      "lichtblickPanelTitle": "Barometer [Pa] (EKF2 height reference)",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/imu/static_pressure.fluid_pressure",
+          "label": "static pressure (EKF2 height ref)",
+          "color": "#d2a8ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "Pa",
+      "sidebarDimension": 34
+    },
+    "RosOut!mavlink": {
+      "lichtblickPanelTitle": "MAVLink log (PX4 STATUSTEXT; script mavlink_log)",
+      "searchTerms": [],
+      "minLogLevel": 1,
+      "topicToRender": "/studio_script/mavlink_log"
+    },
+    "RosOut!log": {
+      "lichtblickPanelTitle": "Log (/rosout)",
+      "searchTerms": [],
+      "minLogLevel": 2,
+      "topicToRender": "/rosout"
+    },
+    "TopicGraph!graph": {
+      "lichtblickPanelTitle": "Topic graph"
+    },
+    "Tab!main": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "Flight",
+          "layout": {
+            "first": "3D!flight",
+            "second": {
+              "first": "Plot!altitude",
+              "second": "Plot!xy",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "direction": "column",
+            "splitPercentage": 64
+          }
+        },
+        {
+          "title": "Sensors",
+          "layout": {
+            "first": {
+              "first": "Plot!imu",
+              "second": "Plot!gyro",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "second": {
+              "first": {
+                "first": "Plot!zedimu",
+                "second": "Plot!range",
+                "direction": "row",
+                "splitPercentage": 50
+              },
+              "second": {
+                "first": "Plot!flowplot",
+                "second": "Plot!baro",
+                "direction": "row",
+                "splitPercentage": 50
+              },
+              "direction": "column",
+              "splitPercentage": 50
+            },
+            "direction": "column",
+            "splitPercentage": 33
+          }
+        },
+        {
+          "title": "Camera",
+          "layout": {
+            "first": {
+              "first": "Image!camleft",
+              "second": "Image!chase",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "second": {
+              "first": "Image!depth",
+              "second": "Image!confidence",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "direction": "column",
+            "splitPercentage": 50
+          }
+        },
+        {
+          "title": "Debug",
+          "layout": {
+            "first": "RosOut!log",
+            "second": "RosOut!mavlink",
+            "direction": "column",
+            "splitPercentage": 50
+          }
+        },
+        {
+          "title": "Graph",
+          "layout": "TopicGraph!graph"
+        }
+      ]
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {
+    "depth-mm": {
+      "name": "depth_mm",
+      "sourceCode": "// ZED depth [m, 32FC1] -> millimetres [16UC1], NaN/inf -> 0\n// Lichtblick draws 32FC1 images as grey 0..1 and ignores colormap/min/max; 16UC1 images get them.\nimport { Input, Message } from \"./types\";\n\ntype Image = Message<\"sensor_msgs/msg/Image\">;\n\nexport const inputs = [\"/drone_1/zed/zed_node/depth/depth_registered\"];\nexport const output = \"/studio_script/depth_mm\";\n\nexport default function script(event: Input<\"/drone_1/zed/zed_node/depth/depth_registered\">): Image {\n  const src = event.message;\n  const dv = new DataView(src.data.buffer, src.data.byteOffset, src.data.byteLength);\n  const le = src.is_bigendian === 0;\n  const out = new Uint8Array(src.width * src.height * 2);\n  const ov = new DataView(out.buffer);\n  for (let r = 0; r < src.height; r++) {\n    for (let c = 0; c < src.width; c++) {\n      const v = dv.getFloat32(r * src.step + c * 4, le);\n      const u = Number.isFinite(v) ? Math.min(65535, Math.max(0, Math.round(v * 1000))) : 0;\n      ov.setUint16((r * src.width + c) * 2, u, true);\n    }\n  }\n  return { header: src.header, height: src.height, width: src.width, encoding: \"16UC1\", is_bigendian: 0, step: src.width * 2, data: out };\n}\n"
+    },
+    "confidence-u16": {
+      "name": "confidence_u16",
+      "sourceCode": "// ZED depth confidence [0-100, 32FC1, higher = less confident] -> x100 [16UC1]\n// Lichtblick draws 32FC1 images as grey 0..1 and ignores colormap/min/max; 16UC1 images get them.\nimport { Input, Message } from \"./types\";\n\ntype Image = Message<\"sensor_msgs/msg/Image\">;\n\nexport const inputs = [\"/drone_1/zed/zed_node/confidence/confidence_map\"];\nexport const output = \"/studio_script/confidence_u16\";\n\nexport default function script(event: Input<\"/drone_1/zed/zed_node/confidence/confidence_map\">): Image {\n  const src = event.message;\n  const dv = new DataView(src.data.buffer, src.data.byteOffset, src.data.byteLength);\n  const le = src.is_bigendian === 0;\n  const out = new Uint8Array(src.width * src.height * 2);\n  const ov = new DataView(out.buffer);\n  for (let r = 0; r < src.height; r++) {\n    for (let c = 0; c < src.width; c++) {\n      const v = dv.getFloat32(r * src.step + c * 4, le);\n      const u = Number.isFinite(v) ? Math.min(65535, Math.max(0, Math.round(v * 100))) : 0;\n      ov.setUint16((r * src.width + c) * 2, u, true);\n    }\n  }\n  return { header: src.header, height: src.height, width: src.width, encoding: \"16UC1\", is_bigendian: 0, step: src.width * 2, data: out };\n}\n"
+    },
+    "mavlink-log": {
+      "name": "mavlink_log",
+      "sourceCode": "// mavros/statustext/recv (MAVLink STATUSTEXT from PX4) -> rcl_interfaces/msg/Log for the Log panel\nimport { Input, Message } from \"./types\";\n\ntype Log = Message<\"rcl_interfaces/msg/Log\">;\n\nexport const inputs = [\"/drone_1/mavros/statustext/recv\"];\nexport const output = \"/studio_script/mavlink_log\";\n\n// MAVLink severity 0 EMERGENCY .. 7 DEBUG -> ROS 2 FATAL 50 / ERROR 40 / WARN 30 / INFO 20 / DEBUG 10\nconst LEVEL = [50, 50, 50, 40, 30, 20, 20, 10];\n\nexport default function script(event: Input<\"/drone_1/mavros/statustext/recv\">): Log {\n  const m = event.message;\n  return { stamp: m.header.stamp, level: LEVEL[m.severity] ?? 20, name: \"PX4\", msg: m.text, file: \"\", function: \"\", line: 0 };\n}\n"
+    },
+    "tf-static-repeat": {
+      "name": "tf_static_repeat",
+      "sourceCode": "// /tf_static, cached and re-sent with every /tf message (restamped) for 3D panels that mount after it arrived (tab switch)\nimport { Input, Message } from \"./types\";\n\ntype TF = Message<\"tf2_msgs/msg/TFMessage\">;\ntype Transform = TF[\"transforms\"][number];\n\nexport const inputs = [\"/tf_static\", \"/tf\"];\nexport const output = \"/studio_script/tf_static_repeat\";\n\nconst statics = new Map<string, Transform>();\n\n// Every call returns the whole set (about 10 transforms): a panel that samples only the newest message per frame still gets all of\n// them, and Lichtblick raises \"did not produce a message\" whenever a script returns nothing.\nexport default function script(event: Input<\"/tf_static\"> | Input<\"/tf\">): TF {\n  const m = event.message;\n  if (event.topic === \"/tf_static\") for (const t of m.transforms) statics.set(t.child_frame_id, t);\n  const stamp = event.topic === \"/tf\" && m.transforms.length > 0 ? m.transforms[0].header.stamp : undefined;\n  return { transforms: [...statics.values()].map((t) => (stamp ? { ...t, header: { ...t.header, stamp } } : t)) };\n}\n"
+    }
+  },
+  "playbackConfig": {
+    "speed": 1.0
+  },
+  "layout": "Tab!main"
+}

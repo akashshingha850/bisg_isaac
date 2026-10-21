@@ -1,0 +1,102 @@
+{
+ "ev_present": false,
+ "no_vio": {
+  "xy_valid_at_rest": true,
+  "xy_valid_at_rest_s": 156.593736,
+  "rest_drift_m": 0.6899691105945817,
+  "eph_at_takeoff_m": 0.25828981399536133,
+  "ev_ever_fused": false,
+  "fake_pos_at_rest": true
+ },
+ "ekf2": {
+  "optical_flow": {
+   "n": 129,
+   "fused": 0.34108527131782945,
+   "rejected": 0.49612403100775193,
+   "test_ratio_p50": 0.979666531085968,
+   "test_ratio_p95": 2.348618984222412,
+   "innov_std": [
+    0.38195505844972455,
+    0.08785686811933063
+   ],
+   "innov_std_expected": [
+    0.2231667755859452,
+    0.28751828145906794
+   ],
+   "obs_std_used": [
+    0.15000000298023222,
+    0.15000000298023222
+   ]
+  },
+  "baro_hgt": {
+   "n": 44,
+   "fused": 1.0,
+   "rejected": 0.0,
+   "test_ratio_p50": 0.00013874179421691224,
+   "test_ratio_p95": 0.00033212855341844264,
+   "innov_std": [
+    0.0819111879797224
+   ],
+   "innov_std_expected": [
+    3.5058380211309985
+   ],
+   "obs_std_used": [
+    3.5
+   ]
+  },
+  "rng_hgt": {
+   "n": 129,
+   "fused": 1.0,
+   "rejected": 0.0,
+   "test_ratio_p50": 0.0001083233582903631,
+   "test_ratio_p95": 0.020265013352036475,
+   "innov_std": [
+    0.06958651179434941
+   ],
+   "innov_std_expected": [
+    0.2633813599785836
+   ],
+   "obs_std_used": [
+    0.23034505434175429
+   ]
+  },
+  "position_error": {
+   "x": {
+    "n": 287,
+    "bias": 0.5385991196979907,
+    "std": 0.19865818454030584,
+    "rmse": 0.5740680151552606,
+    "p95_abs": 0.7797970294952392,
+    "max_abs": 0.7882717549800873
+   },
+   "y": {
+    "n": 287,
+    "bias": -0.49548375057911065,
+    "std": 0.49363760585124156,
+    "rmse": 0.6994156367986692,
+    "p95_abs": 1.482252439856529,
+    "max_abs": 1.5965782552957535
+   },
+   "z": {
+    "n": 287,
+    "bias": 0.09981607310863322,
+    "std": 0.07313611261685511,
+    "rmse": 0.12374222973396481,
+    "p95_abs": 0.22118072509765624,
+    "max_abs": 0.2261632283528645
+   },
+   "horiz_max_m": 1.7550119796959605,
+   "horiz_end_m": 1.7550119796959605
+  }
+ },
+ "gates": {
+  "latency_abs_ms": 30.0,
+  "vel_scale_err": 0.05,
+  "ekf_horiz_max_m": 0.3,
+  "ev_pos_fused_min": 0.9,
+  "ev_vel_fused_min": 0.9
+ },
+ "fails": [
+  "no external vision (vehicle_visual_odometry) in the log"
+ ]
+}

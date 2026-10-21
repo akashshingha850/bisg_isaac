@@ -84,17 +84,19 @@ Key properties:
 | Component | Pin | Why / notes | Decision |
 |---|---|---|---|
 | OS | workstation **Ubuntu 24.04.5**; Jetson Orin NX **JetPack 7.2** (L4T r38, Ubuntu 24.04, CUDA 13) | host OS is irrelevant to containers except driver/toolkit/display | ADR-005 |
-| ROS 2 | **Jazzy** (Ubuntu 24.04 containers) | JetPack 7 is 24.04 → ZED SDK images and wrapper are Jazzy; Isaac 5.x bundles a Jazzy bridge (verify for 5.1); LTS to 2029 | ADR-005 |
-| Isaac Sim | **5.1.0** (`nvcr.io/nvidia/isaac-sim:5.1.0`) | known to run on the 2080 Ti; Pegasus has a matching release | ADR-002 |
-| Pegasus Simulator | **v5.1.0** (the release for Isaac Sim 5.1.0; built from the `third_party/PegasusSimulator` submodule) | local edits on a `local` git branch in the submodule, rebased onto new tags — no fork, no push (`third_party/README.md`) | — |
-| PX4 | **v1.17.0** (newest stable on 2026-09-12; `gazebo-classic_iris` airframe and `px4_fmu-v4` board both present) — pending the ADR-003 flight check; same tag for SITL and Pixracer | firmware on the Pixracer and SITL in sim must be the same version so params/EKF2 behave identically | ADR-003 |
+| ROS 2 | **Jazzy** (Ubuntu 24.04 containers) | JetPack 7 is 24.04 → ZED SDK images and wrapper are Jazzy; Isaac 5.x and 6.0 bundle a Jazzy bridge (verified on 5.1 and 6.0); LTS to 2029 | ADR-005 |
+| Isaac Sim | **6.0.0** (`nvcr.io/nvidia/isaac-sim:6.0.0`, Python 3.12) — migrated from 5.1.0 on 2026-10-02 (rollback: git tag `isaac-5.1-baseline`) | Pegasus Isaac-6 port exists (PR #144) and was tested on 6.0.0; 6.1 is a separate later step (`archive/docs/migrate.md` §3). Report: `archive/docs/migration-report.md` | ADR-002 |
+| Pegasus Simulator | **our fork's `local` at `08c9954`** = PR #144 head `fcb99c0` + the IMU noise fix of upstream PR #148 (fork `akashshingha850/PegasusSimulator`, ADR-010; Isaac Sim 6.0 port, not a release tag; was `v5.1.0` for Isaac 5.1; built from the `docker/sim/PegasusSimulator` submodule) | local edits on a `local` git branch in the submodule, rebased onto new tags — no fork, no push (`docs/sources.md`) | — |
+| PX4 | **v1.17.0** (newest stable on 2026-09-12; `gazebo-classic_iris` airframe and `px4_fmu-v4` board both present) — re-validated on Isaac Sim 6.0 (smoke, VIO flight, depth); v1.16.0 (the Pegasus PR's own test version) also passes and is the fallback; same tag for SITL and Pixracer | firmware on the Pixracer and SITL in sim must be the same version so params/EKF2 behave identically | ADR-003 |
 | PX4 ↔ ROS 2 bridge | **MAVROS 2.15.1** (apt `ros-jazzy-mavros` + extras, amd64 + arm64 verified) | user requirement; serial-friendly on Pixracer; uxrce_dds_client availability on fmu-v4 flash is uncertain | ADR-001 |
 | DDS | **CycloneDDS** (`rmw_cyclonedds_cpp`) everywhere; zenoh-bridge-ros2dds across WiFi | reliable across containers with `network_mode: host`; multicast over WiFi is not | ADR-004 |
-| ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r38.4` for JetPack 7, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images and wrapper `v5.4.1` verified to exist; built with Stereolabs' own docker scripts | — |
-| Tailscale | **v1.102.5** (`tailscale/tailscale`, Jetson only) | remote access to the drone (SSH, Foxglove, MAVLink GCS) without port forwarding; `docs/remote-access.md` | — |
-| ZED camera | **ZED Mini** | USB, no capture card; not covered by Stereolabs' Isaac streaming integration (ZED X only) → topic-contract approach | — |
-| ZED ROS 2 wrapper | `zed-ros2-wrapper` matching SDK, Jazzy | its topic/frame names define our ZED contract | — |
+| ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-<board L4T>` for JetPack 7, r39.2 on our Orin NX, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images verified to exist; built with Stereolabs' own docker scripts (wrapper: next row) | — |
+| ZED camera | **ZED Mini** | USB, no capture card. Stereolabs' `zed-isaac-sim` extension v5.2.x (Isaac Sim 6.0) ships a ZED Mini twin (`ZED_M`) that streams into the real SDK (`docs/zed-sdk-sim.md`); the 5.1 line only has ZED X. The emulated topic-contract rig stays as the no-SDK fallback (`ZED_SOURCE`) | — |
+| ZED Isaac extension (ADR-007) | **`zed-isaac-sim` v5.2.1** (`529e538`; a branch upstream, pin the SHA), Kit range widened to 110.1.1 for the 6.0.0 image | streams a simulated ZED Mini (stereo + frame-rate IMU) into the real SDK; built by `docker/zed/build_isaac_ext.sh` into `docker/zed/zed-isaac-sim` | — |
+| ZED ROS 2 wrapper | `zed-ros2-wrapper` master **`b19902d`** (`ZED_WRAPPER_REF`; v5.5.1-dev, builds on SDK 5.4.1), Jazzy | its topic/frame names define our ZED contract; master for the R9 fix (PR #460) no release has yet | ADR-011 |
 | Docker | Compose v2, nvidia runtime | present on host | ADR-002 |
+| Remote access | **Tailscale `v1.102.5`** (`tailscale/tailscale`, compose service `tailscale`) | reach the sim from another network; WebRTC needs UDP, which tunnels do not carry | ADR-009 |
+| Foxglove web UI | **Lichtblick `1.29.1`** (`ghcr.io/lichtblick-suite/lichtblick`, amd64 + arm64, compose service `lichtblick`) | self-hosted Foxglove-compatible viewer for `foxglove_bridge`; opens in VS Code's Simple Browser, which `app.foxglove.dev` refuses (`X-Frame-Options: DENY`) | — |
 | GPU budget | RTX 2080 Ti 11 GB | below Isaac's recommended 3070; swarm tests run headless, 1 camera/drone, ≤1280×720 | risk R1 |
 
 The values above are applied from the pins block of `config/bisg.conf` (`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`);
@@ -109,19 +111,19 @@ compose file's services just point their `build:` at that folder:
 
 | Image | Base | Contains | Profiles |
 |---|---|---|---|
-| `bisg/sim` | `nvcr.io/nvidia/isaac-sim:5.1.0` (public pull, no NGC login; Ubuntu 24.04, non-root user `isaac-sim`) | PX4 `v1.17.0` cloned + `px4_sitl_default` built, Pegasus `v5.1.0` built from the `third_party/PegasusSimulator` submodule + pip-installed into Isaac's python, internal **Jazzy** bridge + CycloneDDS selected by ENV; repo bind-mounted at `/workspace` | `sim`, `sim-headless` |
+| `bisg/sim` | `nvcr.io/nvidia/isaac-sim:6.0.0` (public pull, no NGC login; Ubuntu 24.04, non-root user `isaac-sim`, Python 3.12) | PX4 `v1.17.0` cloned + `px4_sitl_default` built, Pegasus (PR #144 head) built from the `docker/sim/PegasusSimulator` submodule + pip-installed into Isaac's python, internal **Jazzy** bridge + CycloneDDS selected by ENV; repo bind-mounted at `/workspace` | `sim`, `sim-headless` |
 | `bisg/ros` | `ros:jazzy-ros-base` (Ubuntu 24.04, multi-arch: amd64 + arm64) | MAVROS + geographiclib datasets, CycloneDDS, `ros2_ws` built | `ros` (workstation), `jetson` |
-| `bisg/zed` | built by `docker/zed/build.sh` from Stereolabs' scripts (`third_party/zed-ros2-wrapper`) | ZED SDK 5.4.1 + wrapper (Jazzy); `desktop` and `l4t-r38` variants | `jetson` |
+| `bisg/zed` | built by `docker/zed/build.sh` from Stereolabs' scripts (`docker/zed/zed-ros2-wrapper`) | ZED SDK 5.4.1 + wrapper (Jazzy); `desktop` and `jetson` variants | `jetson` |
 
 Rules:
 - `network_mode: host` for every service (DDS discovery and MAVLink UDP just work). Isolate
   runs with `ROS_DOMAIN_ID`, not Docker networks.
 - PX4 is cloned **inside the image build** at the pinned tag, so `bisg/sim` never needs a
   submodule init just for PX4. Pegasus is different: `bisg/sim` builds **from the
-  `third_party/PegasusSimulator` submodule** (not a fresh clone), so local edits there reach the
-  image — this means `git submodule update --init third_party/PegasusSimulator` **is** required
-  before `docker compose build sim`. `third_party/` also holds `zed-ros2-wrapper`, used directly
-  by its `docker/` build scripts. See `third_party/README.md` for the local-branch workflow.
+  `docker/sim/PegasusSimulator` submodule** (not a fresh clone), so local edits there reach the
+  image — this means `git submodule update --init docker/sim/PegasusSimulator` **is** required
+  before `docker compose build sim`. `docker/zed/` holds `zed-ros2-wrapper`, used directly
+  by its `docker/` build scripts. See `docs/sources.md` for the local-branch workflow.
 - Isaac caches (`kit`, `ov`, `pip`, `glcache`, `computecache`) are named volumes so a restart
   does not re-shader-compile for 10 minutes.
 - GUI: X11 socket + `DISPLAY` passthrough (nvidia runtime + `/tmp/.X11-unix` mount). Headless is the
@@ -161,11 +163,12 @@ so a mission reads top to bottom and failures are diagnosable.
 `mavros/odometry/out` (frame `odom`, child `base_link`, ENU/FLU; MAVROS converts to NED/FRD) →
 PX4 EKF2 with `EKF2_EV_CTRL` enabled, `EKF2_HGT_REF = vision`. In sim the source is
 `vio_mock` (Pegasus ground truth + Gaussian noise + optional latency); on hardware it is the
-ZED Mini positional tracking. (Running the ZED SDK against Isaac-rendered stereo is not planned:
-Stereolabs' Isaac integration targets the ZED X family.)
+ZED Mini positional tracking. With `ZED_SOURCE=sdk` the real SDK also runs in the sim: Stereolabs' extension streams a ZED Mini
+twin into the unmodified `zed_wrapper`, which then publishes the contract's depth, cloud, odometry and TF exactly as on the Jetson
+(`docs/zed-sdk-sim.md`). Feeding that odometry into PX4 (closed loop) is the next step; `vio_mock` stays the default source.
 
 **Perception:** Isaac cameras publish under the ZED contract names
-(`/drone_i/zed/zed_node/left/image_rect_color`, `.../depth/depth_registered`, `.../imu/data`,
+(`/drone_i/zed/zed_node/left/color/rect/image`, `.../depth/depth_registered`, `.../imu/data`,
 camera_info, TF `zed_camera_link` → optical frames). Downstream nodes (detection, mapping)
 cannot tell sim from real.
 
@@ -185,7 +188,7 @@ timesync handles PX4 ↔ ROS clock. Hardware uses wall clock; chrony on Jetsons 
    `real_drone.launch.py` (ZED wrapper + relay). Everything above them is one launch file.
 4. Sensor rates, resolutions and mount offsets in the sim config mirror the hardware BOM
    (`docs/hardware.md`) and are checked by a test.
-5. PX4 parameters are stored as `.params` files in `deploy/px4_params/` and loaded into SITL too.
+5. PX4 parameters are stored as `.params` files in `docker/sim/px4/` and loaded into SITL too.
 
 ## 9. Risks and mitigations
 
@@ -195,7 +198,7 @@ timesync handles PX4 ↔ ROS clock. Hardware uses wall clock; chrony on Jetsons 
 | R2 | PX4 version drift between SITL and Pixracer | single pin, one `.params` set, CI check that `PX4_VERSION` matches |
 | R3 | MAVROS + PX4 1.15/1.16 quirks (mode strings, `odometry/out` frame conventions) | Phase 2 exit test flies a square via MAVROS; VIO frame test in Phase 3 with known transforms |
 | R4 | Isaac ROS 2 bridge across containers (FastDDS shared memory, bundled rmw) | CycloneDDS + host networking; smoke test topic echo from the `ros` container in Phase 1 |
-| R5 | ZED Mini is not supported by Stereolabs' Isaac integration, so the sim cannot run the real SDK | ZED contract is defined by topic names; mock VIO in sim, real VIO on hardware; validate the gap in Phase 5 with a sim-vs-real trajectory overlay |
+| R5 | ~~ZED Mini is not supported by Stereolabs' Isaac integration~~ — **retired 2026-10-03**: extension v5.2.x (Isaac Sim 6.0) has `ZED_M` and the real SDK runs in the sim. Remaining gap: the stream carries a frame-rate IMU, so sim tracking runs visual-only (`imu_fusion: false`); the SDK's depth/tracking noise on a *rendered* scene is not the noise on the real camera | `docs/zed-sdk-sim.md` lists every sim-vs-hardware difference; validate the rest in Phase 5 with a sim-vs-real trajectory overlay |
 | R9 | Isaac Sim 5.1 Jazzy bridge or Pegasus ROS 2 backend misbehaves with Jazzy | check in Phase 1; fallback in ADR-005 |
 | R10 | ZED SDK minor that supports JetPack 7.2 lags or changes topic names | pin in Phase 5; contract checker catches renames |
 | R6 | WiFi DDS discovery storms with N Jetsons | zenoh-bridge-ros2dds per drone; drone-local traffic stays on the Jetson |
@@ -222,6 +225,7 @@ Still open (record in `hardware.md` when known):
 - [ADR-003 One PX4 version for SITL and Pixracer](decisions/ADR-003-px4-version.md)
 - [ADR-004 CycloneDDS + zenoh bridge for the fleet network](decisions/ADR-004-dds.md)
 - [ADR-005 ROS 2 Jazzy in all containers](decisions/ADR-005-ros2-jazzy.md)
+- [ADR-009 Remote access through a Tailscale compose service](decisions/ADR-009-remote-access-tailscale.md)
 
 ## 12. Workstation OS migration (22.04 → 24.04) — done 2026-09-21/22
 

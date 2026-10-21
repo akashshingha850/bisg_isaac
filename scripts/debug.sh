@@ -50,7 +50,7 @@ cmd_echo(){ need_ros; ros_exec "timeout 30 ros2 topic echo --once $1" ; }
 
 cmd_kitlog(){
   local f=""; [[ "${1:-}" == "-f" ]] && f=1
-  # Text log: volume bisg_isaac-kit-logs = /isaac-sim/kit/logs -> Kit/Isaac-Sim Python/5.1/kit_<ts>.log
+  # Text log: volume bisg_isaac-kit-logs = /isaac-sim/kit/logs -> Kit/Isaac-Sim Python/<ver>/kit_<ts>.log
   # (the .nvidia-omniverse/logs volume only holds structured telemetry json).
   # path contains a space ("Isaac-Sim Python"): let find hand the names to ls -t, never word-split them
   # Do not let `docker run -v` create the volume: compose must own it, or every later
@@ -68,8 +68,10 @@ cmd_perf(){
   container_running "$SIM_NAME" || die "$SIM_NAME is not running (./bisg up)"
   local cfg; cfg=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -m1 '^SIM_CONFIG=' | cut -d= -f2-)
   echo "config: ${cfg:-?}"
-  local host="$ROOT${cfg#/workspace}"
-  [[ -f "$host" ]] && { echo "perf block:"; sed -n '/^perf:/,/^[a-z]/p' "$host" | grep -E "^  [a-z_]+:" | grep -v ": *null" | sed 's/^/  /'; }
+  # what the launcher applied (the perf block can sit in any file sim.yaml loads, so read its log, not the YAML)
+  echo "applied:"
+  docker logs "$SIM_NAME" 2>&1 | grep -E "\[launch\] INFO (SimulationApp config|world settings|loop cadence|pegasus_fast)" \
+    | sed -E 's/.*\[launch\] INFO /  /; s/, .extra_args.*/}/' || true
   echo "boot:"
   sim_ready && ok "reached 'sim ready'" || warn "not ready yet"
   echo "steady state (last 5 heartbeats):"
@@ -85,7 +87,7 @@ cmd_ports(){
 }
 cmd_gpu(){ nvidia-smi; echo; echo "in sim container:"; container_running "$SIM_NAME" && docker exec "$SIM_NAME" nvidia-smi --query-gpu=name,memory.used --format=csv 2>/dev/null || echo "  (sim not running)"; }
 cmd_versions(){
-  echo "pins (config): ISAAC_TAG=$ISAAC_TAG PX4_TAG=$PX4_TAG PEGASUS_TAG=$PEGASUS_TAG ZED_SDK=$ZED_SDK"
+  echo "pins (config): ISAAC_TAG=$ISAAC_TAG PX4_TAG=$PX4_TAG PEGASUS_TAG=$PEGASUS_TAG ZED_SDK=$ZED_SDK ZED_WRAPPER_REF=$ZED_WRAPPER_REF"
   echo "images:"; docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}' | grep -E "^(bisg|nvcr.io/nvidia/isaac-sim|ros:jazzy)" | sed 's/^/  /' || true
   echo "sim image contents:"; docker run --rm --entrypoint bash "bisg/sim:${ISAAC_TAG}" -c 'echo "  isaac $(cat /isaac-sim/VERSION)"; cd /opt/PX4-Autopilot && echo "  px4 $(git describe --tags 2>/dev/null || cat build/px4_sitl_default/src/lib/version/build_git_version.h | grep -m1 -o "v[0-9.]*")"; echo "  pegasus $(/isaac-sim/python.sh -m pip show pegasus-simulator 2>/dev/null | grep ^Version | cut -d" " -f2)"; echo "  ros bridge: ROS_DISTRO=$ROS_DISTRO RMW=$RMW_IMPLEMENTATION"' 2>/dev/null
   echo "ros image:"; docker run --rm bisg/ros:jazzy bash -lc 'echo "  $(ros2 pkg xml mavros 2>/dev/null | grep -o "<version>[^<]*" | cut -d">" -f2 | sed "s/^/mavros /") jazzy rmw=$RMW_IMPLEMENTATION"' 2>/dev/null
@@ -97,7 +99,7 @@ cmd_dds(){
   for c in "$SIM_NAME" "$ROS_NAME" "bisg-mavros-${DRONE_ID}"; do container_running "$c" && echo "  $c: $(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$c" | grep -E '^(RMW_IMPLEMENTATION|ROS_DOMAIN_ID|CYCLONEDDS_URI)=' | tr '\n' ' ')"; done
   container_running "$ROS_NAME" && { ros_exec 'ros2 daemon stop >/dev/null 2>&1; ros2 daemon start >/dev/null 2>&1'; echo "  ros2 daemon restarted in $ROS_NAME"; } || true
 }
-cmd_clean_cache(){ compose "${ALL_PROFILES[@]}" down >/dev/null 2>&1 || true; docker volume rm bisg_isaac-cache-main bisg_isaac-cache-compute 2>/dev/null && ok "shader/compute caches removed (next boot is slower)" || warn "nothing removed"; }
+cmd_clean_cache(){ compose "${ALL_PROFILES[@]}" down >/dev/null 2>&1 || true; docker volume rm bisg_isaac-cache-main bisg_isaac-cache-compute bisg_isaac-cache-kit 2>/dev/null && ok "shader/compute caches removed (next boot is slower)" || warn "nothing removed"; }
 cmd_clean_all(){ read -r -p "Delete ALL bisg volumes (caches, downloaded assets, logs)? [y/N] " a; [[ $a == y ]] || exit 0; compose "${ALL_PROFILES[@]}" down -v --remove-orphans; ok "volumes removed"; }
 
 cmd_report(){
@@ -119,7 +121,7 @@ cmd_report(){
     ( for c in "commander status" "ekf2 status" "sensors status" "mavlink status" "uorb top -1" "param show MAV_* EKF2_EV* COM_RCL_EXCEPT"; do echo "### px4-$c"; cmd_px4 $c; echo; done ) > "$d/px4_status.txt" 2>&1 || true
   fi
   if container_running "$ROS_NAME"; then ( cmd_topics; echo; ros_exec "ros2 node list --no-daemon 2>/dev/null" ) > "$d/ros_graph.txt" 2>&1 || true; fi
-  cp "$ROOT/sim/configs/"*.yaml "$d/" 2>/dev/null || true
+  cp "$ROOT/docker/sim/configs/"*.yaml "$d/" 2>/dev/null || true
   tar -czf "$d.tar.gz" -C "$ROOT/logs" "debug_${ts}"
   ok "report: $d.tar.gz  ($(du -h "$d.tar.gz" | cut -f1))"
   echo "  quick look: $d/versions.txt, $d/${SIM_NAME}.log, $d/px4_status.txt, $d/kitlog_summary.txt"

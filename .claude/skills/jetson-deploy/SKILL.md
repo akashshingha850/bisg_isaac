@@ -8,17 +8,22 @@ description: Deploy the ROS/ZED/vehicle containers to a Jetson, flash and parame
 Safety first: any step with props ON requires the RC kill switch verified that day and a second person.
 
 ## Images
-- Build on the workstation: `docker buildx build --platform linux/arm64 -f docker/ros/Dockerfile -t <registry>/bisg/ros:arm64 --push .`
-- Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-r38.x` with a ZED SDK minor that lists JetPack 7.2 (see `docs/hardware.md`). Mismatch = SDK refuses to start.
-- On the Jetson: `docker compose -f deploy/jetson/compose.yaml --profile jetson pull && up -d`.
+- Preferred: build **natively on the Jetson**: `./bisg drone build` (bisg/ros:jazzy + bisg/zed:jetson; the arch picks the ZED tag, `ZED_VARIANT`). Cross-build from the workstation (qemu): `./bisg setup --arm64`.
+- Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-<board L4T>`; `docker/zed/build.sh jetson` reads it from `/etc/nv_tegra_release` (our Orin NX: R39.2.1 -> `l4t-r39.2`; `ZED_L4T=r39.2` overrides). Mismatch = SDK refuses to start.
+- On the Jetson: `./bisg drone up` / `down` / `status` / `logs [mavros|zed|bridge|video]` (compose profile `drone` of `docker/compose.yaml`, the same file as the sim).
 
 ## Pixracer
 1. Build/flash `px4_fmu-v4_default` at the pinned tag (ADR-003) via QGC custom firmware or `make px4_fmu-v4_default upload`.
-2. Load `deploy/px4_params/drone_<n>.params` (QGC → Parameters → Tools → Load). Reboot. Confirm `MAV_SYS_ID`.
+2. Load `docker/sim/px4/drone_<n>.params` (QGC → Parameters → Tools → Load). Reboot. Confirm `MAV_SYS_ID`.
 3. Serial: TELEM2 ↔ Jetson UART, 921600; udev rule → `/dev/px4`.
 
 ## Bench checklist
 Follow `docs/hardware.md` → "Bench checklist" in order; do not skip step 7 (failsafes).
+
+## ZED in the compose file
+- `docker/compose.yaml` service `drone-zed` runs `docker/zed/zed_drone.launch.py` (the same file the sim uses) with `docker/zed/zed.yaml`: topics `/drone_<n>/zed/zed_node/*`.
+- Image `bisg/zed:jetson` = Stereolabs' L4T image + `docker/zed/Dockerfile.overlay` (CycloneDDS; the upstream image is Fast DDS only and `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` aborts without it). Build on the Jetson: `docker/zed/build.sh jetson`.
+- Parity check on the bench: `python3 tests/zed_sdk_check.py --drone 1 --no-gt`; the same script passes in the sim (`./bisg zed check`). Hardware-only to-dos: `imu_fusion: true`, record the unit's real `K` in `docs/hardware.md`, frame prefix (B16), clock (B17). See `docs/zed-sdk-sim.md`.
 
 ## ZED Mini specifics
 - USB 3 only; use a short, good cable; `lsusb` shows `Stereolabs`. Wrapper config `zedm.yaml`; `camera_model: zedm`.

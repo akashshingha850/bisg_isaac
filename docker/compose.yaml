@@ -6,7 +6,17 @@
 #
 # Settings live in config/bisg.conf (see ./bisg config); ./bisg exports them before calling
 # compose. A raw `docker compose` call sees only docker/.env and the ${VAR:-default} fallbacks.
-# Profiles: sim | sim-headless | ros | tools. Jetson profile lives in deploy/jetson/compose.yaml.
+# Profiles (one file for the workstation AND the Jetson; ./bisg picks images by CPU architecture, scripts/_common.sh):
+#   sim | sim-headless   Isaac Sim + PX4 SITL                    x86_64 only
+#   ros | tools          dev shell + Foxglove web UI (lichtblick)    x86_64 and arm64
+#   px4-bridge           the one PX4 bridge service: mavros | mavsdk | xrce, chosen by PX4_BRIDGE (config/bisg.conf)   x86_64 and arm64
+#   zed                  ZED stack against the sim's ZED twin    x86_64 only (./bisg zed ...)
+#   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
+#                        (./bisg drone ...; runs on the Jetson, or on the workstation for a bench test with a USB ZED Mini)
+#   tailscale            Tailscale node: reach this host (sim view, WebRTC, MAVLink) from another network   x86_64 and arm64
+#                        (./bisg tailscale ...; own compose project `bisg-tailscale`; TAILSCALE_WITH_SIM=1: up/down with the sim)
+# Image tags: bisg/ros:jazzy, bisg/px4-bridge:jazzy (bisg/ros + MAVSDK server + uXRCE-DDS agent) and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
+# is `desktop` on x86_64 and `jetson` on the Jetson (docker/zed/build.sh builds the right one; L4T base from the board).
 #
 # One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
 # docker/ros/ (docker/ros/Dockerfile backs the mavros/vehicle/ros services below, since
@@ -20,28 +30,36 @@ x-nvidia: &nvidia
     NVIDIA_DRIVER_CAPABILITIES: all
 
 x-sim-base: &sim-base
-  image: bisg/sim:${ISAAC_TAG:-5.1.0}
+  image: bisg/sim:${ISAAC_TAG:-6.0.0}
   build:
     context: ..
     dockerfile: docker/sim/Dockerfile
     args:
-      ISAAC_TAG: ${ISAAC_TAG:-5.1.0}
+      ISAAC_TAG: ${ISAAC_TAG:-6.0.0}
       PX4_TAG: ${PX4_TAG:-v1.17.0}
   <<: *nvidia
   network_mode: host          # DDS discovery + MAVLink UDP to QGC/MAVROS on the host
   # Container runs as the image user `isaac-sim` (uid 1234). /workspace is read-only for it in
-  # practice (host files are uid 1000); nothing in sim/ or tests/ needs to write there.
+  # practice (host files are uid 1000); nothing in docker/sim/ or tests/ needs to write there.
   ipc: host
   privileged: false
   stdin_open: true
   tty: true
   stop_grace_period: 60s        # Isaac close can take a while; SIGKILL after this
+  # The 6.0 base image ships a HEALTHCHECK that greps a Kit log for "AppReady" under .nvidia-omniverse/logs/Kit;
+  # our python-kit launcher never writes there, so the container would show (unhealthy) while running fine.
+  # "Ready" for us is `[launch] sim ready` + PX4 "Ready for takeoff" (./bisg wait).
+  healthcheck:
+    disable: true
   volumes:
     - ..:/workspace:rw                          # sim/, tests/, docker/cyclonedds.xml
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    # Isaac caches as named volumes (paths from the Isaac 5.1 container docs)
+    # Isaac caches as named volumes (paths from the Isaac container docs)
     - isaac-cache-main:/isaac-sim/.cache:rw
     - isaac-cache-compute:/isaac-sim/.nv/ComputeCache:rw
+    # Isaac 6.0 writes the RTX shader + driver shader caches here (5.1 used ~/.cache). Without this volume every
+    # fresh container recompiles ~140 s of shaders at boot (boot 195 s instead of ~100 s warm).
+    - isaac-cache-kit:/isaac-sim/kit/cache:rw
     - isaac-logs:/isaac-sim/.nvidia-omniverse/logs:rw
     - isaac-kit-logs:/isaac-sim/kit/logs:rw               # kit_*.log text log (./bisg debug kitlog)
     - isaac-config:/isaac-sim/.nvidia-omniverse/config:rw
@@ -60,18 +78,57 @@ x-ros-base: &ros-base
     - ..:/workspace:rw
 
 services:
+  # ================= PX4 BRIDGE: ONE service, the bridge it runs is PX4_BRIDGE =================
+  #   PX4_BRIDGE=mavros | mavsdk | xrce | none          <- set it in config/bisg.conf (docker/.env for this machine, or in the shell for one run)
+  # mavros: MAVLink -> ROS 2 /drone_N/mavros/* (default; the ZED bridge and the tests need it)   mavsdk: gRPC server for MAVSDK clients
+  # xrce: uXRCE-DDS agent, PX4's uORB as ROS 2 /fmu/*. One image (bisg/px4-bridge = bisg/ros + the MAVSDK server + the agent), one entrypoint
+  # (docker/px4-bridge/entrypoint.sh) that starts the chosen one from env: no `command:`. `./bisg px4-bridge plan|up|status` operates it and starts
+  # one container per drone and bridge (own compose project each), so several drones, or mavros next to xrce, run side by side.
+  # BRIDGE_DEVICE / FCU_URL / MAVSDK_URL / XRCE_TRANSPORT / BRIDGE_SIM_TIME are set by ./bisg for the real drone (`--hw`, `./bisg drone up`).
+  px4-bridge:
+    image: bisg/px4-bridge:jazzy
+    build: {context: .., dockerfile: docker/px4-bridge/Dockerfile}
+    container_name: bisg-${PX4_BRIDGE:-mavros}-${DRONE_ID:-1}     # one per bridge and drone: bisg-mavros-1, bisg-xrce-2, ...
+    profiles: ["px4-bridge"]
+    network_mode: host
+    ipc: host
+    volumes: ["..:/workspace:rw"]
+    devices: ["${BRIDGE_DEVICE:-/dev/null}:${BRIDGE_DEVICE:-/dev/null}"]   # the Pixracer's serial port on the drone (/dev/px4); /dev/null = nothing (sim)
+    group_add: ["dialout"]
+    environment:
+      PX4_BRIDGE: ${PX4_BRIDGE:-mavros}
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}        # xrce: must equal PX4's UXRCE_DDS_DOM_ID
+      DRONE_ID: ${DRONE_ID:-1}
+      # mavros
+      FCU_URL: ${FCU_URL:-}                     # empty = the sim's PX4 (udp, port from DRONE_ID); serial:///dev/px4:921600 on the drone
+      GCS_URL: ${GCS_URL:-}                     # second MAVROS link (QGC / logger); empty = off
+      MAVROS_PLUGINS: ${MAVROS_PLUGINS:-lean}   # lean = docker/ros/mavros_lean.yaml | full = MAVROS' stock ~50 plugins
+      USE_SIM_TIME: ${BRIDGE_SIM_TIME:-true}    # PX4 SITL runs on sim time; false on the drone
+      # mavsdk
+      MAVSDK_PORT: ${MAVSDK_PORT:-50051}
+      MAVSDK_URL: ${MAVSDK_URL:-}               # empty = udpin://0.0.0.0:14540+(DRONE_ID-1); serial:///dev/px4:921600 on the drone
+      # xrce
+      XRCE_TRANSPORT: ${XRCE_TRANSPORT:-udp}    # udp in the sim, serial on the drone
+      XRCE_PORT: ${XRCE_PORT:-8888}
+      XRCE_DEV: ${BRIDGE_DEVICE:-/dev/px4}
+      XRCE_BAUD: ${XRCE_BAUD:-921600}
+    entrypoint: ["/workspace/docker/px4-bridge/entrypoint.sh"]
+    restart: on-failure                         # PX4_BRIDGE=none exits 0 and stays down
+  # =============================================================================================================
+
   sim:
     <<: *sim-base
     container_name: bisg-sim
     profiles: ["sim"]
     environment:
       <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${SIM_GPU:-all}      # GPU for Isaac Sim: an index (0), a UUID or all (config/bisg.conf, machine value in docker/.env)
       DISPLAY: ${DISPLAY:-:1}
       QT_X11_NO_MITSHM: "1"
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
       SIM_HEADLESS: "0"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
@@ -85,10 +142,11 @@ services:
     profiles: ["sim-headless"]
     environment:
       <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${SIM_GPU:-all}
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      SIM_CONFIG: ${SIM_CONFIG:-/workspace/sim/configs/single_iris.yaml}
+      SIM_CONFIG: ${SIM_CONFIG:-/workspace/docker/sim/configs/single_iris.yaml}
       SIM_HEADLESS: "1"
       SIM_STREAM: ${SIM_STREAM:-off}                 # derived from SIM_VIEW by ./bisg: off | web | webrtc | both
       SIM_STREAM_ADDR: ${SIM_VIEW_ADDR:-}
@@ -96,31 +154,142 @@ services:
       SIM_WEB_INTERVAL: ${SIM_WEB_INTERVAL:-1.0}
     command: ["launch"]
 
-  # MAVROS for one drone (Phase 2 makes this a generated per-drone service).
-  mavros:
-    <<: *ros-base
-    container_name: bisg-mavros-${DRONE_ID:-1}
-    profiles: ["ros"]
+  # The ZED stack: three services on ONE image (bisg/zed:${ZED_VARIANT:-desktop}), all configured by docker/zed/zed.yaml (docs/zed-stack.md).
+  # `./bisg zed up` starts the wrapper plus exactly the services the YAML enables. ZED_STACK_SIM=1 = apply the YAML's `sim:` deltas.
+  #
+  # zed: the ZED SDK wrapper, the SAME launch file as the real drone (docker/zed/zed_drone.launch.py), reading the ZED Mini twin the sim streams.
+  # R9 hunt (docs/todo.md): docker/zed/debug/terminate_bt.cpp is built and LD_PRELOADed at start, so an uncaught C++ exception
+  # prints its throw-site stack (`[terminate_bt]` lines in `docker logs`) before the usual abort.
+  # Start it AFTER the sim is up: the wrapper connects once and the stream must already be live. `restart: on-failure`
+  # re-tries a connect timeout. ipc: host = the extension and the SDK exchange frames through shared memory (/dev/shm/sl_local_*).
+  zed:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-${DRONE_ID:-1}
+    profiles: ["zed"]
+    <<: *nvidia
+    network_mode: host
+    ipc: host
+    environment:
+      <<: *nvidia-env
+      NVIDIA_VISIBLE_DEVICES: ${ZED_GPU:-all}      # GPU for the ZED SDK wrapper (depth / AI); a different one from SIM_GPU splits the load
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}   # rmw_fastrtps_cpp = shared-memory fallback while net.core.rmem_max is small (docs/setup.md)
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: "1"
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}       # empty = docker/zed/zed.yaml (./bisg zed bench points it at a derived copy)
+      ZED_SIM_PORT: ${ZED_SIM_PORT:-30000}          # 30000 + 2*(DRONE_ID-1), set by ./bisg zed up
+    volumes:
+      - ..:/workspace:ro
+      - zed-resources:/usr/local/zed/resources      # compiled AI-model cache: the first depth start optimises (minutes)
+      - zed-settings:/usr/local/zed/settings
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed &&
+        python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
+        { g++ -O1 -g -shared -fPIC -o /tmp/libterminate_bt.so debug/terminate_bt.cpp -lpthread &&
+          export LD_PRELOAD=/tmp/libterminate_bt.so || echo "[zed] terminate_bt not built: R9 backtraces off"; } &&
+        exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
+        sim_mode:=true sim_address:=127.0.0.1 sim_port:=$${ZED_SIM_PORT} params:=/tmp/zed_params.yaml
+    restart: on-failure
+
+  # zed-bridge: ZED SDK output -> PX4 through MAVROS: health/STATUSTEXT, odometry -> EKF2, depth -> obstacle map (QGC radar).
+  # Which modules run: services.px4_bridge in docker/zed/zed.yaml. Needs MAVROS (`./bisg mavros up`).
+  zed-bridge:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-bridge-${DRONE_ID:-1}
+    profiles: ["zed", "drone"]
+    network_mode: host
+    ipc: host
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
       DRONE_ID: ${DRONE_ID:-1}
-      FCU_URL: ${FCU_URL:-}
-      GCS_URL: ${GCS_URL:-}          # second MAVROS link (QGC / logger); empty = off
-      USE_SIM_TIME: "true"           # PX4 SITL runs on sim time; /clock from the launcher (interface-contract.md)
-    command: ["mavros"]
+      ZED_STACK_SIM: ${ZED_STACK_SIM:-1}   # ./bisg drone sets 0 (hardware: no sim: deltas)
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}
+    volumes:
+      - ..:/workspace:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.bridge"]
+    stop_grace_period: 10s
     restart: unless-stopped
 
-  # vio_mock: sim-only mock VIO source (ros2_ws/src/bisg_vehicle). Phase 3, zed-contract skill.
-  vehicle:
-    <<: *ros-base
-    container_name: bisg-vehicle-${DRONE_ID:-1}
-    profiles: ["ros"]
+  # zed-video: ZED left image -> RTP/H.264 UDP -> QGroundControl's "UDP h.264 Video Stream" (services.qgc_video, archive/docs/video-qgc.md).
+  zed-video:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-video-${DRONE_ID:-1}
+    profiles: ["zed", "drone"]
+    network_mode: host
+    ipc: host
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
       DRONE_ID: ${DRONE_ID:-1}
-      USE_SIM_TIME: "true"           # stamps must be on PX4's clock, see vio_mock.py
-    command: ["vio_mock"]
+      ZED_STACK_SIM: ${ZED_STACK_SIM:-1}   # ./bisg drone sets 0 (hardware: no sim: deltas)
+      ZED_STACK_CONFIG: ${ZED_STACK_CONFIG:-}
+      VIDEO_HOST: ${VIDEO_HOST:-}      # one-run overrides of services.qgc_video (./bisg zed up --video-host IP)
+      VIDEO_PORT: ${VIDEO_PORT:-}
+      VIDEO_TOPIC: ${VIDEO_TOPIC:-}
+    volumes:
+      - ..:/workspace:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed && exec python3 -m zed_stack.video"]
+    stop_grace_period: 10s
     restart: unless-stopped
+
+  # ---- the real drone (profile `drone`, ./bisg drone up) ---------------------------------------------------------
+  # MAVROS on the Pixracer: TELEM2 <-> Orin NX UART (udev rule -> /dev/px4), 921600 baud (docs/hardware.md). PX4 and the
+  # Jetson both run on real time, so no sim clock.
+  # The ZED wrapper on the real camera: same image, same launch file, same docker/zed/zed.yaml as the sim, without the `sim:` block.
+  drone-zed:
+    image: bisg/zed:${ZED_VARIANT:-desktop}
+    container_name: bisg-zed-${DRONE_ID:-1}
+    profiles: ["drone"]
+    <<: *nvidia
+    network_mode: host
+    ipc: host
+    privileged: true            # USB 3 camera + CUDA; tighten to /dev/bus/usb + /dev/video* later
+    environment:
+      <<: *nvidia-env
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
+      DRONE_ID: ${DRONE_ID:-1}
+      ZED_STACK_SIM: "0"
+    volumes:
+      - ..:/workspace:rw
+      - /dev/bus/usb:/dev/bus/usb
+      - zed-resources:/usr/local/zed/resources      # AI model cache persists across restarts
+      - zed-settings:/usr/local/zed/settings        # factory calibration downloads
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        source /workspace/docker/zed/ros_env.sh >/dev/null && cd /workspace/docker/zed &&
+        python3 -m zed_stack compile -o /tmp/zed_params.yaml &&
+        exec ros2 launch /workspace/docker/zed/zed_drone.launch.py drone_id:=$${DRONE_ID}
+        params:=/tmp/zed_params.yaml
+    restart: unless-stopped
+
+  # Remote access from another network (docs/remote-access.md, ADR-009). A Tailscale node on the HOST network: the host gets a
+  # 100.x tailnet address, and everything already listening here (web view 8899, WebRTC 49100/tcp + 47998/udp, MAVLink) is
+  # reachable from your other tailnet devices. Outbound connections only: no port forwarding, works behind NAT / campus
+  # firewalls (falls back to Tailscale's HTTPS relays).
+  # Runs tailscaled only, not the image's containerboot: containerboot gives an interactive login 60 s and then restarts with a
+  # new URL. Login is `./bisg tailscale login` (browser, URL or --qr; no auth keys, ADR-009); the node and its settings
+  # persist in tailscale-state, so after one login the node reconnects by itself on every restart.
+  tailscale:
+    image: tailscale/tailscale:${TAILSCALE_TAG:-v1.102.5}
+    container_name: bisg-tailscale
+    profiles: ["tailscale"]
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    volumes: ["tailscale-state:/var/lib/tailscale"]
+    entrypoint: ["tailscaled", "--state=/var/lib/tailscale/tailscaled.state", "--statedir=/var/lib/tailscale", "--tun=tailscale0"]
+    restart: unless-stopped                     # comes back after a reboot until `./bisg tailscale down`
 
   # Dev shell with the same image: ros2 topic/echo, colcon build of ros2_ws.
   ros:
@@ -132,15 +301,37 @@ services:
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       DISPLAY: ${DISPLAY:-:1}
+      PYTHONPYCACHEPREFIX: /tmp/pycache     # this container runs as root: keep its .pyc out of the bind-mounted repo
     volumes:
       - ..:/workspace:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${BAG_DIR:-/tmp/bisg-bags}:/bags:rw     # rosbag2 recordings (./bisg bag, docker/ros/bag.yaml)
     command: ["sleep", "infinity"]
 
+  # Foxglove web UI served from this host: Lichtblick, the open-source Foxglove Studio fork, for the foxglove_bridge (ws://:8765 in bisg-ros).
+  # Starts and stops with the `foxglove` tool (./bisg ros start foxglove), which prints the URL; it opens in VS Code's Simple Browser
+  # (app.foxglove.dev sends X-Frame-Options: DENY and needs a login). The layouts in docker/ros/foxglove/*.json are served at /layouts/
+  # (the printed URL loads FOXGLOVE_LAYOUT.json with ?layoutUrl=, fresh on every page load); it is also the built-in default layout.
+  lichtblick:
+    image: ghcr.io/lichtblick-suite/lichtblick:${LICHTBLICK_TAG:-1.29.1}
+    container_name: bisg-lichtblick
+    profiles: ["ros", "tools"]
+    network_mode: host
+    volumes: ["./ros/foxglove:/foxglove:ro"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /lichtblick /src/layouts; cp /foxglove/*.json /src/layouts/ 2>/dev/null; cp /foxglove/${FOXGLOVE_LAYOUT:-raptor}.json /lichtblick/default-layout.json 2>/dev/null; exec /bin/sh /entrypoint.sh \"$$@\"", "--"]
+    environment:                                # read by the Caddyfile: the page and the bridge websocket (/ws) on one port
+      FOXGLOVE_UI_PORT: ${FOXGLOVE_UI_PORT:-8080}
+      FOXGLOVE_BRIDGE_PORT: ${FOXGLOVE_BRIDGE_PORT:-8765}
+    command: ["caddy", "run", "--config", "/foxglove/Caddyfile", "--adapter", "caddyfile"]
+
 volumes:
+  tailscale-state:
+  zed-resources:
+  zed-settings:
   isaac-kit-logs:
   isaac-cache-main:
   isaac-cache-compute:
+  isaac-cache-kit:
   isaac-logs:
   isaac-config:
   isaac-data:

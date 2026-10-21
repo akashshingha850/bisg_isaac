@@ -1,0 +1,60 @@
+# Common settings for the raptor twin: app, perf, physics, PX4 airframe. docker/sim/sim.yaml (what the sim runs) loads this file,
+# then the drone's docker/sim/assets/vehicles/raptor/raptor.yaml, and sets the world, the drone USD and px4.params itself:
+# those three are NOT here (one key, one place).
+# Override at run time:  SIM_HEADLESS=1  (see docs/configuration.md)
+# PLACEHOLDER: thrust curve and PX4 airframe are still the Iris' (Phase 4, docs/todo.md); the Iris rate gains limit-cycle on this
+# body (shaking at takeoff), so sim.yaml's px4_params loads raptor.params (sim-only rate gains, docker/sim/px4/raptor.params).
+
+app:
+  headless: false            # SIM_HEADLESS=1 overrides to true
+  render: true               # false = physics only (fastest headless tests)
+  log_level: INFO            # DEBUG | INFO | WARNING
+  heartbeat_steps: 500       # print vehicle position every N steps; 0 = off
+  viewport_hud: true         # Kit's built-in viewport HUD (FPS, device/host memory) on at start
+  exit_after_s: 0            # >0 = stop the sim after N seconds (used by tests)
+  stream: off                # off | webrtc — WebRTC livestream for headless runs (SIM_VIEW overrides).
+                             # Forces rendering on; watch with the Isaac Sim WebRTC Streaming Client
+                             # (TCP 49100 / UDP 47998). See docs/configuration.md.
+  # viewport_eye / viewport_target: [x, y, z] pins the GUI start view; unset = auto-framed on the vehicles
+  ros_clock: true            # publish /clock (sim time) every physics step; PX4 SITL runs on sim time,
+                             # so MAVROS + our nodes need use_sim_time:=true (docs/interface-contract.md)
+  follow_cam:                    # Gazebo-style follow camera for the GUI viewport (docker/sim/launcher/follow_cam.py)
+    enabled: true                # live panel "Follow camera" changes everything below; replaces the fixed start view
+    drone: 1                     # which vehicle to follow (1-based)
+    smooth_s: 0.3                # follow smoothing, s (0 = rigid)
+    follow_yaw: false            # true = chase view that turns with the drone's heading
+    offset: [-2.0, 0.0, 1.0]     # "Reset view": camera position in the drone body frame FLU, m (Simple Room is small: a camera
+                                 # outside its walls sees black; sliders in the panel change this live)
+    look_height: 0.0             # aim this far above the drone's centre, m
+
+# --- Performance (docs/performance.md) ----------------------------------------
+# Only non-null keys are passed to SimulationApp / Kit. Defaults here are the safe,
+# visually-correct ones; docker/sim/configs/headless_fast.yaml is the stripped-down test profile.
+perf:
+  disable_viewport_updates: null   # null = auto (true when headless). No viewport work in headless runs.
+  limit_cpu_threads: 16            # handbook: 16-32 is the sweet spot; this host has 12 cores
+  sync_loads: null                 # true (default) = pause rendering until assets are loaded
+  renderer: null                   # RaytracedLighting (RTX real-time, default) | PathTracing (offline quality)
+  width: null                      # render resolution; lower = less VRAM per camera (risk R1)
+  height: null
+  active_gpu: null                 # pin a GPU index on multi-GPU hosts
+  skip_material_loading: false     # true = much faster load, but untextured — physics-only tests only
+  min_frame_rate: null             # --/persistent/simulation/minFrameRate: PhysX catch-up clamp (e.g. 60)
+  physx_threads: null              # --/persistent/physics/numThreads (default 8; 0 = main thread)
+  pegasus_fast: true               # cache Pegasus's per-step RigidPrim wrappers (docker/sim/launcher/pegasus_fast.py); faster, same physics
+  extra_args: []                   # raw Kit args, e.g. ["--/app/renderer/skipMaterialLoading=true"]
+
+world:                       # the world itself (preset / usd_path) is `world:` in docker/sim/sim.yaml
+  add_ground_plane: false    # only for render-only worlds without collision (3DGS)
+  # 120 Hz physics (= PX4 IMU rate), 6 steps per 20 Hz rendered frame. Do not go lower: at 60 Hz PX4's rate loop
+  # (tuned for ~250 Hz) limit-cycles - hover roll std 6.3 deg, yaw rate +-160 deg/s; at 120 Hz it is 0.08 deg
+  # (tests/hover_stability.py, docs/performance.md). Default null = 250 Hz, slowest and the original tuning.
+  physics_dt: 0.0083333333
+  rendering_dt: 0.05
+  physics_device: null       # "cpu" | "cuda" (GPU dynamics; one GPU only)
+
+px4:
+  autolaunch: true
+  airframe: gazebo-classic_iris   # PX4 ROMFS airframe name (10015_gazebo-classic_iris exists in v1.17.0)
+  enable_lockstep: false          # false = PX4 free-runs; true = deterministic but stalls on low FPS
+  # params: `px4_params` in docker/sim/sim.yaml (raptor = docker/sim/px4/raptor.params)

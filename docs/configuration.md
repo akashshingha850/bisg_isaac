@@ -1,14 +1,15 @@
 # Configuration
 
-Three files, each answering a different question.
+Four files, each answering a different question.
 
 ```
 config/bisg.conf    the settings: what you see, which scenario, endpoints, pins, links
+docker/zed/zed.yaml everything the ZED Mini does: SDK modules, PX4 bridge, QGC video (docs/zed-stack.md)
 docker/.env         this machine only (DISPLAY, local overrides) — git-ignored
-sim/configs/*.yaml  the scenario: world, vehicles, PX4 airframe, perf knobs
+docker/sim/configs/*.yaml  the scenario: world, vehicles, PX4 airframe, perf knobs
 ```
 
-Rule of thumb: **which drone / which world / what I see** → `config/bisg.conf`; **what the world
+Rule of thumb: **which drone / which world / what I see** → `config/bisg.conf`; **what the ZED does** → `docker/zed/zed.yaml` (`./bisg zed plan|set`); **what the world
 contains** → the scenario YAML; **my machine is different** → `docker/.env`.
 
 `config/bisg.conf` is plain `KEY=VALUE` because its two readers — bash and `docker compose`
@@ -57,7 +58,7 @@ SIM_VIEW=webrtc      # config/bisg.conf
 | `gui` | Isaac window on `$DISPLAY` | — | the machine itself |
 | `headless` | none | — | nothing — fastest, use it for tests, CI and timing |
 | `web` | none | still frames on `SIM_WEB_PORT` | one TCP port, so a VS Code / SSH forward works |
-| `webrtc` | none | interactive WebRTC | TCP 49100 + UDP 47998 — LAN or VPN only |
+| `webrtc` | none | interactive WebRTC | TCP 49100 + UDP 47998 — LAN or Tailscale only |
 | `both` | none | `web` + `webrtc` together | both of the above |
 | `auto` | `gui` if an X server is reachable, else `headless` | — | — |
 
@@ -87,8 +88,9 @@ SIM_VIEW=headless ./bisg up   # same, for one shell
 `./bisg view` prints the URLs and addresses for whatever is running.
 
 Two supporting keys: `SIM_VIEW_ADDR` (the address a remote viewer connects to — this host's LAN,
-Tailscale or public IP; empty means local clients only, and WebRTC media never arrives without it
-from another machine) and `SIM_WEB_PORT` / `SIM_WEB_INTERVAL` for the browser view.
+Tailscale or public IP; `tailscale` = this host's tailnet IP from the `tailscale` service; empty means local
+clients only, and WebRTC media never arrives without it from another machine; it is machine-specific,
+so set it in `docker/.env`) and `SIM_WEB_PORT` / `SIM_WEB_INTERVAL` for the browser view.
 
 There is no browser URL for `webrtc` — NVIDIA dropped the in-browser client after Isaac Sim 4.0 and
 this image carries only the server extensions; `web` is the browser route. Both streams force
@@ -97,7 +99,7 @@ warehouse scene): leave `SIM_VIEW=headless` for regression runs.
 
 **How it reaches the container.** `SIM_VIEW` never enters one. `./bisg` resolves it into the two
 values the stack already took: the compose profile (`gui` → service `sim`, `headless` → service
-`sim-headless`, i.e. `SIM_HEADLESS=1`) and `SIM_STREAM=off|web|webrtc|both`, which `sim/launcher/launch.py`
+`sim-headless`, i.e. `SIM_HEADLESS=1`) and `SIM_STREAM=off|web|webrtc|both`, which `docker/sim/launcher/launch.py`
 reads. A raw `docker compose` call bypasses that resolution and falls back to `SIM_STREAM=off`; pass it
 inline instead — `SIM_STREAM=web docker compose -f docker/compose.yaml --profile sim-headless up`. Do not
 put `SIM_STREAM` in `docker/.env`: `./bisg` rejects the old keys there rather than half-honouring them.
@@ -107,35 +109,72 @@ put `SIM_STREAM` in `docker/.env`: `./bisg` rejects the old keys there rather th
 instead of being silently ignored. `SIM_MODE=gui` + `SIM_STREAM=webrtc` becomes `SIM_VIEW=gui+webrtc`;
 `SIM_MODE=headless` + `SIM_STREAM=web` becomes `SIM_VIEW=web`.
 
+## Remote access: `TAILSCALE_HOSTNAME`, `TAILSCALE_EXTRA_ARGS`
+
+The `tailscale` service (Tailscale, ADR-009) puts this host on your tailnet so another network can reach the sim
+(`./bisg tailscale up|status|down`, `docs/remote-access.md`). `TAILSCALE_HOSTNAME` (default `bisg-<hostname>`) names the
+node. Login is in a browser, started from the terminal with `./bisg tailscale login` (URL or `--qr`); there is no auth-key path (ADR-009). `TAILSCALE_EXTRA_ARGS` adds `tailscale up` flags (e.g. `--ssh`).
+
 ## Scenario
 
 ```
-SIM_SCENARIO=single_iris    # config/bisg.conf: a file name in sim/configs/ (no .yaml), or an absolute path
+SIM_SCENARIO=/workspace/docker/sim/sim.yaml   # config/bisg.conf: the locator below, a file name in docker/sim/configs/ (no .yaml), or a path
 ```
 
 `./bisg up -c headless_fast` overrides it for one run; `-c /abs/path/to/x.yaml` works too. The resolved
-path is passed to the container as `SIM_CONFIG=/workspace/sim/configs/<file>.yaml`. Unknown names are
+path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
+
+**`docker/sim/sim.yaml` (the locator) says what the sim runs**, one key each:
+
+```yaml
+scenario: configs/raptor_scenario.yaml         # app, render, physics, PX4 airframe
+vehicle: assets/vehicles/raptor/raptor.yaml    # the vehicles: entry (mounts, chase cam)
+model: assets/vehicles/raptor/raptor.usd       # drone USD (null = the vehicle's `model:`, e.g. Iris)
+world: Warehouse                               # Pegasus preset, or a .usd path
+light_scale: 0.5                               # x every light in the world asset (1 = as authored)
+ambient_light: 2.0                             # RTX ambient fill: lifts what the world's lamps leave dark (ceiling)
+px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: vehicle file, then overlays
+spawn: {position: [-2.5, 0.0, 0.11], yaw_deg: 0.0}    # first vehicle's start pose
+objects: [...]                                 # static cuboids added to the world (world.objects)
+```
+
+Paths are relative to `sim.yaml`; its keys win over the scenario and vehicle files, which therefore do not set them
+(`docker/sim/launcher/launch.py` `expand_locator`). To fly the Iris: `scenario: configs/single_iris.yaml`, `vehicle: null`,
+`model: null`, `px4_params: [iris]`.
+
+Any scenario file can also `extends:` one file or a list (paths relative to it; later entries win, the file itself wins over all;
+dictionaries merge, lists are replaced), as the `single_iris_*` variants do.
+
+The default (`sim.yaml`) flies the raptor in the Warehouse with `light_scale` 0.5 and `ambient_light` 2 (chosen for photogrammetry
+exposure: the lamps as authored burn out the white walls and leave the ceiling black). `single_iris` uses Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
+is the real SDK on a streamed ZED Mini twin (`docs/zed-sdk-sim.md`); what it publishes is `docker/zed/zed.yaml`. To switch
+worlds, edit `world.preset` in `docker/sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`,
+`"Hospital"` or `"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.
+
+`ZED_RMW` (default `rmw_cyclonedds_cpp`) picks the wrapper container's RMW; `rmw_fastrtps_cpp` is the no-sudo fallback
+while `net.core.rmem_max` is small.
 
 ## Endpoints
 
 | Key | Default | Used by |
 |---|---|---|
 | `DRONE_ID` | `1` | namespace `/drone_N`, `MAV_SYS_ID N`, PX4 SITL instance `N-1` |
-| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/ros/entrypoint.sh`) |
+| `FCU_URL` | empty → `udp://:14540+i@127.0.0.1:14580+i` | MAVROS (`docker/px4-bridge/entrypoint.sh`) |
 | `GCS_URL` | empty → no second link | MAVROS `gcs_url:=` (QGroundControl, logger) |
 | `MAVLINK_GCS_PORT` | `14550` | `./bisg debug mavlink` probe |
-| `ROS_DOMAIN_ID` | `0` | every container |
-| `FCU_BAUD` | `921600` | Jetson FCU auto-detect when `FCU_URL` is empty (`scripts/jetson.sh`, `scripts/fcu_probe.py`) |
-| `FOXGLOVE_PORT` | `8765` | Jetson `foxglove` service (foxglove_bridge WebSocket) |
-| `TS_HOSTNAME` | empty → `bisg-drone-<DRONE_ID>` | Jetson `tailscale` service; `TS_AUTHKEY` (secret) goes in `docker/.env` only |
+| `ROS_DOMAIN_ID` | `auto` = 1 + cksum(hostname) % 99 (stallman2 → 91, ict-em018kc6 → 5) | every container; a number overrides; the same number on machines that must share topics. The ZED image's `/sbin/ros_entrypoint.sh` forces domain 0, so ZED containers source `docker/zed/ros_env.sh` instead |
+| `PX4_BRIDGE` | `mavros` | which bridge the one `px4-bridge` service runs: `mavros \| mavsdk \| xrce \| none` (`./bisg px4-bridge up`, `all`, `drone up`): `docs/px4-bridge.md` |
+| `MAVROS_PLUGINS` | `lean` | MAVROS plugin set: `lean` (`docker/ros/mavros_lean.yaml`) or `full` (stock) |
+| `MAVSDK_PORT` | `50051` | gRPC port of the `mavsdk` link |
+| `XRCE_PORT` / `XRCE_BAUD` | `8888` / `921600` | uXRCE-DDS agent: UDP port in the sim, serial baud on the drone |
 
 Port math lives in `docs/interface-contract.md`; changing it is a contract change, not a config tweak.
 
 ## Pins and links
 
-`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `TAILSCALE_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
-`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `PX4_REPO` feed `scripts/fetch_third_party.sh`.
+`ISAAC_TAG`, `PX4_TAG`, `PEGASUS_TAG`, `ZED_SDK`, `ZED_ISAAC_EXT_TAG`, `TAILSCALE_TAG`, `ISAAC_IMAGE`, `ROS_BASE_IMAGE` feed the image builds and
+`scripts/pull_images.sh`; `PEGASUS_REPO`, `ZED_WRAPPER_REPO`, `ZED_ISAAC_EXT_REPO`, `PX4_REPO` feed `scripts/fetch_sources.sh`.
 Pins are an ADR decision (`docs/plan.md` §4, ADR-003/005) — change the file *and* the ADR, then
 `./bisg setup --rebuild`.
 

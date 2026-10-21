@@ -1,22 +1,17 @@
 # Isaac / Omniverse caches and logs
-sim/cache/
+docker/sim/cache/
 **/kit/logs/
 **/.nv/
 *.log
 logs/
 
 # Large assets: keep worlds out of git unless LFS is set up
-sim/worlds/**/*.usd
-sim/worlds/**/*.usda
-sim/worlds/**/*.usdc
-sim/worlds/**/*.usdz
-sim/worlds/**/*.ply
-!sim/worlds/**/README.md
+docker/sim/worlds/
 
 # ROS 2 workspace build products
-ros2_ws/build/
-ros2_ws/install/
-ros2_ws/log/
+docker/ros/ros2_ws/build/
+docker/ros/ros2_ws/install/
+docker/ros/ros2_ws/log/
 
 # PX4 flight logs
 *.ulg
@@ -33,7 +28,19 @@ __pycache__/
 docker/.env
 
 # third-party clones (become submodules after git init)
-third_party/*/
+docker/zed/zed-isaac-sim/
 
 # test output
 out/
+*.npz
+docker/ros/ros2_ws/*.stale/
+archive/vio-bench
+archive/px4-link-study
+# archive/vio-2026-10-15
+
+# graphify: the graph (graph.json), report, manifest and labels are tracked; derived or machine-specific files are not
+graphify-out/graph.html
+graphify-out/cache/
+graphify-out/.graphify_root
+graphify-out/.graphify_python
+graphify-out/*.bak*

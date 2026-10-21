@@ -1,0 +1,40 @@
+# PX4 params for GPS-denied flight on the drone's own sensors (the real drone's mode, sim and Pixracer):
+#   barometer (on the FC)            -> height REFERENCE
+#   LW20/C downward rangefinder      -> height aid + height above the floor; EKF2 learns the baro's bias from it over flat floor
+#   ZED Mini VIO (external vision)   -> horizontal position, 3D velocity, yaw
+#   PMW3901 optical flow             -> horizontal velocity
+# No GPS, no magnetometer (indoors: EV supplies yaw). Lever arms + EKF2_MIN_RNG are in the vehicle file (raptor.params). Scenario:
+# `px4_params: [raptor, ekf2_vio_flow_range]` + `services.px4_bridge.odometry.enabled` in docker/zed/zed.yaml (sim:).
+#
+# Height reference, measured 2026-10-15 on the raptor in Simple Room (docs/range-flow.md "GPS-denied on all sensors"):
+#   vision (ekf2_vision): the sim's ZED drifts in z (13-15 cm in 50 s: the SDK tracks without the IMU in the sim) and nothing else
+#                         anchors height. The Iris VIO scenario (no ToF/flow) failed vio_flight with 0.85 m of z error this way.
+#   range  (2)          : 3.7 cm on a flat floor, but crossing the 0.78 m table edge the drone CLIMBED 0.53 m (0.60 m error):
+#                         PX4 warns range/vision references assume a flat floor.
+#   baro   (0, chosen)  : 2.1 cm flat, 3.2 cm over the table. Caveat: the sim's baro has no drift or prop wash (Pegasus barometer,
+#                         drift 0); on the drone the range aid corrects slow drift, but check prop-wash height jumps near the floor.
+# Names/semantics checked against /opt/PX4-Autopilot/src/modules/ekf2/*.yaml (PX4 v1.17.0).
+
+EKF2_GPS_CTRL  0   6   # GPS fusion off
+EKF2_MAG_TYPE  5   6   # magnetometer off: EV yaw instead (indoor magnetic fields, and two yaw sources would fight)
+EKF2_HGT_REF   0   6   # height reference = baro (0 Baro 1 GPS 2 Range 3 Vision). Reboot-required: applied at SITL boot
+EKF2_BARO_CTRL 1   6   # baro fusion on (the default; stated because it is the reference)
+EKF2_RNG_CTRL  2   6   # range fusion always on (1 = only low and slow): height aid + terrain; it also learns the baro bias
+EKF2_EV_CTRL   13  6   # bit0 horizontal position + bit2 3D velocity + bit3 yaw; NOT bit1 vertical position (the drifting z)
+EKF2_EV_DELAY  0   9   # ms. Samples are stamped at capture (sim: zed-bridge restamp, zed.yaml; drone: wrapper capture time).
+                       # Checked 2026-10-15 (tests/vio_eval.py): residual EV lag vs ground truth 10 ms
+EKF2_EVA_NOISE 0.01 9  # EV yaw. PX4 v1.17 floors the yaw variance at max(var, EKF2_EVA_NOISE) (ev_yaw_control.cpp: a std used as a
+                       # variance), so the effective yaw std is sqrt(this): 0.01 -> 0.1 rad, the documented default intent. With the
+                       # default 0.1 (= 0.32 rad, 18 deg) EKF2's heading lagged the ZED's by ~20 s after each turn while the EV
+                       # position kept arriving in the ZED's frame. EV yaw at hover is steady to 0.1 deg (docs/vio.md)
+MC_YAWRATE_MAX 60.0 9  # deg/s, every attitude-controlled mode (OFFBOARD, Position sticks; default 200). The sim ZED tracks without
+                       # its IMU, and a 90 deg yaw step at the default (325 deg/s peak on the sim's raptor tune) cost it up to 3.6 deg
+                       # of yaw each: -8.3 deg after 4 turns, 0.41 m EKF2 error at 2 m from takeoff. At 60 (99 deg/s peak, the sim
+                       # tune overshoots): -1.7 deg, 0.11 m. Real camera: IMU-fused, but rotation still blurs features
+EKF2_OF_CTRL   1   6   # optical flow fusion on
+EKF2_OF_QMIN_GND 1 6   # on the ground use flow only with quality >= 1. The default 0 fuses the twin's quality-0 flow (below its
+                       # 8 cm minimum) on the ground: with the ZED down, the at-rest estimate drifted 0.7 m in 3 min (2026-10-15).
+                       # With 1, EKF2 holds a constant position at rest instead. It does NOT stop arming without the ZED: at rest
+                       # EKF2 always fuses a "valid fake position" (fake_pos_control.cpp), so OFFBOARD arms with no VIO and the
+                       # estimate runs off at liftoff. Check the zed-bridge odometry before takeoff (docs/vio.md)
+EKF2_OF_DELAY  0   9   # ms. The twin stamps at the end of its integration window (docs/range-flow.md)
