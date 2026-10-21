@@ -64,7 +64,7 @@ conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_
 conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF b19902daf0136b6e841b5e415c2d01f425411c45;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
 conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto; conf_default TAILSCALE_WITH_SIM 1
-conf_default PX4_BRIDGE mavros
+conf_default PX4_BRIDGE mavros;      conf_default DRONE_FCU_URL serial:///dev/px4:921600
 conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 # One compose file serves the x86_64 workstation and the arm64 Jetson; the only per-arch thing is the ZED image tag.
@@ -82,8 +82,8 @@ conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
 conf_default PX4_REPO https://github.com/PX4/PX4-Autopilot.git
 # The PX4 bridge on the real drone: the Pixracer's serial port instead of the sim's UDP, wall-clock time (docker/bridge/*.yaml read these).
 bridge_env_drone(){
-  local ser="${DRONE_FCU_URL:-serial:///dev/px4:921600}"
-  export BRIDGE_DEVICE=/dev/px4 BRIDGE_SIM_TIME=false FCU_URL="$ser" MAVSDK_URL="$ser" XRCE_TRANSPORT=serial
+  local ser="$DRONE_FCU_URL" dev="${DRONE_FCU_URL#serial://}"; dev="${dev%:*}"   # serial:///dev/ttyTHS1:921600 -> /dev/ttyTHS1
+  export BRIDGE_DEVICE="$dev" BRIDGE_SIM_TIME=false FCU_URL="$ser" MAVSDK_URL="$ser" XRCE_TRANSPORT=serial
 }
 export FCU_URL="${FCU_URL:-}" GCS_URL="${GCS_URL:-}"      # empty = derived / disabled
 export SIM_VIEW_ADDR="${SIM_VIEW_ADDR:-}"                 # empty = local viewers only

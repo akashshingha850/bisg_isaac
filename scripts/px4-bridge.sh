@@ -6,7 +6,7 @@
 #   px4-bridge.sh up [NAME..]      start them; names (mavros | mavsdk | xrce | none) override PX4_BRIDGE for this run
 #   px4-bridge.sh down [NAME..]    stop this drone's bridges (no name = all of them)       down --all: every drone's
 #   px4-bridge.sh status [--all]   logs [NAME] [-f]   params [NAME]   build
-#   flags: --drone N   --hw (serial port /dev/px4 instead of the sim's UDP; default on arm64)
+#   flags: --drone N   --hw (serial port DRONE_FCU_URL instead of the sim's UDP; default on arm64)
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
@@ -22,7 +22,7 @@ for b in "${names[@]}"; do case "$b" in mavros|mavsdk|xrce|none) ;; *) die "PX4_
 ALL=(mavros mavsdk xrce)
 cname(){ echo "bisg-$1-${DRONE_ID}"; }                  # one container per bridge and drone, so drones and methods run side by side
 pcompose(){ docker compose -p "bisg-px4-$1-${DRONE_ID}" -f "$COMPOSE_FILE" --profile px4-bridge "${@:2}"; }   # own project each: `up` for one never touches another
-port=$((14540 + DRONE_ID - 1)); ser="${DRONE_FCU_URL:-serial:///dev/px4:921600}"
+port=$((14540 + DRONE_ID - 1)); ser="$DRONE_FCU_URL"
 rivals(){ if ((hw)); then printf '%s\n' "${ALL[@]}" | grep -vx "$1" || true; else case $1 in mavros) echo mavsdk;; mavsdk) echo mavros;; esac; fi; }   # share $1's endpoint
 
 endpoint(){
@@ -32,7 +32,7 @@ endpoint(){
     mavsdk:0) echo "MAVLink udpin://0.0.0.0:${port} -> gRPC localhost:${MAVSDK_PORT}";;
     mavsdk:1) echo "MAVLink ${ser} -> gRPC localhost:${MAVSDK_PORT}";;
     xrce:0)   echo "XRCE udp4 :${XRCE_PORT} (PX4's client dials it) -> ROS 2 /fmu/in|out/*, domain ${ROS_DOMAIN_ID}";;
-    xrce:1)   echo "XRCE serial /dev/px4 @ ${XRCE_BAUD} -> ROS 2 /fmu/in|out/*, domain ${ROS_DOMAIN_ID}";;
+    xrce:1)   echo "XRCE serial ${BRIDGE_DEVICE} @ ${XRCE_BAUD} -> ROS 2 /fmu/in|out/*, domain ${ROS_DOMAIN_ID}";;
     none:*)   echo "nothing";;
   esac
 }
@@ -47,7 +47,7 @@ case "$sub" in
     ((${#run[@]})) || { stop "${ALL[@]}"; ok "none: no bridge running for drone ${DRONE_ID}"; exit 0; }
     for b in "${run[@]}"; do for r in $(rivals "$b"); do [[ " ${run[*]} " == *" $r "* ]] && die "$b and $r cannot run together here: they share one endpoint (docs/px4-bridge.md)"; done; done
     docker image inspect bisg/px4-bridge:jazzy >/dev/null 2>&1 || die "bisg/px4-bridge:jazzy is not built: ./bisg px4-bridge build"
-    if ((hw)); then [[ -e /dev/px4 ]] || die "/dev/px4 not found: add the Pixracer udev rule (docs/hardware.md)"; fi
+    if ((hw)); then [[ -e $BRIDGE_DEVICE ]] || die "$BRIDGE_DEVICE not found (DRONE_FCU_URL=$DRONE_FCU_URL): add the Pixracer udev rule or set the port in docker/.env (docs/hardware.md)"; fi
     for b in "${run[@]}"; do
       stop $(rivals "$b" | grep -vxF "$(printf '%s\n' "${run[@]}")" || true)
       info "$b: $(endpoint "$b")"

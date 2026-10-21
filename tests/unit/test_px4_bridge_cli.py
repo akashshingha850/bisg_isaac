@@ -74,8 +74,8 @@ class Px4BridgeCli(unittest.TestCase):
         self.assertIn("udpin://0.0.0.0:14542", out)       # PX4 instance 2 -> 14540 + 2
 
     def test_hw_uses_the_serial_port(self):
-        _, mav = bridge("plan", "mavros", "--hw")
-        _, xrce = bridge("plan", "xrce", "--hw")
+        _, mav = bridge("plan", "mavros", "--hw", DRONE_FCU_URL="serial:///dev/px4:921600")     # not this machine's docker/.env
+        _, xrce = bridge("plan", "xrce", "--hw", DRONE_FCU_URL="serial:///dev/px4:921600")
         self.assertIn("serial:///dev/px4:921600", mav)
         self.assertIn("XRCE serial /dev/px4", xrce)
 

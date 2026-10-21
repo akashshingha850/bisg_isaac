@@ -35,7 +35,7 @@ apt-get install -y "$META" ros-dev-tools \
 # Images over DDS need a big socket receive buffer (docker/cyclonedds.xml asks for 16 MB; bisg docs/setup.md)
 cur=$(sysctl -n net.core.rmem_max)
 if (( cur < 16777216 )); then
-  echo "net.core.rmem_max=16777216" > /etc/sysctl.d/60-bisg-dds.conf && sysctl -p /etc/sysctl.d/60-bisg-dds.conf
+  echo "net.core.rmem_max=16777216" > /etc/sysctl.d/61-bisg-dds.conf && sysctl -p /etc/sysctl.d/61-bisg-dds.conf
 fi
 
 echo

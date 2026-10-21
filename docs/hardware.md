@@ -25,7 +25,16 @@ ZED Mini (USB 3.0, Type-C)  ─────────────  Orin NX USB
 Pixracer USB   ──────────────────────────  bench only (QGC on laptop)
 ```
 
-Add a udev rule so the FC always appears as `/dev/px4`, and give the container user `dialout`.
+The bridge opens the port in `DRONE_FCU_URL` (`config/bisg.conf`, default `serial:///dev/px4:921600`) and the container gets that
+device. Either add the udev alias (once, sudo):
+
+```bash
+echo 'KERNEL=="ttyTHS1", SYMLINK+="px4", GROUP="dialout", MODE="0660"' | sudo tee /etc/udev/rules.d/99-px4.rules
+sudo udevadm control --reload && sudo udevadm trigger --name-match=ttyTHS1    # -> /dev/px4
+```
+
+or name the bare port for this machine in `docker/.env`: `DRONE_FCU_URL=serial:///dev/ttyTHS1:921600` (our Orin NX, verified
+2026-10-21: MAVROS `connected: true`, PX4 heartbeats at 921600). The user running `./bisg` needs `dialout`.
 
 ## PX4 parameters (`docker/sim/px4/<drone_n>.params`)
 
@@ -51,7 +60,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 
 - JetPack 7.2 (L4T r38.x, Ubuntu 24.04). Docker + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
 - Images: `bisg/ros:arm64` (ROS 2 **Jazzy**, ADR-005), `bisg/zed:jetson` from `docker/zed/build.sh jetson` (Stereolabs scripts, SDK 5.4.1, the board's L4T) — built on the Jetson or pushed from the workstation.
-- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, `BRIDGE_DEVICE=/dev/px4`; runs MAVROS, MAVSDK or the XRCE agent per `PX4_BRIDGE`, docs/px4-bridge.md), `drone-zed` (wrapper), `zed-bridge`, `zed-video`; `vehicle` (offboard, health) comes with Phase 2/5.
+- `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, `BRIDGE_DEVICE` = the port in `DRONE_FCU_URL`; runs MAVROS, MAVSDK or the XRCE agent per `PX4_BRIDGE`, docs/px4-bridge.md), `drone-zed` (wrapper), `zed-bridge`, `zed-video`; `vehicle` (offboard, health) comes with Phase 2/5.
 - Clock: chrony to the ground station; ROS wall time.
 - Boot: a systemd unit starts the compose profile; a physical LED / `vehicle/state` shows readiness.
 - Power mode: `nvpmodel` MAXN or 25 W; `jetson_clocks` for consistent VIO latency.

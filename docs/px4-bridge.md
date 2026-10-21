@@ -26,7 +26,7 @@ PX4_BRIDGE=xrce docker compose -f docker/compose.yaml --profile px4-bridge up -d
 ```
 `./bisg all` and `./bisg drone up` start what `PX4_BRIDGE` names (with MAVROS among them, `./bisg all` still adds `vio_mock`); `./bisg mavros up|state|down` still works (it forces `mavros`).
 Other settings in `config/bisg.conf`: `MAVROS_PLUGINS` (`lean` = 20 plugins, 9 % CPU / 144 MB measured with 17; `full` = stock ~50, 28 % / 255 MB), `MAVSDK_PORT`, `XRCE_PORT` (sim), `XRCE_BAUD` (drone).
-`--hw` (default on arm64) uses the serial port `/dev/px4` (`DRONE_FCU_URL`, default `serial:///dev/px4:921600`) instead of the sim's UDP.
+`--hw` (default on arm64) uses the serial port in `DRONE_FCU_URL` (`config/bisg.conf`, default `serial:///dev/px4:921600`; `docker/.env` may name `/dev/ttyTHS1` directly) instead of the sim's UDP.
 
 ## Several drones, several methods
 
@@ -90,4 +90,4 @@ mavros / mavsdk: `MAV_1_CONFIG` TELEM 2, `MAV_1_MODE` Onboard, `SER_TEL2_BAUD` 9
 | xrce: `vehicle_status` empty | the topic is `…_v1` in PX4 1.17 |
 | mavsdk: gRPC not listening | `./bisg px4-bridge logs mavsdk`: port taken, or `MAVSDK_URL` malformed |
 | mavsdk connects, no data | another process owns the MAVLink port, or `--drone N` ≠ the PX4 instance (`14540 + N-1`) |
-| drone: `/dev/px4 not found` | add the Pixracer udev rule (`docs/hardware.md`) |
+| drone: `/dev/px4 not found` | add the Pixracer udev rule, or set `DRONE_FCU_URL=serial:///dev/ttyTHS1:921600` in `docker/.env` (`docs/hardware.md`) |

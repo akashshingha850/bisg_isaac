@@ -63,6 +63,11 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
 - [ ] Bridge modules not built: M11 MAVLink camera component, M5/M6 `FOLLOW_TARGET`/`LANDING_TARGET`, M7 PX4 GPS → ZED GNSS
   (`archive/docs/zed-px4-bridge.md` §2); one module + one fake-topic test at a time
 - [ ] QGC click-through of the video stream and the Jetson nvenc path: untested
+- [ ] Herelink RC video (2026-10-21): Jetson `enP8p1s0` static 192.168.144.25/24 (NM "Wired connection 1"; air unit .10, RC .11).
+  `VIDEO_HOST=192.168.144.11 ./bisg drone up` -> 2x2 nvenc RTP/H.264 at ~4.1 Mbit/s to 192.168.144.11:5600, 15 fps
+  (measured on the NIC); picture on the RC (QGC: UDP h.264, 5600) not yet confirmed. Fixed on the way: zed-video got the NVIDIA runtime,
+  the nvenc chain pads BGR -> BGRx (VIC rejects 3-byte RGB), rmem_max file renamed 61- (ZED's 60-zed-buffers.conf reset it to 1 MB).
+  Open: confidence tile `unsupported encoding 'mono8'` on the real wrapper (mosaic expects 32FC1); chase tile empty on hardware (sim-only topic)
 - [ ] B16 contract TF frame prefix vs the wrapper's unprefixed frames: decide with the swarm phase
 - [ ] B18 the SDK connects once per sim run (2-3 failed connects per 20 boots): retry on Isaac Sim 6.0.1
 - [ ] Real drone: measure baro noise near the floor and size `EKF2_BARO_NOISE`; `MC_YAWRATE_MAX 60` also caps Position-mode stick yaw;
@@ -118,7 +123,7 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   checklist → feed numbers back to the vehicle model. Our Orin NX is L4T **R39.2.1** (found by the 5.1-era Jetson commit 0f33b6f,
   merged into main 2026-10-21 with the 6.0 side kept): `docker/zed/build.sh jetson` now reads the L4T from the board and tags
   `bisg/zed:jetson` (untested on the Jetson). Not ported from 0f33b6f: FCU auto-detect (`/dev/px4` → USB PX4 → MAVLink UART,
-  `scripts/fcu_probe.py`, `FCU_BAUD`) — the drone profile still needs `/dev/px4` or `DRONE_FCU_URL`
+  `scripts/fcu_probe.py`, `FCU_BAUD`) — the drone profile uses `DRONE_FCU_URL` (bisg.conf key since 2026-10-21; this Jetson: `/dev/ttyTHS1` in docker/.env, no udev alias yet)
 - Phase 6 swarm in sim: `vehicles:` list (2/4/8 work), `scripts/gen_compose.py`, `bisg_fleet`, VRAM budget (one sim per GPU, boots
   staggered). Phases 7-8: hardware swarm (zenoh/DDS plan, kill switch), scenario runner + CI
 

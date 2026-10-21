@@ -30,8 +30,8 @@ case "$sub" in
   up)
     zs plan >/dev/null || die "docker/zed/zed.yaml is invalid (fix it: ./bisg zed plan --hw)"
     docker image inspect "bisg/zed:${ZED_VARIANT}" >/dev/null 2>&1 || die "bisg/zed:${ZED_VARIANT} is not built on this machine: ./bisg drone build"
-    info "drone ${DRONE_ID} on ${BISG_ARCH}: PX4 bridge per config (serial ${DRONE_FCU_URL:-serial:///dev/px4:921600}) + ZED wrapper (bisg/zed:${ZED_VARIANT})"
-    "$(dirname "$0")/px4-bridge.sh" up --hw                # the bridge PX4_BRIDGE names, on /dev/px4
+    info "drone ${DRONE_ID} on ${BISG_ARCH}: PX4 bridge per config (serial ${DRONE_FCU_URL}) + ZED wrapper (bisg/zed:${ZED_VARIANT})"
+    "$(dirname "$0")/px4-bridge.sh" up --hw                # the bridge PX4_BRIDGE names, on DRONE_FCU_URL's port
     compose --profile drone up -d --force-recreate drone-zed
     for s in $(zs services); do compose --profile drone up -d --force-recreate "$s"; ok "$s started"; done
     for s in zed-bridge zed-video; do [[ " $(zs services | tr '\n' ' ') " == *" $s "* ]] || compose --profile drone rm -sf "$s" >/dev/null 2>&1 || true; done

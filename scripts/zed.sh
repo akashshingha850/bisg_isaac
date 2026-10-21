@@ -96,7 +96,7 @@ case "$sub" in
     container_running "$SIM_NAME" || container_running "$ZNAME" || die "nothing publishes the ZED image: start the sim (./bisg up) or ./bisg zed up"
     docker image inspect bisg/zed:${ZED_VARIANT} >/dev/null 2>&1 || die "bisg/zed:${ZED_VARIANT} is not built: ./bisg zed image"
     rmem=$(sysctl -n net.core.rmem_max 2>/dev/null || echo 0)
-    (( rmem >= 10485760 )) || warn "net.core.rmem_max=${rmem}: CycloneDDS cannot reassemble a camera image, the video will stay black (camera_info flows, images don't). Fix: echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system, then ./bisg zed video again (no sudo: ZED_RMW=rmw_fastrtps_cpp ./bisg zed video)"
+    (( rmem >= 10485760 )) || warn "net.core.rmem_max=${rmem}: CycloneDDS cannot reassemble a camera image, the video will stay black (camera_info flows, images don't). Fix: echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/61-bisg-dds.conf && sudo sysctl --system, then ./bisg zed video again (no sudo: ZED_RMW=rmw_fastrtps_cpp ./bisg zed video)"
     compose --profile zed up -d --force-recreate zed-video >/dev/null; ok "zed-video started"; video_hint
     info "check it: ./bisg zed logs video  ('streaming: N frames' every 5 s)";;
 

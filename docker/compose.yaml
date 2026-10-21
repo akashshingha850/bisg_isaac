@@ -93,7 +93,7 @@ services:
     network_mode: host
     ipc: host
     volumes: ["..:/workspace:rw"]
-    devices: ["${BRIDGE_DEVICE:-/dev/null}:${BRIDGE_DEVICE:-/dev/null}"]   # the Pixracer's serial port on the drone (/dev/px4); /dev/null = nothing (sim)
+    devices: ["${BRIDGE_DEVICE:-/dev/null}:${BRIDGE_DEVICE:-/dev/null}"]   # the Pixracer's serial port on the drone (from DRONE_FCU_URL); /dev/null = nothing (sim)
     group_add: ["dialout"]
     environment:
       PX4_BRIDGE: ${PX4_BRIDGE:-mavros}
@@ -221,9 +221,11 @@ services:
     image: bisg/zed:${ZED_VARIANT:-desktop}
     container_name: bisg-zed-video-${DRONE_ID:-1}
     profiles: ["zed", "drone"]
+    <<: *nvidia                 # Jetson: nvv4l2h264enc needs the NVIDIA runtime (runc has no encoder devices)
     network_mode: host
     ipc: host
     environment:
+      <<: *nvidia-env
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
       RMW_IMPLEMENTATION: ${ZED_RMW:-rmw_cyclonedds_cpp}
       CYCLONEDDS_URI: file:///workspace/docker/cyclonedds.xml
@@ -241,7 +243,7 @@ services:
     restart: unless-stopped
 
   # ---- the real drone (profile `drone`, ./bisg drone up) ---------------------------------------------------------
-  # MAVROS on the Pixracer: TELEM2 <-> Orin NX UART (udev rule -> /dev/px4), 921600 baud (docs/hardware.md). PX4 and the
+  # MAVROS on the Pixracer: TELEM2 <-> Orin NX UART (DRONE_FCU_URL: /dev/px4 udev alias or /dev/ttyTHS1), 921600 baud (docs/hardware.md). PX4 and the
   # Jetson both run on real time, so no sim clock.
   # The ZED wrapper on the real camera: same image, same launch file, same docker/zed/zed.yaml as the sim, without the `sim:` block.
   drone-zed:

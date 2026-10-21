@@ -74,8 +74,8 @@ class VideoStream(Node):
 
     def encoder_chain(self):
         use_nv = self.encoder == "nvenc" or (self.encoder == "auto" and Gst.ElementFactory.find("nvv4l2h264enc"))
-        if use_nv:   # Jetson hardware encoder
-            return (f"nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
+        if use_nv:   # Jetson hardware encoder; nvvidconv (VIC) rejects 3-byte RGB/BGR, so pad to BGRx on the CPU first
+            return (f"videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
                     f"nvv4l2h264enc bitrate={self.bitrate * 1000} insert-sps-pps=true idrinterval={int(self.fps * 2)}")
         return (f"videoconvert ! video/x-raw,format=I420 ! x264enc tune=zerolatency speed-preset=ultrafast "
                 f"bitrate={self.bitrate} key-int-max={int(self.fps * 2)} ! video/x-h264,profile=baseline")

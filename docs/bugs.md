@@ -88,7 +88,7 @@ and `depth/depth_registered` deliver **0** messages. There's no error anywhere.
 **Possible fixes.**
 1. **Raise the kernel limit** (one command, `docs/setup.md`). `docker/cyclonedds.xml` already asks for 16 MB:
    ```
-   echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system
+   echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/61-bisg-dds.conf && sudo sysctl --system
    ```
    Also consider raising `net.core.wmem_max` if the sender starts dropping.
 2. If it still drops at 16 MB, **Cyclone shared memory (iceoryx)** for same-host traffic. The sim and ros

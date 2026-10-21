@@ -27,7 +27,8 @@ sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart doc
 0 images at HD720, all three streams fine at 320x180). `docker/cyclonedds.xml` asks for 16 MB and takes what
 the kernel allows:
 ```
-echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/60-bisg-dds.conf && sudo sysctl --system
+echo 'net.core.rmem_max=16777216' | sudo tee /etc/sysctl.d/61-bisg-dds.conf && sudo sysctl --system
+# 61- sorts after the ZED SDK installer's 60-zed-buffers.conf (rmem_max=1 MB), which would otherwise reset it (Jetson, 2026-10-21).
 ```
 
 ## The real ZED SDK in the sim (optional)
@@ -82,7 +83,7 @@ Details: `docker/zed/README.md`, `docs/hardware.md`.
 1. JetPack 7.2 flashed; `docker` + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
 2. Get `bisg/ros:arm64` onto the device: `docker save bisg/ros:arm64 | ssh jetson docker load`, or push to a registry.
 3. Build `bisg/zed:jetson` on the device (`docker/zed/build.sh jetson`).
-4. udev rule for the Pixracer → `/dev/px4`; `./bisg drone build && ./bisg drone up`.
+4. udev rule for the Pixracer → `/dev/px4` (or `DRONE_FCU_URL` in `docker/.env`, `docs/hardware.md`); `./bisg drone build && ./bisg drone up`.
 
 ## Uninstall / reset
 
