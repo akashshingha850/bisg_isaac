@@ -73,7 +73,7 @@ Timing on this workstation: pull ~3 min, sim build ~4 min, ros build ~2 min, arm
 ```
 ./bisg setup --third-party
 docker/zed/build.sh desktop     # x86_64: stereolabs/zed:5.4.1-devel-cuda12.8-ubuntu24.04 + wrapper (Jazzy)
-docker/zed/build.sh jetson      # run on the Orin NX (JetPack 7.2 = L4T r38.4)
+docker/zed/build.sh jetson      # run on the Orin NX (base image L4T read from /etc/nv_tegra_release, e.g. r39.2)
 ```
 Details: `docker/zed/README.md`, `docs/hardware.md`.
 
@@ -81,7 +81,7 @@ Details: `docker/zed/README.md`, `docs/hardware.md`.
 
 1. JetPack 7.2 flashed; `docker` + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
 2. Get `bisg/ros:arm64` onto the device: `docker save bisg/ros:arm64 | ssh jetson docker load`, or push to a registry.
-3. Build `bisg/zed:l4t-r38` on the device (`docker/zed/build.sh jetson`).
+3. Build `bisg/zed:jetson` on the device (`docker/zed/build.sh jetson`).
 4. udev rule for the Pixracer → `/dev/px4`; `./bisg drone build && ./bisg drone up`.
 
 ## Uninstall / reset

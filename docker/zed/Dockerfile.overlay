@@ -1,6 +1,6 @@
 # Thin layer on top of Stereolabs' own ZED wrapper image (built by docker/zed/build.sh from docker/zed/zed-ros2-wrapper).
 # The ZED stack (zed_stack/: wrapper + PX4 bridge + QGC video) runs entirely from this one image, so it adds what
-# the stack needs and the upstream image lacks. Same file for x86_64 (desktop) and arm64 (Jetson, L4T r38).
+# the stack needs and the upstream image lacks. Same file for x86_64 (desktop) and arm64 (Jetson, L4T from the board).
 #   - CycloneDDS: the upstream image is Fast DDS only; the whole bisg stack uses CycloneDDS (ADR-004), and
 #     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp makes every ROS tool in a Fast-DDS-only image abort.
 #   - mavros_msgs: the bridge talks to MAVROS (ADR-001) over DDS, the video node reads its px4flow topic; neither needs MAVROS itself.

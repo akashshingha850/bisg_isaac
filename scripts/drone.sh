@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The real drone: MAVROS on the Pixracer + the ZED stack on the real camera (compose profile `drone`, docker/compose.yaml).
-# Same file and images as the sim, picked by CPU architecture: on the Jetson (arm64) bisg/zed:l4t-r38, on the workstation
+# Same file and images as the sim, picked by CPU architecture: on the Jetson (arm64) bisg/zed:jetson, on the workstation
 # bisg/zed:desktop (bench test with a USB ZED Mini). What the ZED does is docker/zed/zed.yaml, minus its `sim:` block.
 #
 #   drone.sh build                    build the images for THIS machine: bisg/ros:jazzy, bisg/px4-bridge:jazzy and bisg/zed:<variant> (once; ZED image ~15 GB)

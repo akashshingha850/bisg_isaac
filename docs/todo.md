@@ -115,7 +115,10 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   for a 0.8 kg 5" whoop (the sim-only rate block in `raptor.params` is interim), `CA_ROTOR*` geometry, check the ZED mount against the
   camera image; site capture → `docker/sim/worlds/<site>`; scenario YAMLs `hover_check`, `square`, `survey_strip`, `inspect_structure`
 - Phase 5 hardware: L4T/CUDA record, arm64 image pulls, udev `/dev/px4`, Pixracer flash + params, `real_drone.launch.py`, bench
-  checklist → feed numbers back to the vehicle model
+  checklist → feed numbers back to the vehicle model. Our Orin NX is L4T **R39.2.1** (found by the 5.1-era Jetson commit 0f33b6f,
+  merged into main 2026-10-21 with the 6.0 side kept): `docker/zed/build.sh jetson` now reads the L4T from the board and tags
+  `bisg/zed:jetson` (untested on the Jetson). Not ported from 0f33b6f: FCU auto-detect (`/dev/px4` → USB PX4 → MAVLink UART,
+  `scripts/fcu_probe.py`, `FCU_BAUD`) — the drone profile still needs `/dev/px4` or `DRONE_FCU_URL`
 - Phase 6 swarm in sim: `vehicles:` list (2/4/8 work), `scripts/gen_compose.py`, `bisg_fleet`, VRAM budget (one sim per GPU, boots
   staggered). Phases 7-8: hardware swarm (zenoh/DDS plan, kill switch), scenario runner + CI
 

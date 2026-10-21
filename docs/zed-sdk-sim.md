@@ -135,7 +135,7 @@ streaming starts: fx = 529.8 px at HD720, the same as the wrapper's `camera_info
 ## Porting to the Jetson
 
 1. Same image recipe: `docker/zed/build.sh jetson` (on the Jetson) builds Stereolabs' L4T image and the same CycloneDDS
-   overlay (`docker/zed/Dockerfile.overlay`), tagged `bisg/zed:l4t-r38`.
+   overlay (`docker/zed/Dockerfile.overlay`), tagged `bisg/zed:jetson` (base L4T read from the board).
 2. the `drone-zed` service of `docker/compose.yaml` runs the same launch file (`docker/zed/zed_drone.launch.py`) with
    `docker/zed/zed.yaml` and **without** the overlay and `sim_mode`. Nothing else differs.
 3. On the bench run the same check: `python3 tests/zed_sdk_check.py --drone 1 --no-gt` (no ground truth on a real drone; it

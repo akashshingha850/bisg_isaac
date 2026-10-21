@@ -69,7 +69,7 @@ conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
 # One compose file serves the x86_64 workstation and the arm64 Jetson; the only per-arch thing is the ZED image tag.
 case "$(uname -m)" in
-  aarch64|arm64) conf_default BISG_ARCH arm64;  conf_default ZED_VARIANT l4t-r38;;   # Jetson, JetPack 7 (docker/zed/build.sh jetson)
+  aarch64|arm64) conf_default BISG_ARCH arm64;  conf_default ZED_VARIANT jetson;;    # Jetson, JetPack 7 (docker/zed/build.sh jetson; L4T from the board)
   *)             conf_default BISG_ARCH x86_64; conf_default ZED_VARIANT desktop;;    # workstation (docker/zed/build.sh desktop)
 esac
 conf_default ARCHIVE_DIR "$HOME/bisg-archive"

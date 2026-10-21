@@ -8,8 +8,8 @@ description: Deploy the ROS/ZED/vehicle containers to a Jetson, flash and parame
 Safety first: any step with props ON requires the RC kill switch verified that day and a second person.
 
 ## Images
-- Preferred: build **natively on the Jetson**: `./bisg drone build` (bisg/ros:jazzy + bisg/zed:l4t-r38; the arch picks the ZED tag, `ZED_VARIANT`). Cross-build from the workstation (qemu): `./bisg setup --arm64`.
-- Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-r38.x` with a ZED SDK minor that lists JetPack 7.2 (see `docs/hardware.md`). Mismatch = SDK refuses to start.
+- Preferred: build **natively on the Jetson**: `./bisg drone build` (bisg/ros:jazzy + bisg/zed:jetson; the arch picks the ZED tag, `ZED_VARIANT`). Cross-build from the workstation (qemu): `./bisg setup --arm64`.
+- Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-<board L4T>`; `docker/zed/build.sh jetson` reads it from `/etc/nv_tegra_release` (our Orin NX: R39.2.1 -> `l4t-r39.2`; `ZED_L4T=r39.2` overrides). Mismatch = SDK refuses to start.
 - On the Jetson: `./bisg drone up` / `down` / `status` / `logs [mavros|zed|bridge|video]` (compose profile `drone` of `docker/compose.yaml`, the same file as the sim).
 
 ## Pixracer
@@ -22,7 +22,7 @@ Follow `docs/hardware.md` → "Bench checklist" in order; do not skip step 7 (fa
 
 ## ZED in the compose file
 - `docker/compose.yaml` service `drone-zed` runs `docker/zed/zed_drone.launch.py` (the same file the sim uses) with `docker/zed/zed.yaml`: topics `/drone_<n>/zed/zed_node/*`.
-- Image `bisg/zed:l4t-r38` = Stereolabs' L4T image + `docker/zed/Dockerfile.overlay` (CycloneDDS; the upstream image is Fast DDS only and `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` aborts without it). Build on the Jetson: `docker/zed/build.sh jetson`.
+- Image `bisg/zed:jetson` = Stereolabs' L4T image + `docker/zed/Dockerfile.overlay` (CycloneDDS; the upstream image is Fast DDS only and `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` aborts without it). Build on the Jetson: `docker/zed/build.sh jetson`.
 - Parity check on the bench: `python3 tests/zed_sdk_check.py --drone 1 --no-gt`; the same script passes in the sim (`./bisg zed check`). Hardware-only to-dos: `imu_fusion: true`, record the unit's real `K` in `docs/hardware.md`, frame prefix (B16), clock (B17). See `docs/zed-sdk-sim.md`.
 
 ## ZED Mini specifics

@@ -16,7 +16,7 @@
 #   tailscale            Tailscale node: reach this host (sim view, WebRTC, MAVLink) from another network   x86_64 and arm64
 #                        (./bisg tailscale ...; own compose project `bisg-tailscale`; TAILSCALE_WITH_SIM=1: up/down with the sim)
 # Image tags: bisg/ros:jazzy, bisg/px4-bridge:jazzy (bisg/ros + MAVSDK server + uXRCE-DDS agent) and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
-# is `desktop` on x86_64 and `l4t-r38` on the Jetson (docker/zed/build.sh builds the right one).
+# is `desktop` on x86_64 and `jetson` on the Jetson (docker/zed/build.sh builds the right one; L4T base from the board).
 #
 # One compose file, one folder per service for its Dockerfile + entrypoint: docker/sim/,
 # docker/ros/ (docker/ros/Dockerfile backs the mavros/vehicle/ros services below, since

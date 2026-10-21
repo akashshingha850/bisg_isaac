@@ -7,8 +7,8 @@ Confirmed 2026-09-12: **Jetson Orin NX, JetPack 7.2**, **ZED Mini**, Pixracer. R
 | Part | Choice | Notes |
 |---|---|---|
 | Flight controller | Pixracer (px4_fmu-v4, STM32F427, 2 MB flash) | PX4 **v1.17.0** (ADR-003); `px4_fmu-v4_default` builds at **95.3 % flash** — no room for extra modules |
-| Companion computer | **Jetson Orin NX** (8 or 16 GB — record which) | **JetPack 7.2** → L4T r38.x, **Ubuntu 24.04**, CUDA 13.x (record exact `cat /etc/nv_tegra_release` and `nvcc --version`) |
-| Camera | **ZED Mini** (USB 3.0, 63 mm baseline, built-in IMU) | ZED SDK **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r38.4` exists for JetPack 7 / L4T r38.4); wrapper `v5.4.1` |
+| Companion computer | **Jetson Orin NX** (8 or 16 GB — record which) | **JetPack 7.x** → L4T **R39.2.1** on our board (`cat /etc/nv_tegra_release`, 2026-10-20), **Ubuntu 24.04**, CUDA 13.x (record `nvcc --version`) |
+| Camera | **ZED Mini** (USB 3.0, 63 mm baseline, built-in IMU) | ZED SDK **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r39.2` and `-l4t-r38.4` exist; the build picks the board's); wrapper `v5.4.1` |
 | Telemetry | WiFi on Jetson (fleet) + optional 900 MHz/433 MHz radio to QGC (safety) | |
 | RC | any PX4-supported RC for manual override (kill switch mandatory) | |
 | GPS | optional; missions are VIO-first | |
@@ -50,7 +50,7 @@ Param names are checked against the pinned PX4 tag in Phase 1 (newer releases re
 ## Jetson software
 
 - JetPack 7.2 (L4T r38.x, Ubuntu 24.04). Docker + `nvidia-container-toolkit` from JetPack; `docker compose` v2.
-- Images: `bisg/ros:arm64` (ROS 2 **Jazzy**, ADR-005), `bisg/zed:l4t-r38` from `docker/zed/build.sh jetson` (Stereolabs scripts, SDK 5.4.1, L4T r38.4) — built on the Jetson or pushed from the workstation.
+- Images: `bisg/ros:arm64` (ROS 2 **Jazzy**, ADR-005), `bisg/zed:jetson` from `docker/zed/build.sh jetson` (Stereolabs scripts, SDK 5.4.1, the board's L4T) — built on the Jetson or pushed from the workstation.
 - `docker/compose.yaml` profile `drone` (`./bisg drone up`): `px4-bridge` (serial, `BRIDGE_DEVICE=/dev/px4`; runs MAVROS, MAVSDK or the XRCE agent per `PX4_BRIDGE`, docs/px4-bridge.md), `drone-zed` (wrapper), `zed-bridge`, `zed-video`; `vehicle` (offboard, health) comes with Phase 2/5.
 - Clock: chrony to the ground station; ROS wall time.
 - Boot: a systemd unit starts the compose profile; a physical LED / `vehicle/state` shows readiness.

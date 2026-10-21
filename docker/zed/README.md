@@ -2,12 +2,12 @@
 
 Built from Stereolabs' own Docker scripts (vendored as `docker/zed/zed-ros2-wrapper`, tag matching
 `ZED_SDK` in `docker/.env`) via `docker/zed/build.sh`. Verified upstream matrix (wrapper `docker/README.md`):
-Jazzy on Ubuntu 24.04 desktop and on L4T r38.x (JetPack 7) — exactly our two targets.
+Jazzy on Ubuntu 24.04 desktop and on L4T r38.x / r39.x (JetPack 7) — exactly our two targets.
 
 | Target | Command | Base pulled by the script | Tag |
 |---|---|---|---|
 | Workstation (x86_64, for bench tests with a ZED Mini on USB) | `docker/zed/build.sh desktop` | `stereolabs/zed:5.4.x-devel-cuda12.8-ubuntu24.04` | `bisg/zed:desktop` |
-| Jetson Orin NX, JetPack 7.2 | `docker/zed/build.sh jetson` (run on the Jetson) | `stereolabs/zed:5.4.x-devel-l4t-r38.4` | `bisg/zed:l4t-r38` |
+| Jetson Orin NX, JetPack 7.2 | `docker/zed/build.sh jetson` (run on the Jetson; L4T read from `/etc/nv_tegra_release`, `ZED_L4T=r39.2` overrides) | `stereolabs/zed:5.4.x-devel-l4t-<board L4T>` (our Orin NX: `l4t-r39.2`) | `bisg/zed:jetson` |
 
 Runtime (Phase 5, `docker/compose.yaml` profile `drone` = `./bisg drone up`; the `ZED_VARIANT` tag follows the CPU architecture): `--privileged` or `/dev/bus/usb` + `/dev/video*` passthrough,
 `network_mode: host`, `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, wrapper launch

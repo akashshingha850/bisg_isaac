@@ -90,7 +90,7 @@ Key properties:
 | PX4 | **v1.17.0** (newest stable on 2026-09-12; `gazebo-classic_iris` airframe and `px4_fmu-v4` board both present) — re-validated on Isaac Sim 6.0 (smoke, VIO flight, depth); v1.16.0 (the Pegasus PR's own test version) also passes and is the fallback; same tag for SITL and Pixracer | firmware on the Pixracer and SITL in sim must be the same version so params/EKF2 behave identically | ADR-003 |
 | PX4 ↔ ROS 2 bridge | **MAVROS 2.15.1** (apt `ros-jazzy-mavros` + extras, amd64 + arm64 verified) | user requirement; serial-friendly on Pixracer; uxrce_dds_client availability on fmu-v4 flash is uncertain | ADR-001 |
 | DDS | **CycloneDDS** (`rmw_cyclonedds_cpp`) everywhere; zenoh-bridge-ros2dds across WiFi | reliable across containers with `network_mode: host`; multicast over WiFi is not | ADR-004 |
-| ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-r38.4` for JetPack 7, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images verified to exist; built with Stereolabs' own docker scripts (wrapper: next row) | — |
+| ZED SDK | **5.4.1** (`stereolabs/zed:5.4.1-devel-l4t-<board L4T>` for JetPack 7, r39.2 on our Orin NX, `5.4.1-devel-cuda12.8-ubuntu24.04` for x86) | images verified to exist; built with Stereolabs' own docker scripts (wrapper: next row) | — |
 | ZED camera | **ZED Mini** | USB, no capture card. Stereolabs' `zed-isaac-sim` extension v5.2.x (Isaac Sim 6.0) ships a ZED Mini twin (`ZED_M`) that streams into the real SDK (`docs/zed-sdk-sim.md`); the 5.1 line only has ZED X. The emulated topic-contract rig stays as the no-SDK fallback (`ZED_SOURCE`) | — |
 | ZED Isaac extension (ADR-007) | **`zed-isaac-sim` v5.2.1** (`529e538`; a branch upstream, pin the SHA), Kit range widened to 110.1.1 for the 6.0.0 image | streams a simulated ZED Mini (stereo + frame-rate IMU) into the real SDK; built by `docker/zed/build_isaac_ext.sh` into `docker/zed/zed-isaac-sim` | — |
 | ZED ROS 2 wrapper | `zed-ros2-wrapper` master **`b19902d`** (`ZED_WRAPPER_REF`; v5.5.1-dev, builds on SDK 5.4.1), Jazzy | its topic/frame names define our ZED contract; master for the R9 fix (PR #460) no release has yet | ADR-011 |
@@ -113,7 +113,7 @@ compose file's services just point their `build:` at that folder:
 |---|---|---|---|
 | `bisg/sim` | `nvcr.io/nvidia/isaac-sim:6.0.0` (public pull, no NGC login; Ubuntu 24.04, non-root user `isaac-sim`, Python 3.12) | PX4 `v1.17.0` cloned + `px4_sitl_default` built, Pegasus (PR #144 head) built from the `docker/sim/PegasusSimulator` submodule + pip-installed into Isaac's python, internal **Jazzy** bridge + CycloneDDS selected by ENV; repo bind-mounted at `/workspace` | `sim`, `sim-headless` |
 | `bisg/ros` | `ros:jazzy-ros-base` (Ubuntu 24.04, multi-arch: amd64 + arm64) | MAVROS + geographiclib datasets, CycloneDDS, `ros2_ws` built | `ros` (workstation), `jetson` |
-| `bisg/zed` | built by `docker/zed/build.sh` from Stereolabs' scripts (`docker/zed/zed-ros2-wrapper`) | ZED SDK 5.4.1 + wrapper (Jazzy); `desktop` and `l4t-r38` variants | `jetson` |
+| `bisg/zed` | built by `docker/zed/build.sh` from Stereolabs' scripts (`docker/zed/zed-ros2-wrapper`) | ZED SDK 5.4.1 + wrapper (Jazzy); `desktop` and `jetson` variants | `jetson` |
 
 Rules:
 - `network_mode: host` for every service (DDS discovery and MAVLink UDP just work). Isolate
