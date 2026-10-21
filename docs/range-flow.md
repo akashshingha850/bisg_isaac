@@ -113,8 +113,8 @@ is what absorbs furniture steps.
 - **ROS topic for the flow** (2026-10-14): `px4flow` is in the lean MAVROS list, so `/drone_N/mavros/px4flow/raw/optical_flow_rad` (`mavros_msgs/OpticalFlowRad`, 10 Hz)
   carries PX4's `vehicle_optical_flow` (`OPTICAL_FLOW_RAD` on the onboard link), the same path as the real PMW3901 on the Pixracer. MAVROS turns it into
   base_link FLU (y and z flip against PX4's FRD): moving forward gives −y, moving left +x. Checked in flight on the raptor against Pegasus ground truth: flow ×
-  distance vs body velocity, corr 0.994 / 0.992, RMSE 0.03 m/s per axis. The ZED video node draws it as `/drone_N/optical_flow/image` and the QGC tile
-  ([zed-stack.md](zed-stack.md)); that image is a drawing of these numbers, the PMW3901 has no camera picture.
+  distance vs body velocity, corr 0.994 / 0.992, RMSE 0.03 m/s per axis. Plotted in the Foxglove Sensors tab; the drawn
+  `/drone_N/optical_flow/image` (and its QGC tile) was removed 2026-10-21. The PMW3901 has no camera picture.
 - **The raptor carries the twin too** (`sensors.optical_flow` in `docker/sim/assets/vehicles/raptor/raptor.yaml`, mount = the LW20's, PLACEHOLDER), with PX4's
   default `EKF2_OF_CTRL=1`, so EKF2 fuses it alongside GPS in the default scenario. On the ground it sits 7 cm up, under the 8 cm minimum: quality 0 until takeoff.
 - **Mount height**: the Iris rests with its origin 6 cm above the floor, so the ToF/flow mount is `[0,0,0]`; at `-0.05` the sensor sat 1 cm up, inside `min_m`,

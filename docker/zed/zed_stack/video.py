@@ -4,12 +4,10 @@
 Minimal on purpose (docs/video-qgc.md): subscribers, one GStreamer pipeline
     appsrc ! videoconvert ! x264enc (or nvv4l2h264enc on a Jetson) ! rtph264pay ! udpsink
 Two layouts (services.qgc_video.layout):
-  grid    one 2x2 picture: left | chase view / depth | PMW3901 optical flow (zed_stack/mosaic.py). The four sources are
+  grid    one 2x2 picture: left | chase view / depth | depth confidence (zed_stack/mosaic.py). The four sources are
           sampled by a timer at `fps` (15 when 0), so a slow or dead topic only blanks its own tile. Depth is not republished:
-          use the ZED's own depth/depth_registered.
+          use the ZED's own depth/depth_registered. The confidence map is computed only while subscribed (grid = always).
   single  one raw sensor_msgs/Image topic as it comes (rgb8, bgr8, rgba8, bgra8, mono8): the ZED wrapper, a USB cam.
-In both layouts the PMW3901 flow (/drone_N/mavros/px4flow/raw/optical_flow_rad, from PX4 over MAVROS) is drawn as an image and
-published, while subscribed, as /drone_N/optical_flow/image (bgr8, tile size; mosaic.FlowView). It does not come from the ZED.
 
 Settings: services.qgc_video in docker/zed/zed.yaml (layout, width, topic, host, port, bitrate, fps, encoder); the matching VIDEO_* env
 variables (VIDEO_LAYOUT, VIDEO_TOPIC, VIDEO_HOST, VIDEO_PORT, VIDEO_BITRATE, VIDEO_FPS, VIDEO_ENCODER) override one run, e.g. `./bisg zed up --video-host IP`.
@@ -23,7 +21,6 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from mavros_msgs.msg import OpticalFlowRad
 from sensor_msgs.msg import Image
 
 from . import config, mosaic
@@ -45,7 +42,7 @@ class VideoStream(Node):
         self.layout = env("VIDEO_LAYOUT") or cfg["layout"]
         base = f"/drone_{drone}/zed/zed_node/"
         self.topics = {"left": base + "left/color/rect/image", "chase": f"/drone_{drone}/chase/image",
-                       "depth": base + "depth/depth_registered"}
+                       "depth": base + "depth/depth_registered", "confidence": base + "confidence/confidence_map"}
         self.topic = env("VIDEO_TOPIC") or cfg["topic"] or self.topics["left"]       # single layout only
         self.width = int(cfg["width"])
         self.host = env("VIDEO_HOST") or cfg["host"]
@@ -60,19 +57,14 @@ class VideoStream(Node):
         self.last_push = 0.0
         self.sent = 0
         Gst.init(None)
-        self.flow = mosaic.FlowView()
-        self.flow_topic = f"/drone_{drone}/mavros/px4flow/raw/optical_flow_rad"
         self.tile_wh = None
-        self.create_subscription(OpticalFlowRad, self.flow_topic, self.on_flow, qos_profile_sensor_data)
-        # the flow drawing as a ROS image too (RViz, Foxglove): RELIABLE, so a BEST_EFFORT or RELIABLE subscriber both match
-        self.flow_pub = self.create_publisher(Image, f"/drone_{drone}/optical_flow/image", 2)
         if self.layout == "grid":
             self.latest = {}         # name -> [msg, arrival time, new since the last compose]
             self.tiles = {}          # name -> last decoded tile
             for name, topic in self.topics.items():
                 self.create_subscription(Image, topic, lambda m, n=name: self.on_source(n, m), qos_profile_sensor_data)
             self.create_timer(1.0 / self.fps, self.compose)
-            self.get_logger().info(f"2x2 {self.width}px (left|chase / depth|PMW3901 flow) from {base} -> rtp/h264 udp://{self.host}:{self.port} "
+            self.get_logger().info(f"2x2 {self.width}px (left|chase / depth|confidence) from {base} -> rtp/h264 udp://{self.host}:{self.port} "
                                    f"({self.bitrate} kbit/s, {self.fps:g} fps); QGC: Video > UDP h.264, port {self.port}")
         else:
             self.create_subscription(Image, self.topic, self.on_image, qos_profile_sensor_data)
@@ -143,27 +135,6 @@ class VideoStream(Node):
             entry[2] = False
         return self.tiles[name]
 
-    # ---- PMW3901 optical flow (both layouts)
-    def on_flow(self, msg: OpticalFlowRad):
-        if not self.flow.add(time.monotonic(), msg.integration_time_us, msg.integrated_x, msg.integrated_y,
-                             msg.integrated_xgyro, msg.integrated_ygyro, msg.quality, msg.distance):
-            return
-        if self.flow_pub.get_subscription_count() == 0:
-            return
-        bgr = self.flow.draw(self.tile_wh or (640, 360))
-        out = Image()
-        out.header = msg.header
-        out.height, out.width = bgr.shape[:2]
-        out.encoding, out.step = "bgr8", out.width * 3
-        out.data = np.ascontiguousarray(bgr).tobytes()
-        self.flow_pub.publish(out)
-
-    def flow_tile(self, size, now):
-        last = self.flow.last
-        if last is None or now - last[0] > 2.0:
-            return mosaic.blank(size, "no signal")
-        return self.flow.draw(size)
-
     def compose(self):
         now = time.monotonic()
         entry = self.latest.get("left")
@@ -175,10 +146,10 @@ class VideoStream(Node):
         left = self.tile("left", mosaic.to_bgr, size, now)
         chase = self.tile("chase", mosaic.to_bgr, size, now)
         depth = self.tile("depth", mosaic.depth_to_bgr, size, now)
-        flow = self.flow_tile(size, now)
-        frame = np.ascontiguousarray(mosaic.grid(left, chase, depth, flow))
+        confidence = self.tile("confidence", mosaic.confidence_to_bgr, size, now)
+        frame = np.ascontiguousarray(mosaic.grid(left, chase, depth, confidence))
         tw, th = size
-        for text, x, y in (("left", 0, 0), ("chase", tw, 0), (f"depth {mosaic.DEPTH_RANGE[0]:g}-{mosaic.DEPTH_RANGE[1]:g} m", 0, th), ("PMW3901 optical flow", tw, th)):
+        for text, x, y in (("left", 0, 0), ("chase", tw, 0), (f"depth {mosaic.DEPTH_RANGE[0]:g}-{mosaic.DEPTH_RANGE[1]:g} m", 0, th), ("confidence (red = unsure)", tw, th)):
             mosaic.label(frame[y:y + th, x:x + tw], text)
         if self.shape != (2 * tw, 2 * th, "bgr8"):
             self.build(2 * tw, 2 * th, "bgr8")
@@ -193,10 +164,7 @@ class VideoStream(Node):
             if "left" not in live:
                 self.get_logger().warn(f"no frames on {self.topics['left']} yet (is the sim/ZED publishing? ros2 topic hz ...)")
             else:
-                if self.flow.last is None or now - self.flow.last[0] > 2.0:
-                    dead.append("flow")
-                topic = {**self.topics, "flow": self.flow_topic}
-                note = f"; no signal: {', '.join(dead)} ({', '.join(topic[n] for n in dead)})" if dead else ""
+                note = f"; no signal: {', '.join(dead)} ({', '.join(self.topics[n] for n in dead)})" if dead else ""
                 self.get_logger().info(f"streaming: {self.sent} frames in the last 5 s{note}")
         elif self.sent == 0:
             self.get_logger().warn(f"no frames on {self.topic} yet (is the sim/ZED publishing? ros2 topic hz {self.topic})")

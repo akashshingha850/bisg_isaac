@@ -28,4 +28,9 @@ ZeroTier was considered and not wanted by the user.
 - A third-party coordination service (Tailscale) is in the access path; the data path is end-to-end WireGuard.
 - ROS 2 DDS discovery does not cross the tailnet (no multicast); remote ROS work goes through SSH into the containers.
 - Kernel tun mode adds a `tailscale0` interface to the host while the service runs.
+- **Amended 2026-10-20 (user decision): remote access follows the sim.** `TAILSCALE_WITH_SIM=1` (default): `./bisg up|all` connect,
+  `./bisg down|stop` disconnect, `./bisg restart` keeps it. This replaces "`./bisg down` never cuts remote access" above: the host is
+  on the tailnet only while bisg runs. With the host's own daemon this is `tailscale up|down` on the host node (one-time
+  `sudo tailscale set --operator=$USER`, no sudo in the scripts); in container mode the container is started / stopped.
+  `TAILSCALE_WITH_SIM=0` restores the old behaviour.
 - A Tailscale daemon already installed on the host cannot coexist with the container (same `tailscale0`, routes and firewall rules). 2026-10-11: with `TAILSCALE_MODE=auto` the `./bisg tailscale` commands detect `/run/tailscale/tailscaled.sock` and use the host's node instead.

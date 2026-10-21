@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Remote access from another network: the `tailscale` compose service, a Tailscale node on the host network (ADR-009).
-# Own compose project (bisg-tailscale), so `./bisg down` stops the sim but never cuts remote access. Usually called through ./bisg tailscale.
+# Own compose project (bisg-tailscale). With TAILSCALE_WITH_SIM=1 (config/bisg.conf) the tailnet follows the sim: ./bisg up|all connect
+# this host (`follow on`), ./bisg down|stop disconnect it (`follow off`); ./bisg restart leaves it up. Usually called through ./bisg tailscale.
 # docs/remote-access.md
 #
 #   tailscale.sh up              start it; not logged in yet (and in a terminal): runs the login below
@@ -9,6 +10,7 @@
 #   tailscale.sh status          tailnet state, this host's address, and what a remote machine can open
 #   tailscale.sh ip              this host's tailnet IPv4 (empty if not up)
 #   tailscale.sh logs [-f] | down | logout (forget the login; the next login asks again)
+#   tailscale.sh follow on|off   what launch.sh calls when TAILSCALE_WITH_SIM=1 (no-op otherwise); warns, never fails the sim command
 # A Tailscale daemon already running on the host (TAILSCALE_MODE=auto) is used as it is: the container cannot share the host with it.
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
@@ -80,15 +82,46 @@ host_mode(){
 }
 host_cmd(){
   case "${1:-status}" in
-    up|status) host_mode;;
+    up) host_operator && [[ "$(host_field 'd.get("BackendState","")')" == Stopped ]] && { host_up || return 1; }; host_mode;;
+    status) host_mode;;
     login) host_mode && echo "  already logged in. To log in again (prints a URL):  sudo tailscale up --force-reauth";;
     ip) tailscale_ip;;
     logs) die "the host's Tailscale logs: journalctl -u tailscaled";;
-    down|logout) vcompose down >/dev/null 2>&1 || true
-                 ok "the project's tailscale container is stopped; the host's Tailscale is left alone (sudo tailscale down / logout to change it)";;
+    down) vcompose down >/dev/null 2>&1 || true
+          if host_operator; then tailscale down && ok "the host's Tailscale is disconnected (./bisg tailscale up or ./bisg up reconnects)"
+          else warn "the host's Tailscale is left alone: $(id -un) is not its operator (once: sudo tailscale set --operator=$(id -un))"; fi;;
+    logout) vcompose down >/dev/null 2>&1 || true
+            ok "the project's tailscale container is stopped; the host's login is left alone (sudo tailscale logout to change it)";;
     *) die "tailscale: up | login | status | ip | down";;
   esac
 }
+# The host daemon lets its operator run `tailscale up` / `down` without sudo (same node and IP; `down` survives a reboot).
+host_operator(){
+  [[ "$(tailscale debug prefs 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("OperatorUser",""))' 2>/dev/null)" == "$(id -un)" ]]
+}
+host_up(){
+  local out; out="$(tailscale up 2>&1)" && { ok "the host's Tailscale is connected"; return 0; }
+  fail "tailscale up failed: ${out}"; return 1
+}
+# TAILSCALE_WITH_SIM=1: the tailnet follows the sim. Called by launch.sh; only warns, so the sim command itself never fails here.
+follow(){
+  [[ "${TAILSCALE_WITH_SIM:-0}" == 1 ]] || return 0
+  if host_tailscale; then
+    local st; st="$(host_field 'd.get("BackendState","")')"
+    if [[ $1 == on && "$st" == Running ]] || [[ $1 == off && "$st" != Running ]]; then return 0; fi
+    host_operator || { warn "TAILSCALE_WITH_SIM=1, but $(id -un) may not switch the host's Tailscale (left ${st:-as it is}). Once: sudo tailscale set --operator=$(id -un)"; return 0; }
+    if [[ $1 == on ]]; then host_up || warn "the sim starts without the tailnet: ./bisg tailscale status"
+    else tailscale down && ok "the host's Tailscale is disconnected (TAILSCALE_WITH_SIM=1; ./bisg up reconnects)"; fi
+  elif [[ $1 == on ]]; then
+    ( start ) || { warn "the sim starts without the tailnet: ./bisg tailscale up"; return 0; }
+    [[ "$(backend)" == Running ]] && ok "tailscale connected ($(tailscale_ip))" || warn "tailscale container up, not logged in: ./bisg tailscale login"
+  else
+    container_running "$TAILSCALE_NAME" || return 0
+    vcompose stop tailscale >/dev/null 2>&1 && ok "tailscale stopped (TAILSCALE_WITH_SIM=1; ./bisg up reconnects)"
+  fi
+}
+[[ "${1:-}" == follow ]] && { follow "${2:-on}"; exit 0; }
+
 if host_tailscale; then host_cmd "$@"; exit $?; fi
 
 login(){

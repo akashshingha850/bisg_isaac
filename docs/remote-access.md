@@ -37,7 +37,8 @@ echo SIM_VIEW_ADDR=tailscale >> docker/.env     # WebRTC advertises this host's 
 
 **Tailscale already installed on the host?** Then `./bisg tailscale up|status|ip` uses the host's node and does not start the container:
 two Tailscale daemons cannot share one host (the container dies with `TUN device tailscale0 is busy`). Nothing to log in: the host
-is already on your tailnet, `SIM_VIEW_ADDR=tailscale` resolves to its address, and `down`/`logout` leave the host's Tailscale alone
+is already on your tailnet, `SIM_VIEW_ADDR=tailscale` resolves to its address, `up`/`down` connect/disconnect the host node when you
+are its operator (else they leave it alone), and `logout` leaves the host's login alone
 (re-login there: `sudo tailscale up --force-reauth`, which prints a URL). `TAILSCALE_MODE` in `config/bisg.conf`: `auto` (default),
 `host` or `container`.
 
@@ -64,7 +65,14 @@ same account. If that machine is a Linux box with this repo, `./bisg tailscale u
 | Shell | `ssh <user>@100.x.y.z` (or the MagicDNS name, `TAILSCALE_HOSTNAME`, default `bisg-<hostname>`) |
 | QGroundControl | on the server `GCS_URL=udp://@<remote's 100.x IP>:14550` in `docker/.env`, then `./bisg mavros up`; QGC listens on 14550 by default |
 
-`./bisg down` stops the sim but not Tailscale (own compose project `bisg-tailscale`). `./bisg tailscale down` disconnects;
+**The tailnet follows the sim** (`TAILSCALE_WITH_SIM=1`, default since 2026-10-20): `./bisg up` / `./bisg all` connect this host,
+`./bisg down` / `./bisg stop` disconnect it, `./bisg restart` leaves it up (so a restart over a Tailscale SSH session does not cut
+itself off). While the sim is down this host is not reachable over Tailscale; a VS Code tunnel is a separate path and stays. With
+the host's own Tailscale this is `tailscale up` / `tailscale down` on the host node (same name and IP; a `down` survives a reboot),
+which needs the user as the daemon's operator once: `sudo tailscale set --operator=$USER` (until then the sim commands only warn
+and leave it as it is). In container mode the container is started / stopped. `TAILSCALE_WITH_SIM=0` = the old behaviour: only
+`./bisg tailscale up|down` switch it. If the machine reboots while the sim runs, the tailnet is back after the reboot; the next
+`./bisg down` switches it off. `./bisg tailscale down` disconnects (the host node too, when you are its operator);
 `./bisg tailscale logout` also forgets the login. `--accept-dns=false` is set, so the host's DNS is not touched
 (this matters on a shared machine). ROS 2 DDS discovery does not cross the tailnet (no multicast); use the views above or
 `./bisg shell` over SSH.
@@ -138,6 +146,7 @@ All in the "What you see" block of [`config/bisg.conf`](../config/bisg.conf):
 | `TAILSCALE_HOSTNAME` | `bisg-<hostname>` | this host's name on the tailnet (`tailscale` service) |
 | `TAILSCALE_TAG` | `v1.102.5` | image pin of the `tailscale` service (ADR-009) |
 | `TAILSCALE_EXTRA_ARGS` | empty | extra `tailscale up` flags for `./bisg tailscale login`, e.g. `--ssh` |
+| `TAILSCALE_WITH_SIM` | `1` | the tailnet follows the sim (`./bisg up|all` connect, `down|stop` disconnect); host mode needs `sudo tailscale set --operator=$USER` once |
 | `SIM_WEB_PORT` | `8899` | TCP port of the browser view |
 | `SIM_WEB_INTERVAL` | `1.0` | seconds between captured frames |
 

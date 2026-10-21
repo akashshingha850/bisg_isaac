@@ -53,11 +53,12 @@ class CompileTests(unittest.TestCase):
     def test_depth_off_disables_dependants(self):
         with self.assertRaisesRegex(config.ConfigError, "needs the depth map"):
             cfg_with(depth={"enabled": False}).wrapper_params()
-        c = cfg_with(depth={"enabled": False}, positional_tracking={"enabled": False})
+        # every depth user off, whatever docker/zed/zed.yaml switches on
+        c = cfg_with(depth={"enabled": False}, **{m: {"enabled": False} for m in config.NEEDS_DEPTH})
         self.assertEqual(c.wrapper_params()["depth"]["depth_mode"], "NONE")
 
     def test_plane_detection_lands_in_mapping_and_needs_tracking(self):
-        p = cfg_with(plane_detection={"enabled": True}).wrapper_params()
+        p = cfg_with(plane_detection={"enabled": True}, spatial_mapping={"enabled": False}).wrapper_params()
         self.assertTrue(p["mapping"]["publish_det_plane"])
         self.assertFalse(p["mapping"]["mapping_enabled"] if "mapping_enabled" in p["mapping"] else False)
         with self.assertRaisesRegex(config.ConfigError, "plane_detection needs positional_tracking"):

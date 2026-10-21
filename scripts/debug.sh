@@ -87,7 +87,7 @@ cmd_ports(){
 }
 cmd_gpu(){ nvidia-smi; echo; echo "in sim container:"; container_running "$SIM_NAME" && docker exec "$SIM_NAME" nvidia-smi --query-gpu=name,memory.used --format=csv 2>/dev/null || echo "  (sim not running)"; }
 cmd_versions(){
-  echo "pins (config): ISAAC_TAG=$ISAAC_TAG PX4_TAG=$PX4_TAG PEGASUS_TAG=$PEGASUS_TAG ZED_SDK=$ZED_SDK"
+  echo "pins (config): ISAAC_TAG=$ISAAC_TAG PX4_TAG=$PX4_TAG PEGASUS_TAG=$PEGASUS_TAG ZED_SDK=$ZED_SDK ZED_WRAPPER_REF=$ZED_WRAPPER_REF"
   echo "images:"; docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}  {{.CreatedSince}}' | grep -E "^(bisg|nvcr.io/nvidia/isaac-sim|ros:jazzy)" | sed 's/^/  /' || true
   echo "sim image contents:"; docker run --rm --entrypoint bash "bisg/sim:${ISAAC_TAG}" -c 'echo "  isaac $(cat /isaac-sim/VERSION)"; cd /opt/PX4-Autopilot && echo "  px4 $(git describe --tags 2>/dev/null || cat build/px4_sitl_default/src/lib/version/build_git_version.h | grep -m1 -o "v[0-9.]*")"; echo "  pegasus $(/isaac-sim/python.sh -m pip show pegasus-simulator 2>/dev/null | grep ^Version | cut -d" " -f2)"; echo "  ros bridge: ROS_DISTRO=$ROS_DISTRO RMW=$RMW_IMPLEMENTATION"' 2>/dev/null
   echo "ros image:"; docker run --rm bisg/ros:jazzy bash -lc 'echo "  $(ros2 pkg xml mavros 2>/dev/null | grep -o "<version>[^<]*" | cut -d">" -f2 | sed "s/^/mavros /") jazzy rmw=$RMW_IMPLEMENTATION"' 2>/dev/null

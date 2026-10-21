@@ -8,12 +8,23 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
 ## Now — ZED VIO / localization ([vio.md](vio.md), [vio-campaign.md](vio-campaign.md))
-- [ ] **R9 wrapper crash** `can't compare times with different time sources` (exit -6, the `zed` container then stays down: B18).
-  Seen 2026-10-10 (22 and 27 min), 2026-10-15 (17 s after tracking started, `publish_map_tf` off, so R2 did not fix it) and
-  2026-10-17 (~24 min into a Kinetix room flight: no EV, EKF2 held position on flow + range, `xy_valid` 1, eph +2.5 cm/s).
-  Every Time comparison in the wrapper's own code is on RCL_ROS_TIME and the IMU path is ROS-clock, so the throw is probably in a
-  library (tf2_ros / image_transport / diagnostics). **Armed:** the `zed` service builds `docker/zed/debug/terminate_bt.cpp` and
-  LD_PRELOADs it; the next crash prints the throw-site stack (`docker logs bisg-zed-1 | grep terminate_bt`). Not in `drone-zed` yet
+- [x] **R9 wrapper crash** `can't compare times with different time sources` — **fixed 2026-10-21** (ADR-011). Throw site
+  (`terminate_bt`, 2026-10-20, 2 s after spatial mapping started): `handleVideoDepthPublishing()` default-constructs
+  `rclcpp::Time pub_ts` (RCL_SYSTEM_TIME), `publishVideoDepth()` leaves it unset on a repeated grab and, with
+  `sensors_image_sync` on (sim), `pub_ts != TIMEZERO_ROS` throws. A wrapper bug, fixed upstream in PR #460 (`cd8bf73`), in no
+  release yet: the wrapper is pinned to master `b19902d` (`ZED_WRAPPER_REF`), SDK stays 5.4.1. Gate on it: `./bisg smoke` PASS,
+  `vio_flight --alt 1.2 --side -1.0` PASS (1.9 / 3.5 / 2.2 cm), `zed_depth_box` PASS (−22.9 mm, was −26), `./bisg zed test` OK.
+- [ ] Back to a wrapper **tag** once Stereolabs releases one containing `cd8bf73` (v5.5.1+); rebuild the Jetson image from the pin
+  (`docker/zed/build.sh jetson`) before the next hardware run.
+- [ ] **Streamed ZED Mini IMU is 90 deg rolled in the SDK** (found 2026-10-21): at rest the wrapper's `imu/data` (frame
+  `zed_imu_link`, from the stream) reads accel (0, +9.81, 0), rpy (90, 0, −90); the sim's own IMU (`drone_1/zed_imu_link`) reads
+  (0, 0, +9.81). The extension's `Imu_Sensor` prim is z-up and its conversion (`OgnZEDSimCameraNode.cpp`, unchanged in v5.3.0) streams
+  (0, −9.81, 0) = image-frame "level", so the extra roll is on the SDK side. Effect: with `set_gravity_as_origin` on, the spatial
+  map (`mapping/fused_cloud`) was rolled 90 deg about x (floor as a vertical plane); the sim now sets it off (zed.yaml `sim:`),
+  after which the fused floor is flat (tilt 0.17 deg, z −0.10 m). Tracking is unaffected (`imu_fusion` off). **Report upstream**
+  (zed-isaac-sim / ZED SDK) with these numbers; blocks any sim IMU fusion
+- [ ] Fused cloud vs TF clocks: `fused_cloud` is stamped wall-clock now, the wrapper's TF with the streamed frame time (falls behind
+  at ~rtf: −20 s, growing ~0.5 s per s, measured ~20 s after the wrapper started). Harmless for the map frame in Foxglove; matters for anything that looks TF up at the cloud's stamp (B17)
 - [ ] **VIO drift on long flights**: EKF2 horizontal error vs ground truth grows with distance (0.8 m RMS over 351 m, 2.4 m over
   416 m, height within 0.15 m; a 108 m Kinetix tour stays at 0.19 m RMS). `tests/vio_bench.py` flies ~26 m, so the bench never sees
   it: add a long profile. Data: Kinetix `runs/2026101[78]-*_warehouse_room_*` (frames.jsonl + MCAP bags)
@@ -36,6 +47,9 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
 - [ ] Switch `GEN_3` IMU-fused tracking on for the hardware bench (`positional_tracking.imu_fusion` is already true outside `sim:`)
 
 ## Now — ZED stack ([zed-stack.md](zed-stack.md), ADR-008)
+- [x] QGC grid and Foxglove Camera tab are the same 2x2, left | chase / depth | confidence (2026-10-21). The PMW3901 flow drawing
+  (`mosaic.FlowView`, `/drone_N/optical_flow/image`, its RViz display) is removed: plot `mavros/px4flow/raw/optical_flow_rad` (Foxglove Sensors tab).
+  The map is skewed (median 0.6, p95 32 in the Warehouse), so on the 0-100 scale most of the tile is turbo's darkest blue
 - [ ] **Apply `bisg/ros` rebuild** (GStreamer removed from its Dockerfile): `docker compose -f docker/compose.yaml build ros`
 - [ ] Bridge CPU: `health` and `obstacle_distance` each deserialise every 720p depth frame in Python (0.31 cores); share one
   depth subscription / decimate before the Orin NX bench
@@ -63,6 +77,17 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   `SIM_CONFIG` wins but only `-c` does
 - [ ] Delete by hand (root-owned, outside git): `docker/ros/ros2_ws/src/bisg_perception/`, `bisg_vehicle/__pycache__/`,
   `docker/ros/ros2_ws/*.stale/`
+- [ ] Foxglove `kinetix.json` layout (2026-10-20; `FOXGLOVE_LAYOUT=kinetix`, `docker/ros/foxglove/README.md`): the user scripts pass
+  `tsc --strict` and a Node run on fake events; not yet looked at in the browser during a Kinetix tour (path line style keys,
+  `camera_info` frustum, plots of `/studio_script/*`)
+- [ ] Foxglove `raptor.json` reworked 2026-10-20 (Flight: 3D + altitude + x/y only; Sensors: six plots with top legends; Debug: /rosout + MAVLink
+  log; Graph tab; no status strip) and `spatial_mapping.enabled: true` in zed.yaml, with `mapping/fused_cloud` in the Flight 3D panel:
+  not yet looked at in the browser. The ZED wrapper already connected once in the current sim run (B18): `./bisg restart`, then `zed up`,
+  to see the fused cloud; check it builds up the room, and the +4 GB RAM and sim speed with mapping on
+- [ ] `TAILSCALE_WITH_SIM=1` (2026-10-20): down/up cycle verified on Workstation A (stallman2, host daemon, operator set);
+  Workstation B still needs `sudo tailscale set --operator=$USER` if it uses a host daemon (container mode needs nothing)
+- [ ] Foxglove over a VS Code tunnel through the single port (`ws://<host>:8080/ws`, 2026-10-20): checked in headless Chromium on the
+  host, not yet from the remote VS Code client
 - [ ] Remote access: verify the WebRTC client + browser view from an off-site machine over Tailscale
 - [ ] **`net.core.rmem_max`** (needs sudo) on Workstation B: until set, HD720 images do not cross containers over CycloneDDS
   (`ZED_RMW=rmw_fastrtps_cpp` is the fallback)

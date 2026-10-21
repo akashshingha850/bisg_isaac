@@ -14,7 +14,7 @@
 #   drone                the real drone: the ZED stack on the real camera (the PX4 bridge on the Pixracer serial port is the `px4-bridge` service with BRIDGE_DEVICE=/dev/px4, `./bisg drone up` sets it)
 #                        (./bisg drone ...; runs on the Jetson, or on the workstation for a bench test with a USB ZED Mini)
 #   tailscale            Tailscale node: reach this host (sim view, WebRTC, MAVLink) from another network   x86_64 and arm64
-#                        (./bisg tailscale ...; own compose project `bisg-tailscale`, so ./bisg down never cuts remote access)
+#                        (./bisg tailscale ...; own compose project `bisg-tailscale`; TAILSCALE_WITH_SIM=1: up/down with the sim)
 # Image tags: bisg/ros:jazzy, bisg/px4-bridge:jazzy (bisg/ros + MAVSDK server + uXRCE-DDS agent) and bisg/sim:<isaac tag> are built natively on each machine; bisg/zed:${ZED_VARIANT}
 # is `desktop` on x86_64 and `l4t-r38` on the Jetson (docker/zed/build.sh builds the right one).
 #
@@ -311,15 +311,18 @@ services:
   # Foxglove web UI served from this host: Lichtblick, the open-source Foxglove Studio fork, for the foxglove_bridge (ws://:8765 in bisg-ros).
   # Starts and stops with the `foxglove` tool (./bisg ros start foxglove), which prints the URL; it opens in VS Code's Simple Browser
   # (app.foxglove.dev sends X-Frame-Options: DENY and needs a login). The layouts in docker/ros/foxglove/*.json are served at /layouts/
-  # (the printed URL loads raptor.json with ?layoutUrl=, fresh on every page load); raptor.json is also the built-in default layout.
+  # (the printed URL loads FOXGLOVE_LAYOUT.json with ?layoutUrl=, fresh on every page load); it is also the built-in default layout.
   lichtblick:
     image: ghcr.io/lichtblick-suite/lichtblick:${LICHTBLICK_TAG:-1.29.1}
     container_name: bisg-lichtblick
     profiles: ["ros", "tools"]
     network_mode: host
     volumes: ["./ros/foxglove:/foxglove:ro"]
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /lichtblick /src/layouts; cp /foxglove/*.json /src/layouts/ 2>/dev/null; cp /foxglove/raptor.json /lichtblick/default-layout.json 2>/dev/null; exec /bin/sh /entrypoint.sh \"$$@\"", "--"]
-    command: ["caddy", "file-server", "--listen", ":${FOXGLOVE_UI_PORT:-8080}"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /lichtblick /src/layouts; cp /foxglove/*.json /src/layouts/ 2>/dev/null; cp /foxglove/${FOXGLOVE_LAYOUT:-raptor}.json /lichtblick/default-layout.json 2>/dev/null; exec /bin/sh /entrypoint.sh \"$$@\"", "--"]
+    environment:                                # read by the Caddyfile: the page and the bridge websocket (/ws) on one port
+      FOXGLOVE_UI_PORT: ${FOXGLOVE_UI_PORT:-8080}
+      FOXGLOVE_BRIDGE_PORT: ${FOXGLOVE_BRIDGE_PORT:-8765}
+    command: ["caddy", "run", "--config", "/foxglove/Caddyfile", "--adapter", "caddyfile"]
 
 volumes:
   tailscale-state:

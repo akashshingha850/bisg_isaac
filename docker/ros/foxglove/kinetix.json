@@ -1,0 +1,540 @@
+{
+  "configById": {
+    "StateTransitions!status": {
+      "lichtblickPanelTitle": "Mode / armed / FCU link / capture tolerance",
+      "isSynced": true,
+      "xAxisRange": 60,
+      "paths": [
+        {
+          "value": "/drone_1/mavros/state.mode",
+          "label": "mode",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/state.armed",
+          "label": "armed",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/state.connected",
+          "label": "FCU link",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/studio_script/kinetix_track.in_tol",
+          "label": "in tolerance (0.1 m, 3 deg, 0.05 m/s)",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ]
+    },
+    "RawMessages!flight": {
+      "lichtblickPanelTitle": "Flight: time, distance, drift (script kinetix_flight)",
+      "topicPath": "/studio_script/kinetix_flight",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!battery": {
+      "lichtblickPanelTitle": "Battery (0-1)",
+      "topicPath": "/drone_1/mavros/battery.percentage",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!zedstatus": {
+      "lichtblickPanelTitle": "ZED stack health (camera loss aborts Kinetix)",
+      "topicPath": "/drone_1/zed_stack/status.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "3D!flight": {
+      "lichtblickPanelTitle": "3D: EKF2 path (blue), carrot setpoint (orange), truth (white), ZED left frustum",
+      "followTf": "base_link",
+      "followMode": "follow-position",
+      "cameraState": {
+        "distance": 12,
+        "perspective": true,
+        "phi": 50,
+        "thetaOffset": 45,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "fovy": 45,
+        "near": 0.05,
+        "far": 500
+      },
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.5,
+          "lineWidth": 1
+        },
+        "backgroundColor": "#15171c"
+      },
+      "transforms": {
+        "frame:base_link": {
+          "visible": true
+        },
+        "frame:map": {
+          "visible": true
+        },
+        "frame:map_ned": {
+          "visible": false
+        },
+        "frame:odom_ned": {
+          "visible": false
+        },
+        "frame:base_link_frd": {
+          "visible": false
+        },
+        "frame:hrlv_ez4_sonar": {
+          "visible": false
+        },
+        "frame:zed_camera_link": {
+          "visible": false
+        },
+        "frame:zed_camera_center": {
+          "visible": false
+        },
+        "frame:zed_imu_link": {
+          "visible": false
+        },
+        "frame:zed_left_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_frame": {
+          "visible": false
+        },
+        "frame:zed_right_camera_frame_optical": {
+          "visible": false
+        },
+        "frame:zed_left_camera_frame_optical": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/studio_script/path_ekf2": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.04,
+          "gradient": [
+            "#58a6ffff",
+            "#58a6ffff"
+          ]
+        },
+        "/studio_script/path_setpoint": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.02,
+          "gradient": [
+            "#f0883eff",
+            "#f0883eff"
+          ]
+        },
+        "/studio_script/path_truth": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.02,
+          "gradient": [
+            "#e6edf3cc",
+            "#e6edf3cc"
+          ]
+        },
+        "/drone_1/mavros/local_position/pose": {
+          "visible": true,
+          "type": "arrow",
+          "color": "#58a6ffff",
+          "arrowScale": [
+            0.6,
+            0.1,
+            0.1
+          ]
+        },
+        "/drone_1/mavros/setpoint_position/local": {
+          "visible": true,
+          "type": "arrow",
+          "color": "#f0883eff",
+          "arrowScale": [
+            0.6,
+            0.1,
+            0.1
+          ]
+        },
+        "/drone_1/zed/zed_node/left/color/rect/camera_info": {
+          "visible": true,
+          "distance": 0.6,
+          "width": 1.5,
+          "color": "#d2a8ffff"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "grid",
+          "layerId": "foxglove.Grid",
+          "frameId": "map",
+          "size": 30,
+          "divisions": 30,
+          "lineWidth": 1,
+          "color": "#248eff40",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      }
+    },
+    "Image!zedleft": {
+      "lichtblickPanelTitle": "ZED left: what Kinetix captures (compressed)",
+      "imageMode": {
+        "imageTopic": "/drone_1/zed/zed_node/left/color/rect/image/compressed"
+      }
+    },
+    "Image!chase": {
+      "lichtblickPanelTitle": "Chase cam (sim only)",
+      "imageMode": {
+        "imageTopic": "/drone_1/chase/image"
+      }
+    },
+    "Plot!tracking": {
+      "lichtblickPanelTitle": "Tracking: distance to setpoint [m], speed [m/s] (capture needs < 0.10 m, < 0.05 m/s)",
+      "paths": [
+        {
+          "value": "/studio_script/kinetix_track.dist_m",
+          "label": "distance to setpoint",
+          "color": "#f0883e",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/studio_script/kinetix_track.speed_mps",
+          "label": "speed (motion blur)",
+          "color": "#3fb950",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/studio_script/kinetix_track.dz_m",
+          "label": "height error (signed)",
+          "color": "#d2a8ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m, m/s",
+      "sidebarDimension": 94
+    },
+    "Plot!drift": {
+      "lichtblickPanelTitle": "EKF2 drift vs sim truth [m] (offset measured on the ground)",
+      "paths": [
+        {
+          "value": "/studio_script/kinetix_flight.drift_m",
+          "label": "3D",
+          "color": "#f85149",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/studio_script/kinetix_flight.drift_xy_m",
+          "label": "horizontal",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/studio_script/kinetix_flight.drift_z_m",
+          "label": "vertical (signed)",
+          "color": "#d29922",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m",
+      "sidebarDimension": 94
+    },
+    "Plot!altitude": {
+      "lichtblickPanelTitle": "Altitude z [m]: EKF2 vs setpoint vs ToF",
+      "paths": [
+        {
+          "value": "/drone_1/mavros/local_position/pose.pose.position.z",
+          "label": "EKF2",
+          "color": "#58a6ff",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/setpoint_position/local.pose.position.z",
+          "label": "setpoint",
+          "color": "#f0883e",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/drone_1/mavros/hrlv_ez4_pub{range<40}.range",
+          "label": "ToF range (valid only)",
+          "color": "#8b949e",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showLegend": true,
+      "legendDisplay": "top",
+      "showPlotValuesInLegend": true,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30,
+      "yAxisLabel": "m",
+      "sidebarDimension": 94
+    },
+    "Image!camleft": {
+      "lichtblickPanelTitle": "ZED left (raw)",
+      "imageMode": {
+        "imageTopic": "/drone_1/zed/zed_node/left/color/rect/image"
+      }
+    },
+    "Image!camright": {
+      "lichtblickPanelTitle": "ZED right (raw, stereo_rig*)",
+      "imageMode": {
+        "imageTopic": "/drone_1/zed/zed_node/right/color/rect/image"
+      }
+    },
+    "Image!depth": {
+      "lichtblickPanelTitle": "ZED depth [0.3-10 m, turbo] (plan_depth=stereo)",
+      "imageMode": {
+        "imageTopic": "/studio_script/depth_mm",
+        "colorMode": "colormap",
+        "colorMap": "turbo",
+        "minValue": 300,
+        "maxValue": 10000
+      }
+    },
+    "Image!confidence": {
+      "lichtblickPanelTitle": "Depth confidence [blue good - red bad] (stereo_zed confidence = 1 - c/100)",
+      "imageMode": {
+        "imageTopic": "/studio_script/confidence_u16",
+        "colorMode": "colormap",
+        "colorMap": "turbo",
+        "minValue": 0,
+        "maxValue": 10000
+      }
+    },
+    "RosOut!log": {
+      "lichtblickPanelTitle": "Log (/rosout)",
+      "searchTerms": [],
+      "minLogLevel": 2,
+      "topicToRender": "/rosout"
+    },
+    "RawMessages!track": {
+      "lichtblickPanelTitle": "Tracking (script kinetix_track)",
+      "topicPath": "/studio_script/kinetix_track",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!setpoint": {
+      "lichtblickPanelTitle": "mavros/setpoint_position/local (the carrot)",
+      "topicPath": "/drone_1/mavros/setpoint_position/local",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!fcustate": {
+      "lichtblickPanelTitle": "mavros/state (full)",
+      "topicPath": "/drone_1/mavros/state",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!caminfo": {
+      "lichtblickPanelTitle": "ZED left camera_info (K, size: never hard-coded in Kinetix)",
+      "topicPath": "/drone_1/zed/zed_node/left/color/rect/camera_info",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "Tab!main": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "Flight",
+          "layout": {
+            "first": {
+              "first": "3D!flight",
+              "second": {
+                "first": "Image!zedleft",
+                "second": "Image!chase",
+                "direction": "column",
+                "splitPercentage": 62
+              },
+              "direction": "row",
+              "splitPercentage": 58
+            },
+            "second": {
+              "first": "Plot!tracking",
+              "second": {
+                "first": "Plot!drift",
+                "second": "Plot!altitude",
+                "direction": "row",
+                "splitPercentage": 50
+              },
+              "direction": "row",
+              "splitPercentage": 40
+            },
+            "direction": "column",
+            "splitPercentage": 66
+          }
+        },
+        {
+          "title": "Stereo",
+          "layout": {
+            "first": {
+              "first": "Image!camleft",
+              "second": "Image!camright",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "second": {
+              "first": "Image!depth",
+              "second": "Image!confidence",
+              "direction": "row",
+              "splitPercentage": 50
+            },
+            "direction": "column",
+            "splitPercentage": 50
+          }
+        },
+        {
+          "title": "Debug",
+          "layout": {
+            "first": "RosOut!log",
+            "second": {
+              "first": {
+                "first": "RawMessages!track",
+                "second": "RawMessages!setpoint",
+                "direction": "column",
+                "splitPercentage": 50
+              },
+              "second": {
+                "first": "RawMessages!fcustate",
+                "second": "RawMessages!caminfo",
+                "direction": "column",
+                "splitPercentage": 40
+              },
+              "direction": "column",
+              "splitPercentage": 50
+            },
+            "direction": "row",
+            "splitPercentage": 45
+          }
+        }
+      ]
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {
+    "path-ekf2": {
+      "name": "path_ekf2",
+      "sourceCode": "// Flown path: EKF2 (mavros/local_position/pose), map\nimport { Input, Message } from \"./types\";\n\ntype Vec = [number, number, number];\ntype PoseStamped = Message<\"geometry_msgs/msg/PoseStamped\">;\nconst vec = (p: { x: number; y: number; z: number }): Vec => [p.x, p.y, p.z];\nconst dist = (a: Vec, b: Vec): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);\nconst secs = (t: { sec: number; nsec: number }): number => t.sec + t.nsec * 1e-9;\n\ntype Path = Message<\"nav_msgs/msg/Path\">;\n\nexport const inputs = [\"/drone_1/mavros/local_position/pose\", \"/drone_1/mavros/state\"];\nexport const output = \"/studio_script/path_ekf2\";\nconst STEP_M = 0.05;       // one point every 5 cm\nconst MAX_POINTS = 8000;   // 400 m\n\nlet poses: PoseStamped[] = [];\nlet armed = false;\nlet out: Path = { header: { stamp: { sec: 0, nsec: 0 }, frame_id: \"map\" }, poses: [] };   // returned unchanged between points\n\nexport default function script(event: Input<\"/drone_1/mavros/local_position/pose\"> | Input<\"/drone_1/mavros/state\">): Path {\n  if (event.topic === \"/drone_1/mavros/state\") {\n    if (event.message.armed && !armed) { poses = []; out = { header: out.header, poses: [] }; }   // a new flight starts a new path\n    armed = event.message.armed;\n    return out;\n  }\n  const m = event.message;\n  const last = poses[poses.length - 1];\n  if (last && dist(vec(last.pose.position), vec(m.pose.position)) < STEP_M) return out;\n  poses.push(m);\n  if (poses.length > MAX_POINTS) poses.shift();\n  out = { header: { stamp: m.header.stamp, frame_id: \"map\" }, poses: poses.slice() };\n  return out;\n}\n"
+    },
+    "path-setpoint": {
+      "name": "path_setpoint",
+      "sourceCode": "// Commanded path: the carrot Kinetix streams (mavros/setpoint_position/local), map\nimport { Input, Message } from \"./types\";\n\ntype Vec = [number, number, number];\ntype PoseStamped = Message<\"geometry_msgs/msg/PoseStamped\">;\nconst vec = (p: { x: number; y: number; z: number }): Vec => [p.x, p.y, p.z];\nconst dist = (a: Vec, b: Vec): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);\nconst secs = (t: { sec: number; nsec: number }): number => t.sec + t.nsec * 1e-9;\n\ntype Path = Message<\"nav_msgs/msg/Path\">;\n\nexport const inputs = [\"/drone_1/mavros/setpoint_position/local\", \"/drone_1/mavros/state\"];\nexport const output = \"/studio_script/path_setpoint\";\nconst STEP_M = 0.05;       // one point every 5 cm\nconst MAX_POINTS = 8000;   // 400 m\n\nlet poses: PoseStamped[] = [];\nlet armed = false;\nlet out: Path = { header: { stamp: { sec: 0, nsec: 0 }, frame_id: \"map\" }, poses: [] };   // returned unchanged between points\n\nexport default function script(event: Input<\"/drone_1/mavros/setpoint_position/local\"> | Input<\"/drone_1/mavros/state\">): Path {\n  if (event.topic === \"/drone_1/mavros/state\") {\n    if (event.message.armed && !armed) { poses = []; out = { header: out.header, poses: [] }; }   // a new flight starts a new path\n    armed = event.message.armed;\n    return out;\n  }\n  const m = event.message;\n  const last = poses[poses.length - 1];\n  if (last && dist(vec(last.pose.position), vec(m.pose.position)) < STEP_M) return out;\n  poses.push(m);\n  if (poses.length > MAX_POINTS) poses.shift();\n  out = { header: { stamp: m.header.stamp, frame_id: \"map\" }, poses: poses.slice() };\n  return out;\n}\n"
+    },
+    "path-truth": {
+      "name": "path_truth",
+      "sourceCode": "// True path (sim state/pose, world) moved into map by the measured map - world offset\nimport { Input, Message } from \"./types\";\n\ntype Vec = [number, number, number];\ntype PoseStamped = Message<\"geometry_msgs/msg/PoseStamped\">;\nconst vec = (p: { x: number; y: number; z: number }): Vec => [p.x, p.y, p.z];\nconst dist = (a: Vec, b: Vec): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);\nconst secs = (t: { sec: number; nsec: number }): number => t.sec + t.nsec * 1e-9;\n\ntype Path = Message<\"nav_msgs/msg/Path\">;\n\nexport const inputs = [\"/drone_1/state/pose\", \"/drone_1/mavros/local_position/pose\", \"/drone_1/mavros/state\"];\nexport const output = \"/studio_script/path_truth\";\nconst STEP_M = 0.05, MAX_POINTS = 8000;\nlet ekf: Vec | undefined, truth: Vec | undefined, off: Vec | undefined, offFrom = \"none\", armed = false;\nfunction measureOffset(): void {\n  if (!ekf || !truth) return;\n  if (!armed) { off = [ekf[0] - truth[0], ekf[1] - truth[1], ekf[2] - truth[2]]; offFrom = \"ground\"; }\n  else if (!off) { off = [ekf[0] - truth[0], ekf[1] - truth[1], ekf[2] - truth[2]]; offFrom = \"air\"; }\n}\n\nlet poses: PoseStamped[] = [];\nlet out: Path = { header: { stamp: { sec: 0, nsec: 0 }, frame_id: \"map\" }, poses: [] };   // returned unchanged between points\n\nexport default function script(event: Input<\"/drone_1/state/pose\"> | Input<\"/drone_1/mavros/local_position/pose\"> | Input<\"/drone_1/mavros/state\">): Path {\n  if (event.topic === \"/drone_1/mavros/state\") {\n    if (event.message.armed && !armed) { poses = []; out = { header: out.header, poses: [] }; }\n    armed = event.message.armed;\n    return out;\n  }\n  if (event.topic === \"/drone_1/mavros/local_position/pose\") { ekf = vec(event.message.pose.position); measureOffset(); return out; }\n  const m = event.message;\n  truth = vec(m.pose.position);\n  measureOffset();\n  if (!off) return out;\n  const p = { x: truth[0] + off[0], y: truth[1] + off[1], z: truth[2] + off[2] };\n  const last = poses[poses.length - 1];\n  if (last && dist(vec(last.pose.position), vec(p)) < STEP_M) return out;\n  poses.push({ header: { stamp: m.header.stamp, frame_id: \"map\" }, pose: { position: p, orientation: m.pose.orientation } });\n  if (poses.length > MAX_POINTS) poses.shift();\n  out = { header: { stamp: m.header.stamp, frame_id: \"map\" }, poses: poses.slice() };\n  return out;\n}\n"
+    },
+    "kinetix-track": {
+      "name": "kinetix_track",
+      "sourceCode": "// Setpoint tracking against Kinetix's capture tolerances\nimport { Input, Message } from \"./types\";\n\ntype Vec = [number, number, number];\ntype PoseStamped = Message<\"geometry_msgs/msg/PoseStamped\">;\nconst vec = (p: { x: number; y: number; z: number }): Vec => [p.x, p.y, p.z];\nconst dist = (a: Vec, b: Vec): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);\nconst secs = (t: { sec: number; nsec: number }): number => t.sec + t.nsec * 1e-9;\n\n// in_tol = distance, yaw error and speed all inside the tolerances now; settled_s = seconds (EKF2 stamps) in tolerance without a\n// break: Kinetix grabs its image once that reaches settle_s (1 s). setpoint_age_s > 0.5 = no setpoint stream (nobody in OFFBOARD).\n// Speed = EKF2 position differences (smoothed), so this also works on a Kinetix run bag (it has no velocity topic).\ntype Track = {\n  dist_m: number; dist_xy_m: number; dz_m: number; yaw_err_deg: number; speed_mps: number;\n  in_tol: boolean; settled_s: number; setpoint_age_s: number;\n};\n\nexport const inputs = [\"/drone_1/mavros/local_position/pose\", \"/drone_1/mavros/setpoint_position/local\"];\nexport const output = \"/studio_script/kinetix_track\";\nconst TOL_POS_M = 0.1, TOL_YAW_DEG = 3.0, TOL_SPEED_MPS = 0.05;\n\nconst yaw = (q: { x: number; y: number; z: number; w: number }): number =>\n  Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));\nlet sp: { p: Vec; yaw: number; rx: number } | undefined;\nlet prev: { t: number; p: Vec } | undefined;\nlet speed = 0;\nlet tolSince: number | undefined;\nlet out: Track = { dist_m: NaN, dist_xy_m: NaN, dz_m: NaN, yaw_err_deg: NaN, speed_mps: NaN, in_tol: false, settled_s: 0, setpoint_age_s: NaN };\n\nexport default function script(event: Input<\"/drone_1/mavros/local_position/pose\"> | Input<\"/drone_1/mavros/setpoint_position/local\">): Track {\n  const m = event.message;\n  if (event.topic === \"/drone_1/mavros/setpoint_position/local\") {\n    sp = { p: vec(m.pose.position), yaw: yaw(m.pose.orientation), rx: secs(event.receiveTime) };\n    return out;   // the last result again: a script that returns nothing raises a Lichtblick alert\n  }\n  const t = secs(m.header.stamp), p = vec(m.pose.position);\n  if (prev && t > prev.t) speed = 0.7 * speed + 0.3 * dist(p, prev.p) / (t - prev.t);\n  else if (prev && t < prev.t) speed = 0;   // time went back (sim restart, bag loop)\n  prev = { t, p };\n  if (!sp) {\n    out = { dist_m: NaN, dist_xy_m: NaN, dz_m: NaN, yaw_err_deg: NaN, speed_mps: speed, in_tol: false, settled_s: 0, setpoint_age_s: NaN };\n    return out;\n  }\n  const d = dist(p, sp.p), dxy = Math.hypot(p[0] - sp.p[0], p[1] - sp.p[1]), dz = p[2] - sp.p[2];\n  let dyaw = yaw(m.pose.orientation) - sp.yaw;\n  dyaw = Math.abs(Math.atan2(Math.sin(dyaw), Math.cos(dyaw))) * 180 / Math.PI;\n  const age = secs(event.receiveTime) - sp.rx;\n  const inTol = age < 0.5 && d < TOL_POS_M && dyaw < TOL_YAW_DEG && speed < TOL_SPEED_MPS;\n  if (!inTol) tolSince = undefined;\n  else if (tolSince === undefined) tolSince = t;\n  out = { dist_m: d, dist_xy_m: dxy, dz_m: dz, yaw_err_deg: dyaw, speed_mps: speed, in_tol: inTol,\n          settled_s: tolSince === undefined ? 0 : t - tolSince, setpoint_age_s: age };\n  return out;\n}\n"
+    },
+    "kinetix-flight": {
+      "name": "kinetix_flight",
+      "sourceCode": "// Flight summary: time and distance since arming, EKF2 drift against the sim truth\nimport { Input, Message } from \"./types\";\n\ntype Vec = [number, number, number];\ntype PoseStamped = Message<\"geometry_msgs/msg/PoseStamped\">;\nconst vec = (p: { x: number; y: number; z: number }): Vec => [p.x, p.y, p.z];\nconst dist = (a: Vec, b: Vec): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);\nconst secs = (t: { sec: number; nsec: number }): number => t.sec + t.nsec * 1e-9;\n\n// Drift = EKF2 - (truth + map-world offset); NaN without truth (real drone, a bag without state/pose). Values freeze at landing\n// and reset at the next arming.\ntype Summary = {\n  flight_s: number; odometer_m: number; drift_m: number; drift_xy_m: number; drift_z_m: number; max_drift_m: number;\n  offset_from: string;\n};\n\nexport const inputs = [\"/drone_1/mavros/local_position/pose\", \"/drone_1/state/pose\", \"/drone_1/mavros/state\"];\nexport const output = \"/studio_script/kinetix_flight\";\nlet ekf: Vec | undefined, truth: Vec | undefined, off: Vec | undefined, offFrom = \"none\", armed = false;\nfunction measureOffset(): void {\n  if (!ekf || !truth) return;\n  if (!armed) { off = [ekf[0] - truth[0], ekf[1] - truth[1], ekf[2] - truth[2]]; offFrom = \"ground\"; }\n  else if (!off) { off = [ekf[0] - truth[0], ekf[1] - truth[1], ekf[2] - truth[2]]; offFrom = \"air\"; }\n}\n\nlet armedAt: number | undefined, last: Vec | undefined, flight = 0, odo = 0, maxDrift = 0;\nlet out: Summary = { flight_s: 0, odometer_m: 0, drift_m: NaN, drift_xy_m: NaN, drift_z_m: NaN, max_drift_m: 0, offset_from: \"none\" };\n\nexport default function script(event: Input<\"/drone_1/mavros/local_position/pose\"> | Input<\"/drone_1/state/pose\"> | Input<\"/drone_1/mavros/state\">): Summary {\n  if (event.topic === \"/drone_1/mavros/state\") {\n    if (event.message.armed && !armed) { armedAt = undefined; last = undefined; flight = 0; odo = 0; maxDrift = 0; }\n    armed = event.message.armed;\n    return out;   // the last result again: a script that returns nothing raises a Lichtblick alert\n  }\n  if (event.topic === \"/drone_1/state/pose\") { truth = vec(event.message.pose.position); measureOffset(); return out; }\n  const t = secs(event.message.header.stamp), p = vec(event.message.pose.position);\n  ekf = p;\n  measureOffset();\n  if (armed) {\n    if (armedAt === undefined) armedAt = t;\n    flight = t - armedAt;\n    if (last) odo += dist(p, last);\n    last = p;\n  }\n  const e: Vec = truth && off ? [p[0] - truth[0] - off[0], p[1] - truth[1] - off[1], p[2] - truth[2] - off[2]] : [NaN, NaN, NaN];\n  const drift = Math.hypot(e[0], e[1], e[2]);\n  if (armed && Number.isFinite(drift)) maxDrift = Math.max(maxDrift, drift);\n  out = { flight_s: flight, odometer_m: odo, drift_m: drift, drift_xy_m: Math.hypot(e[0], e[1]), drift_z_m: e[2],\n          max_drift_m: maxDrift, offset_from: offFrom };\n  return out;\n}\n"
+    },
+    "depth-mm": {
+      "name": "depth_mm",
+      "sourceCode": "// ZED depth [m, 32FC1] -> millimetres [16UC1], NaN/inf -> 0\n// Lichtblick draws 32FC1 images as grey 0..1 and ignores colormap/min/max; 16UC1 images get them.\nimport { Input, Message } from \"./types\";\n\ntype Image = Message<\"sensor_msgs/msg/Image\">;\n\nexport const inputs = [\"/drone_1/zed/zed_node/depth/depth_registered\"];\nexport const output = \"/studio_script/depth_mm\";\n\nexport default function script(event: Input<\"/drone_1/zed/zed_node/depth/depth_registered\">): Image {\n  const src = event.message;\n  const dv = new DataView(src.data.buffer, src.data.byteOffset, src.data.byteLength);\n  const le = src.is_bigendian === 0;\n  const out = new Uint8Array(src.width * src.height * 2);\n  const ov = new DataView(out.buffer);\n  for (let r = 0; r < src.height; r++) {\n    for (let c = 0; c < src.width; c++) {\n      const v = dv.getFloat32(r * src.step + c * 4, le);\n      const u = Number.isFinite(v) ? Math.min(65535, Math.max(0, Math.round(v * 1000))) : 0;\n      ov.setUint16((r * src.width + c) * 2, u, true);\n    }\n  }\n  return { header: src.header, height: src.height, width: src.width, encoding: \"16UC1\", is_bigendian: 0, step: src.width * 2, data: out };\n}\n"
+    },
+    "confidence-u16": {
+      "name": "confidence_u16",
+      "sourceCode": "// ZED depth confidence [0-100, 32FC1, higher = less confident] -> x100 [16UC1]\n// Lichtblick draws 32FC1 images as grey 0..1 and ignores colormap/min/max; 16UC1 images get them.\nimport { Input, Message } from \"./types\";\n\ntype Image = Message<\"sensor_msgs/msg/Image\">;\n\nexport const inputs = [\"/drone_1/zed/zed_node/confidence/confidence_map\"];\nexport const output = \"/studio_script/confidence_u16\";\n\nexport default function script(event: Input<\"/drone_1/zed/zed_node/confidence/confidence_map\">): Image {\n  const src = event.message;\n  const dv = new DataView(src.data.buffer, src.data.byteOffset, src.data.byteLength);\n  const le = src.is_bigendian === 0;\n  const out = new Uint8Array(src.width * src.height * 2);\n  const ov = new DataView(out.buffer);\n  for (let r = 0; r < src.height; r++) {\n    for (let c = 0; c < src.width; c++) {\n      const v = dv.getFloat32(r * src.step + c * 4, le);\n      const u = Number.isFinite(v) ? Math.min(65535, Math.max(0, Math.round(v * 100))) : 0;\n      ov.setUint16((r * src.width + c) * 2, u, true);\n    }\n  }\n  return { header: src.header, height: src.height, width: src.width, encoding: \"16UC1\", is_bigendian: 0, step: src.width * 2, data: out };\n}\n"
+    },
+    "tf-static-repeat": {
+      "name": "tf_static_repeat",
+      "sourceCode": "// /tf_static, cached and re-sent with every /tf message (restamped) for 3D panels that mount after it arrived (tab switch)\nimport { Input, Message } from \"./types\";\n\ntype TF = Message<\"tf2_msgs/msg/TFMessage\">;\ntype Transform = TF[\"transforms\"][number];\n\nexport const inputs = [\"/tf_static\", \"/tf\"];\nexport const output = \"/studio_script/tf_static_repeat\";\n\nconst statics = new Map<string, Transform>();\n\n// Every call returns the whole set (about 10 transforms): a panel that samples only the newest message per frame still gets all of\n// them, and Lichtblick raises \"did not produce a message\" whenever a script returns nothing.\nexport default function script(event: Input<\"/tf_static\"> | Input<\"/tf\">): TF {\n  const m = event.message;\n  if (event.topic === \"/tf_static\") for (const t of m.transforms) statics.set(t.child_frame_id, t);\n  const stamp = event.topic === \"/tf\" && m.transforms.length > 0 ? m.transforms[0].header.stamp : undefined;\n  return { transforms: [...statics.values()].map((t) => (stamp ? { ...t, header: { ...t.header, stamp } } : t)) };\n}\n"
+    }
+  },
+  "playbackConfig": {
+    "speed": 1.0
+  },
+  "layout": {
+    "first": {
+      "first": {
+        "first": "StateTransitions!status",
+        "second": "RawMessages!flight",
+        "direction": "column",
+        "splitPercentage": 45
+      },
+      "second": "Tab!main",
+      "direction": "row",
+      "splitPercentage": 18
+    },
+    "second": {
+      "first": "RawMessages!battery",
+      "second": "RawMessages!zedstatus",
+      "direction": "row",
+      "splitPercentage": 15
+    },
+    "direction": "column",
+    "splitPercentage": 94
+  }
+}

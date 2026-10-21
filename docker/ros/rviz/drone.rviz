@@ -170,20 +170,6 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /drone_1/zed/zed_node/depth/depth_registered
       Value: true
-    - Class: rviz_default_plugins/Image
-      Enabled: true
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Optical flow (PMW3901)
-      Normalize Range: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Best Effort
-        Value: /drone_1/optical_flow/image
-      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -258,8 +244,6 @@ Window Geometry:
   Height: 1000
   Hide Left Dock: false
   Hide Right Dock: false
-  Optical flow (PMW3901):
-    collapsed: false
   QMainWindow State: 000000ff00000000fd000000010000000100000208000003d7fc0200000004fb00000010005a004500440020006c0065006600740100000011000000f10000001700fffffffb00000012005a004500440020007200690067006800740100000108000000f20000001700fffffffb00000012005a004500440020006400650070007400680100000200000000f10000001700fffffffb0000002c004f00700074006900630061006c00200066006c006f0077002000280050004d00570033003900300031002901000002f7000000f10000001700ffffff000004e6000003d700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Width: 1780
   X: 0

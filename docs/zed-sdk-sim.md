@@ -58,7 +58,7 @@ Every row is a deliberate deviation. Rows marked **hardware to-do** must be re-c
 
 | Area | Sim (`sdk`) | Real drone | Where it is set / what to do |
 |---|---|---|---|
-| IMU in the stream | one sample per rendered frame (30 Hz sim time), orientation + acceleration only | 400 Hz gyro + accel | the SDK cannot fuse it: `pos_tracking.imu_fusion: false` and `sensors.sensors_image_sync: true` in the `sim:` block of `docker/zed/zed.yaml`. **Hardware to-do:** tracking quality with `imu_fusion: true` is only measurable on the camera |
+| IMU in the stream | one sample per rendered frame (30 Hz sim time), orientation + acceleration only | 400 Hz gyro + accel | the SDK cannot fuse it: `pos_tracking.imu_fusion: false` and `sensors.sensors_image_sync: true` in the `sim:` block of `docker/zed/zed.yaml`. The SDK also reads it **90° rolled** (wrapper `imu/data` at rest: accel +9.81 on y, rpy 90/0/−90), so the `sim:` block sets `set_gravity_as_origin: false`: with it on, the spatial map (`mapping/fused_cloud`) is rolled 90° about x (docs/todo.md, 2026-10-21). **Hardware to-do:** tracking quality with `imu_fusion: true` is only measurable on the camera |
 | `zed/zed_node/imu/data` | published by the **sim** from a physics IMU on the vehicle body (250 Hz sim time) | published by the wrapper | the streamed ZED has no usable sensor channel (`getSensorsData: INVALID FUNCTION PARAMETERS`); same topic, frame and type |
 | Tracking mode | `AUTO` (= GEN_3), visual-only | `AUTO` (= GEN_3), visual-inertial | `pos_tracking_mode: AUTO` in both. GEN_3 with the default IMU fusion aborts in sim: `HIGH FREQUENCY SENSORS DATA REQUIRED` then FATAL |
 | Intrinsics | the extension's `ZED_M` lens: HD720 `fx` = 529.8 px, baseline 63.0 mm | your unit's factory calibration (the SDK downloads it by serial) | read `camera_info`; never hard-code `K`. **Hardware to-do:** record the real `K` in `docs/hardware.md` |
@@ -165,7 +165,7 @@ streaming starts: fx = 529.8 px at HD720, the same as the wrapper's `camera_info
 - Extension: `docker/zed/zed-isaac-sim` @ `v5.2.1` (`529e538`; a branch upstream, so the SHA is the pin), fetched by
   `scripts/fetch_sources.sh`, built by `docker/zed/build_isaac_ext.sh`. v5.2.x declares Kit 110.1.2 (Isaac Sim 6.0.1); our
   base image is 6.0.0 (Kit 110.1.1), so the build script widens the load gate to both. Moving `ISAAC_TAG` to 6.0.1 removes that patch.
-- ZED SDK `5.4.1` (the extension needs >= 5.4.1 on the receiving side), `zed-ros2-wrapper` `v5.4.1`.
+- ZED SDK `5.4.1` (the extension needs >= 5.4.1 on the receiving side), `zed-ros2-wrapper` master `b19902d` (ADR-011: R9 fix).
 - Stereolabs docs: [Isaac Sim integration](https://docs.stereolabs.com/docs/integrations/isaac-sim/),
   [old extension (< 4.0)](https://docs.stereolabs.com/docs/integrations/isaac-sim/old-version-of-the-zed-extension-for-isaac-sim),
   [depth sensing](https://docs.stereolabs.com/docs/tutorials/depth-sensing),

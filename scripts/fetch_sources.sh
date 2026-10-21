@@ -25,7 +25,15 @@ elif [[ "$PEGASUS_TAG" =~ ^pr([0-9]+)-([0-9a-f]+)$ ]]; then
 else
   clone "$PEGASUS_REPO" "$PEGASUS_TAG" "$SIM/PegasusSimulator"
 fi
-clone "$ZED_WRAPPER_REPO" "v${ZED_SDK}" "$ZED/zed-ros2-wrapper"
+if [[ "$ZED_WRAPPER_REF" =~ ^[0-9a-f]{7,40}$ ]]; then
+  # A commit on upstream master, not a tag (ADR-011): full clone, then check out the pinned SHA on branch `local` (docs/sources.md).
+  if [[ -e "$ZED/zed-ros2-wrapper/.git" ]]; then echo "exists: docker/zed/zed-ros2-wrapper"; else
+    git clone --no-checkout "$ZED_WRAPPER_REPO" "$ZED/zed-ros2-wrapper"
+    git -C "$ZED/zed-ros2-wrapper" checkout -B local "$ZED_WRAPPER_REF"
+  fi
+else
+  clone "$ZED_WRAPPER_REPO" "$ZED_WRAPPER_REF" "$ZED/zed-ros2-wrapper"
+fi
 clone "$ZED_ISAAC_EXT_REPO" "$ZED_ISAAC_EXT_TAG" "$ZED/zed-isaac-sim"   # built by docker/zed/build_isaac_ext.sh (./bisg zed build)
 if [[ "${WITH_PX4:-0}" == "1" ]]; then   # ~1 GB even shallow; only for reading/patching firmware
   clone "$PX4_REPO" "$PX4_TAG" "$SIM/PX4-Autopilot" --recursive --shallow-submodules

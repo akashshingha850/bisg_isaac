@@ -45,6 +45,7 @@ cmd_up(){
   local profile=sim; [[ $mode == headless ]] && profile=sim-headless
   if container_running "$SIM_NAME"; then warn "$SIM_NAME already running (./bisg status). Use restart."; return 0; fi
   gpu_preflight || exit 1
+  "$(dirname "$0")/tailscale.sh" follow on || true    # TAILSCALE_WITH_SIM=1: the tailnet comes up with the sim (before the address below)
   # SIM_VIEW_ADDR=tailscale -> this host's tailnet IP (what WebRTC advertises); only matters when something is served
   if [[ "$VIEW_STREAM" != off ]]; then resolve_view_addr; elif [[ "${SIM_VIEW_ADDR:-}" == tailscale ]]; then export SIM_VIEW_ADDR=""; fi
   # scenario: -c flag > SIM_CONFIG exported in the shell > SIM_SCENARIO (config file) > compose default
@@ -198,7 +199,7 @@ foxglove_ui(){
   [[ $1 == foxglove ]] || return 0
   if [[ $2 == down ]]; then compose --profile tools stop lichtblick >/dev/null 2>&1; compose --profile tools rm -f lichtblick >/dev/null 2>&1; return 0; fi
   compose --profile tools up -d lichtblick >/dev/null 2>&1 || { warn "foxglove web UI (lichtblick) did not start"; return 0; }
-  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/raptor.json; all addresses: ./bisg info):"
+  ok "foxglove web UI (VS Code: Simple Browser: Show; layout docker/ros/foxglove/${FOXGLOVE_LAYOUT}.json; all addresses: ./bisg info):"
   echo "         $(foxglove_url localhost)"
 }
 ros_tool_stop(){
@@ -289,12 +290,12 @@ cmd_config(){
   local k v
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
-  show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS
+  show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS TAILSCALE_MODE TAILSCALE_WITH_SIM
   show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
-  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_UI_PORT
+  show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_UI_PORT FOXGLOVE_LAYOUT
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD
-  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_ISAAC_EXT_TAG TAILSCALE_TAG LICHTBLICK_TAG ISAAC_IMAGE ROS_BASE_IMAGE
+  show "pins"       ISAAC_TAG PX4_TAG PEGASUS_TAG ZED_SDK ZED_WRAPPER_REF ZED_ISAAC_EXT_TAG TAILSCALE_TAG LICHTBLICK_TAG ISAAC_IMAGE ROS_BASE_IMAGE
   show "links"      PEGASUS_REPO ZED_WRAPPER_REPO ZED_ISAAC_EXT_REPO PX4_REPO ARCHIVE_DIR BAG_DIR
   info "resolved for the next ./bisg up"
   view_parse
@@ -315,9 +316,12 @@ cmd_all(){
   if [[ ",$PX4_BRIDGE," == *,mavros,* ]]; then cmd_mavros state; else "$(dirname "$0")/px4-bridge.sh" status; fi
 }
 bag_close(){ container_running "$ROS_NAME" && "$(dirname "$0")/bag.sh" stop || true; }   # a bag must be closed before its recorder dies
-cmd_stop(){ bag_close; info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; }
-cmd_down(){ bag_close; info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null; }
-cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down; cmd_up ${m:-} "$@"; }
+tailnet_off(){ "$(dirname "$0")/tailscale.sh" follow off || true; }   # TAILSCALE_WITH_SIM=1: the tailnet goes down with the sim
+cmd_stop(){ bag_close; info "stopping"; compose "${ALL_PROFILES[@]}" stop; docker stop $(docker ps -q --filter 'name=^bisg-(mavros|mavsdk|xrce)-[0-9]+$') >/dev/null 2>&1 || true; tailnet_off; }
+# down --keep-tailscale: restart must not cut a session that came in over the tailnet
+cmd_down(){ bag_close; info "removing containers (caches kept)"; compose "${ALL_PROFILES[@]}" down --remove-orphans; "$(dirname "$0")/px4-bridge.sh" down --all >/dev/null
+            [[ "${1:-}" == --keep-tailscale ]] || tailnet_off; }
+cmd_restart(){ local m=""; container_running "$SIM_NAME" && { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$SIM_NAME" | grep -q "SIM_HEADLESS=1" && m=headless || m=gui; }; cmd_down --keep-tailscale; cmd_up ${m:-} "$@"; }
 
 case "${1:-}" in
   up) shift; cmd_up "$@";; wait) shift; cmd_wait "$@";; status) cmd_status;; logs) shift; cmd_logs "$@";;

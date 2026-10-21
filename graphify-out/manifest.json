@@ -12,10 +12,10 @@
     "semantic_hash": "7a05235a35ee56ed6ba3027dc52214e3"
   },
   "scripts/_common.sh": {
-    "mtime": 1792017347.2474644,
-    "seen": 1792420016.3148346,
-    "ast_hash": "82bd5dfb85492a5de93ca41faa40380f",
-    "semantic_hash": "82bd5dfb85492a5de93ca41faa40380f"
+    "mtime": 1792450106.6567214,
+    "seen": 1792490802.7483912,
+    "ast_hash": "2a788fbfdecbf886b63d917b070b20a5",
+    "semantic_hash": "2a788fbfdecbf886b63d917b070b20a5"
   },
   "scripts/check_env.sh": {
     "mtime": 1791679152.030386,
@@ -30,10 +30,10 @@
     "semantic_hash": "cb16f4aa95802569c9adf7905379e0a8"
   },
   "scripts/launch.sh": {
-    "mtime": 1791900848.607335,
-    "seen": 1792420016.3148384,
-    "ast_hash": "2689f4692de571a0148f81da86a8bc8a",
-    "semantic_hash": "2689f4692de571a0148f81da86a8bc8a"
+    "mtime": 1792450113.3937647,
+    "seen": 1792490802.7483957,
+    "ast_hash": "59054d1c52f96442915d5f76c76a374e",
+    "semantic_hash": "59054d1c52f96442915d5f76c76a374e"
   },
   "scripts/pull_images.sh": {
     "mtime": 1791679152.0306044,
@@ -53,53 +53,11 @@
     "ast_hash": "7612d2a3fb1e2a052d85a83d35299d69",
     "semantic_hash": "7612d2a3fb1e2a052d85a83d35299d69"
   },
-  ".claude/skills/jetson-deploy/SKILL.md": {
-    "mtime": 1791679152.0226135,
-    "seen": 1792420016.3148563,
-    "ast_hash": "8ba1f604f769a8723ef72ad4f0392779",
-    "semantic_hash": "8ba1f604f769a8723ef72ad4f0392779"
-  },
-  ".claude/skills/mavros-ops/SKILL.md": {
-    "mtime": 1791679152.0226972,
-    "seen": 1792420016.3148572,
-    "ast_hash": "43cea1c436591fc11636dea6167607ca",
-    "semantic_hash": "43cea1c436591fc11636dea6167607ca"
-  },
-  ".claude/skills/px4-sitl/SKILL.md": {
-    "mtime": 1791679152.0227306,
-    "seen": 1792420016.3148577,
-    "ast_hash": "abe57b6240cb247c7eef9fff582dc81e",
-    "semantic_hash": "abe57b6240cb247c7eef9fff582dc81e"
-  },
-  ".claude/skills/sim-launch/SKILL.md": {
-    "mtime": 1791679152.0236726,
-    "seen": 1792420016.314861,
-    "ast_hash": "4f1af351d3a28260e3b6751e9da0c3df",
-    "semantic_hash": "4f1af351d3a28260e3b6751e9da0c3df"
-  },
-  ".claude/skills/sim-regression/SKILL.md": {
-    "mtime": 1792048063.4091756,
-    "seen": 1792420016.3148613,
-    "ast_hash": "4b181dc96e4c5e88d2fc40e06f221954",
-    "semantic_hash": "4b181dc96e4c5e88d2fc40e06f221954"
-  },
-  ".claude/skills/swarm-spawn/SKILL.md": {
-    "mtime": 1791679152.0242772,
-    "seen": 1792420016.3148646,
-    "ast_hash": "53161da83d6c51602003cc7ddb018c56",
-    "semantic_hash": "53161da83d6c51602003cc7ddb018c56"
-  },
-  ".claude/skills/zed-contract/SKILL.md": {
-    "mtime": 1791679152.0243192,
-    "seen": 1792420016.314865,
-    "ast_hash": "ad1c9b2356c569055a9bd14e22d88ae6",
-    "semantic_hash": "ad1c9b2356c569055a9bd14e22d88ae6"
-  },
   "CLAUDE.md": {
-    "mtime": 1792416251.615374,
-    "seen": 1792420016.314866,
-    "ast_hash": "7eadda806e42b3fa94a22a29db7f9dc0",
-    "semantic_hash": "7eadda806e42b3fa94a22a29db7f9dc0"
+    "mtime": 1792450134.2667334,
+    "seen": 1792490802.748412,
+    "ast_hash": "fcbf79fe501c2a78ab8e7b4fd48cb24c",
+    "semantic_hash": "fcbf79fe501c2a78ab8e7b4fd48cb24c"
   },
   "README.md": {
     "mtime": 1792416251.6158557,
@@ -114,10 +72,10 @@
     "semantic_hash": "229257d6800c39027cc1740c1f616da8"
   },
   "docker/compose.yaml": {
-    "mtime": 1792336420.2052665,
-    "seen": 1792420016.3148675,
-    "ast_hash": "3bb65d3e9acb685cb907e59a7da80978",
-    "semantic_hash": "3bb65d3e9acb685cb907e59a7da80978"
+    "mtime": 1792450130.6312954,
+    "seen": 1792490802.7484128,
+    "ast_hash": "59f5e4321e970ec761672dffce3cada6",
+    "semantic_hash": "59f5e4321e970ec761672dffce3cada6"
   },
   "docker/zed/README.md": {
     "mtime": 1791679152.027772,
@@ -192,10 +150,10 @@
     "semantic_hash": "ca97d952f9a5dd8b9d1f803adcd1256e"
   },
   "docs/remote-access.md": {
-    "mtime": 1791900909.3993871,
-    "seen": 1792420016.3148847,
-    "ast_hash": "1751740c646380fad7829d2cdaca0dab",
-    "semantic_hash": "1751740c646380fad7829d2cdaca0dab"
+    "mtime": 1792450130.6312163,
+    "seen": 1792490802.7484322,
+    "ast_hash": "f35fbad95dff98224012483580722518",
+    "semantic_hash": "f35fbad95dff98224012483580722518"
   },
   "docs/roadmap.md": {
     "mtime": 1791679152.0298314,
@@ -222,10 +180,10 @@
     "semantic_hash": "c1debf807547cea8a8ee340785a6d929"
   },
   "docs/todo.md": {
-    "mtime": 1792416210.9460661,
-    "seen": 1792420016.3148873,
-    "ast_hash": "acbbb866813defe2e89eea887c5723dd",
-    "semantic_hash": "acbbb866813defe2e89eea887c5723dd"
+    "mtime": 1792450493.895918,
+    "seen": 1792490802.7484348,
+    "ast_hash": "055f7a052ded8b790f2aa6ddf73ea132",
+    "semantic_hash": "055f7a052ded8b790f2aa6ddf73ea132"
   },
   "docker/ros/entrypoint.sh": {
     "mtime": 1791679152.024977,
@@ -419,12 +377,6 @@
     "ast_hash": "7e97e6466e41ce6500e2ac86a20a5713",
     "semantic_hash": "7e97e6466e41ce6500e2ac86a20a5713"
   },
-  ".claude/skills/zed-sdk/SKILL.md": {
-    "mtime": 1791679152.024356,
-    "seen": 1792420016.3148656,
-    "ast_hash": "1d93b7a5f44452d417227b985bed9ccf",
-    "semantic_hash": "1d93b7a5f44452d417227b985bed9ccf"
-  },
   "docker/ros/mavros_lean.yaml": {
     "mtime": 1792047704.012795,
     "seen": 1792420016.3148685,
@@ -600,10 +552,10 @@
     "semantic_hash": "a02f523d9d78c8ef1e8cde5acad7144f"
   },
   "scripts/tailscale.sh": {
-    "mtime": 1791900848.607394,
-    "seen": 1792420016.3148413,
-    "ast_hash": "f8a907c0412c3be72ad252b610dd5c0a",
-    "semantic_hash": "f8a907c0412c3be72ad252b610dd5c0a"
+    "mtime": 1792450091.9804225,
+    "seen": 1792490802.7483988,
+    "ast_hash": "997150fe381e2eec1d37840790d6d189",
+    "semantic_hash": "997150fe381e2eec1d37840790d6d189"
   },
   "docker/ros/tools.yaml": {
     "mtime": 1791884488.586173,
@@ -618,10 +570,10 @@
     "semantic_hash": "c25c9d8ebbf9e28086aa77ebda734e18"
   },
   "docs/decisions/ADR-009-remote-access-tailscale.md": {
-    "mtime": 1791680023.2720356,
-    "seen": 1792420016.3148804,
-    "ast_hash": "8d60aadba31b61bb497bfd642ca9ad1c",
-    "semantic_hash": "8d60aadba31b61bb497bfd642ca9ad1c"
+    "mtime": 1792450130.6313634,
+    "seen": 1792490802.7484283,
+    "ast_hash": "9287a05c0b8f99874cdb6b47c54a69fe",
+    "semantic_hash": "9287a05c0b8f99874cdb6b47c54a69fe"
   },
   "docker/zed/ros_env.sh": {
     "mtime": 1791679152.0278625,
@@ -654,16 +606,16 @@
     "semantic_hash": "cfff8991ab6518bb4ae948279d42ac10"
   },
   "docker/ros/foxglove/make_layout.py": {
-    "mtime": 1791971248.8644347,
-    "seen": 1792420016.3147445,
-    "ast_hash": "ba8af3a9571bab672730881b898959c2",
-    "semantic_hash": "ba8af3a9571bab672730881b898959c2"
+    "mtime": 1792452748.3247025,
+    "seen": 1792490802.7483706,
+    "ast_hash": "fa26999ff476eb1eeba62a1e63364284",
+    "semantic_hash": "fa26999ff476eb1eeba62a1e63364284"
   },
   "docker/ros/foxglove/raptor.json": {
-    "mtime": 1791971248.8817751,
-    "seen": 1792420016.3147452,
-    "ast_hash": "df16c5391b557bdc4d0572510f5a3344",
-    "semantic_hash": "df16c5391b557bdc4d0572510f5a3344"
+    "mtime": 1792452748.3460758,
+    "seen": 1792490802.7483714,
+    "ast_hash": "e5570ee0e3defde683ddc3fd71f751dc",
+    "semantic_hash": "e5570ee0e3defde683ddc3fd71f751dc"
   },
   "docker/ros/ros2_ws/src/bisg_vehicle/bisg_vehicle/mission_square.py": {
     "mtime": 1791679152.0252993,
@@ -792,10 +744,10 @@
     "semantic_hash": "f7d67746a623a43e5f467bfd10402f0f"
   },
   "scripts/info.sh": {
-    "mtime": 1791900888.1745782,
-    "seen": 1792420016.3148377,
-    "ast_hash": "7bbdddd1a162413deb6028445485fdd8",
-    "semantic_hash": "7bbdddd1a162413deb6028445485fdd8"
+    "mtime": 1792450575.2057722,
+    "seen": 1792490802.7483947,
+    "ast_hash": "1d5c51bf76f4bfbb9d36cbb634d409e8",
+    "semantic_hash": "1d5c51bf76f4bfbb9d36cbb634d409e8"
   },
   "scripts/install_host_ros.sh": {
     "mtime": 1791801464.5778623,
@@ -906,10 +858,10 @@
     "semantic_hash": "519e8153d08ca15e1953ed65c842fa7c"
   },
   "docker/ros/foxglove/README.md": {
-    "mtime": 1791896299.2353308,
-    "seen": 1792420016.3148682,
-    "ast_hash": "1eb6b4aec7eec0cc45923ec2f7853995",
-    "semantic_hash": "1eb6b4aec7eec0cc45923ec2f7853995"
+    "mtime": 1792452987.0021608,
+    "seen": 1792490802.748414,
+    "ast_hash": "91f129c582cc72f699e75e4831eed88c",
+    "semantic_hash": "91f129c582cc72f699e75e4831eed88c"
   },
   "docker/sim/assets/README.md": {
     "mtime": 1791689744.6511693,
@@ -976,5 +928,11 @@
     "seen": 1792420016.3148892,
     "ast_hash": "0f84fc33bf6bea2de8b8925636f60b83",
     "semantic_hash": "0f84fc33bf6bea2de8b8925636f60b83"
+  },
+  "docker/ros/foxglove/kinetix.json": {
+    "mtime": 1792452748.34655,
+    "seen": 1792490802.7483697,
+    "ast_hash": "c1e04d05879f65b4c7930687e9108013",
+    "semantic_hash": "c1e04d05879f65b4c7930687e9108013"
   }
 }

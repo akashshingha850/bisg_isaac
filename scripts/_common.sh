@@ -53,7 +53,7 @@ while read -r _f; do load_conf "$_f" "config/$(basename "$_f")"; done < <(conf_f
 # Fallbacks so the scripts still work with no config file at all; keep in sync with config/bisg.conf.
 conf_default SIM_VIEW gui+webrtc;        conf_default SIM_SCENARIO /workspace/docker/sim/sim.yaml;  conf_default SIM_WAIT_TIMEOUT 600
 conf_default SIM_GPU all;         conf_default ZED_GPU all;         conf_default ZED_AUTOSTART 1;     conf_default ROS_TOOLS_AUTOSTART 1;     conf_default SIM_WEB_PORT 8899;    conf_default SIM_WEB_INTERVAL 1.0
-conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550;  conf_default FOXGLOVE_UI_PORT 8080
+conf_default ROS_DOMAIN_ID auto;   conf_default DRONE_ID 1;                conf_default MAVLINK_GCS_PORT 14550;  conf_default FOXGLOVE_UI_PORT 8080;  conf_default FOXGLOVE_LAYOUT raptor
 # ROS_DOMAIN_ID=auto: one stable domain per machine (1..99, from the hostname), so two workstations on one LAN never see each other's
 # /drone_N topics (CycloneDDS multicast discovery crosses the LAN). A number set in docker/.env or the environment wins.
 if [[ "$ROS_DOMAIN_ID" == auto ]]; then
@@ -61,9 +61,9 @@ if [[ "$ROS_DOMAIN_ID" == auto ]]; then
   BISG_SRC[ROS_DOMAIN_ID]="${BISG_SRC[ROS_DOMAIN_ID]:-built-in} (auto from hostname)"
 fi
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG local-08c9954
-conf_default ZED_SDK 5.4.1;        conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
+conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF b19902daf0136b6e841b5e415c2d01f425411c45;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
-conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto
+conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto; conf_default TAILSCALE_WITH_SIM 1
 conf_default PX4_BRIDGE mavros
 conf_default MAVROS_PLUGINS lean;  conf_default MAVSDK_PORT 50051;          conf_default XRCE_PORT 8888;  conf_default XRCE_BAUD 921600
 conf_default ROS_BASE_IMAGE ros:jazzy-ros-base
@@ -130,11 +130,11 @@ stream_addr(){
   echo "${ip:-127.0.0.1}"
 }
 lan_ip(){ ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1 || true; }
-# Foxglove web UI link for a host (localhost, LAN or tailnet address): connects to the bridge and loads docker/ros/foxglove/raptor.json.
-FOXGLOVE_BRIDGE_PORT=8765     # foxglove_bridge's default port (docker/ros/tools.yaml)
+# Foxglove web UI link for a host (localhost, LAN or tailnet address): connects to the bridge and loads docker/ros/foxglove/$FOXGLOVE_LAYOUT.json.
+export FOXGLOVE_BRIDGE_PORT=8765   # foxglove_bridge's default port (docker/ros/tools.yaml); the UI proxies it at /ws (docker/ros/foxglove/Caddyfile)
 foxglove_url(){
   local h="${1:-localhost}"; local ui="http://${h}:${FOXGLOVE_UI_PORT:-8080}"
-  echo "${ui}/?ds=foxglove-websocket&ds.url=ws://${h}:${FOXGLOVE_BRIDGE_PORT}&layoutUrl=${ui}/layouts/raptor.json"
+  echo "${ui}/?ds=foxglove-websocket&ds.url=ws://${h}:${FOXGLOVE_UI_PORT:-8080}/ws&layoutUrl=${ui}/layouts/${FOXGLOVE_LAYOUT:-raptor}.json"
 }
 # SIM_VIEW is the one knob for the window and the remote view. It resolves into the two things
 # the container actually takes: which compose profile (SIM_HEADLESS) and what the launcher serves

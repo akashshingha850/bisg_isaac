@@ -45,7 +45,7 @@ row "WebRTC" "$(state listening "$STREAM_SIGNAL_PORT")" "Isaac Sim WebRTC Stream
 
 info "Foxglove (bridge ws :${FOXGLOVE_BRIDGE_PORT} in ${ROS_NAME}, web UI :${FOXGLOVE_UI_PORT} = lichtblick; ./bisg ros start foxglove)"
 row "bridge" "$(state listening "$FOXGLOVE_BRIDGE_PORT")" "ws://<address>:${FOXGLOVE_BRIDGE_PORT}   (also for the Foxglove desktop app)"
-row "web UI" "$(state container_running bisg-lichtblick)" "VS Code: 'Simple Browser: Show'; over Remote-SSH forward ${FOXGLOVE_UI_PORT} + ${FOXGLOVE_BRIDGE_PORT} and use local"
+row "web UI" "$(state container_running bisg-lichtblick)" "VS Code: 'Simple Browser: Show'; over a VS Code tunnel / Remote-SSH forward port ${FOXGLOVE_UI_PORT} in the Ports panel (only that one; bridge proxied at /ws)"
 each foxglove_url
 
 info "QGroundControl"

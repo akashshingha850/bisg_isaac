@@ -101,14 +101,14 @@ global_localization:
 
 # --- SDK module: Spatial mapping (fused colour point cloud of everything seen) -------------------------------------
 spatial_mapping:
-  enabled: false                    # mapping/fused_cloud
+  enabled: true                     # mapping/fused_cloud
   resolution: 0.05                  # m per voxel, 0.01-0.2
-  max_mapping_range: 5.0            # m, 2-20
+  max_mapping_range: 8.0            # m, 2-20
   fused_pointcloud_freq: 1.0        # Hz
 
 # --- SDK module: Plane detection (floor / wall plane at a clicked point) -------------------------------------------
 plane_detection:
-  enabled: false                    # plane, plane_marker (needs positional tracking)
+  enabled: true                    # plane, plane_marker (needs positional tracking)
   pd_max_distance_threshold: 0.15
   pd_normal_similarity_threshold: 15.0
 
@@ -177,9 +177,8 @@ services:
   # ZED video -> RTP/H.264 UDP -> QGroundControl (Application Settings > Video > UDP h.264, port below)
   qgc_video:
     enabled: true
-    layout: grid                    # grid = ONE 2x2 picture: left | chase view (sim: /drone_N/chase/image) / depth | PMW3901 optical flow (PX4 via MAVROS
-                                    # px4flow, drawn by the video node; not from the ZED). single = the one `topic` below as it comes. Both layouts
-                                    # publish the flow drawing as /drone_N/optical_flow/image
+    layout: grid                    # grid = ONE 2x2 picture: left | chase view (sim: /drone_N/chase/image) / depth | depth confidence (needs
+                                    # depth.publish_depth_confidence; red = unsure), as the Foxglove Camera tab. single = the one `topic` below as it comes
     width: 1280                     # grid: width of the whole picture in px, each tile is half of it (1280 -> 4 x 640x360, as 1280x720 H.264)
     topic: ''                       # single only; empty = left/color/rect/image of this drone
     host: 127.0.0.1                 # where QGC runs: 127.0.0.1 = this machine; a LAN or tailnet IP for a remote QGC (or ./bisg zed video --video-host)
@@ -196,6 +195,10 @@ sim:
     # The extension streams orientation + acceleration once per rendered frame, never the 400 Hz gyro+accel stream of the
     # real camera. GEN_3 refuses to fuse a low-rate IMU ("HIGH FREQUENCY SENSORS DATA REQUIRED" -> wrapper FATAL).
     imu_fusion: false
+    # The SDK reads the streamed ZED Mini IMU 90 deg rolled (wrapper imu/data at rest: accel +9.81 on y, rpy 90/0/-90; the sim's own
+    # IMU: +9.81 on z). Tracking ignores it (imu_fusion off), but the gravity alignment does not: with it on, spatial mapping's
+    # fused_cloud came out rolled 90 deg about x (floor as a wall). Off = the world is the start pose, level on the ground (2026-10-21).
+    set_gravity_as_origin: false
   sensors:
     # Without this the wrapper polls the (absent) sensor channel on every grab and logs
     # "sl::getSensorsData error: INVALID FUNCTION PARAMETERS" thousands of times a minute.

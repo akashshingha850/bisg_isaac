@@ -34,9 +34,8 @@ the live graph on 2026-10-10 (workstation A). It is a reading guide. The **contr
  ┌─ bisg-zed-bridge-1: /zed_px4_bridge ────────────────────────────────────────────────────────────┘  odometry/out (VIO, off in sim)
  │  health (status/health, pose/status, depth) · obstacle_distance (depth + camera_info) · odometry (odom, pose/status)
  │  publishes /drone_1/zed_stack/status
- ├─ bisg-zed-video-1: /video_stream ─ left + chase + depth + mavros/px4flow ─► 2x2 mosaic ─► RTP/H.264 UDP 5600 ─► QGC
- │                                                        └─► /drone_1/optical_flow/image (PMW3901 flow drawn)
- └─ bisg-ros: /rviz (left, chase, depth, flow, point cloud, odom, path_odom, TF) · /rqt_gui_py_node_* · test scripts
+ ├─ bisg-zed-video-1: /video_stream ─ left + chase + depth + confidence ─► 2x2 mosaic ─► RTP/H.264 UDP 5600 ─► QGC
+ └─ bisg-ros: /rviz (left, chase, depth, point cloud, odom, path_odom, TF) · /rqt_gui_py_node_* · test scripts
 ```
 
 **Five links do not use ROS.** Pegasus ↔ PX4 (MAVLink TCP 4560), PX4 ↔ MAVROS (MAVLink UDP, port derived from `DRONE_ID`), Isaac's ZED twin → SDK (shared memory, `ipc: host`),
@@ -59,7 +58,7 @@ video → QGC (RTP/UDP 5600), and MAVROS → QGC (MAVLink, when `GCS_URL` is set
 | `/drone_1/zed/zed_state_publisher` | `bisg-zed-1` | `robot_state_publisher` for the ZED URDF: `zed_camera_link → center → left/right → optical` | with the ZED |
 | `/launch_ros_1`, `transform_listener_impl_*` | ZED / MAVROS / RViz | the launch process and TF-listener helpers inside other nodes; no data of their own | infrastructure |
 | `/zed_px4_bridge` | `bisg-zed-bridge-1` (`zed_stack.bridge`) | ZED → PX4 through MAVROS: **health** (STATUSTEXT to QGC), **obstacle_distance** (72 sectors → PX4 collision prevention), **odometry** (VIO → EKF2, GPS-denied only) | whenever PX4 should use the ZED |
-| `/video_stream` | `bisg-zed-video-1` (`zed_stack.video`) | QGC video: 2x2 mosaic (left / chase / depth / PMW3901 flow) as H.264 RTP, and `optical_flow/image` | only while someone watches QGC |
+| `/video_stream` | `bisg-zed-video-1` (`zed_stack.video`) | QGC video: 2x2 mosaic (left / chase / depth / depth confidence) as H.264 RTP | only while someone watches QGC |
 | `/rviz`, `/rqt_gui_py_node_*` | `bisg-ros` (`ROS_TOOLS_AUTOSTART`, `docker/ros/tools.yaml`) | operator views | only while someone looks at them |
 | test scripts (`vio_flight_test`, `range_flow_bench`, …) | `bisg-ros` | flights and checks; they stream setpoints and read ground truth | during a test |
 
@@ -77,7 +76,7 @@ PX4 OFFBOARD. Feedback: `mavros/state` (1 Hz), `mavros/local_position/{pose,odom
 `zed_node/status/health` + `pose/status` + depth valid fraction → bridge `health` → `mavros/statustext/send` + `zed_stack/status`.
 `zed_node/odom` → bridge `odometry` → `mavros/odometry/out` → EKF2 external vision (GPS-denied scenarios only, `services.px4_bridge.odometry`).
 
-**C. Operator views.** `zed_node` images, depth and point cloud → RViz. Images and depth → `video_stream` → QGC; `mavros/px4flow` (PMW3901) → `video_stream` → the QGC flow tile and `optical_flow/image` → RViz.
+**C. Operator views.** `zed_node` images, depth and point cloud → RViz. Images and depth → `video_stream` → QGC; `mavros/px4flow` (PMW3901) → Foxglove plots (the `optical_flow/image` drawing was removed 2026-10-21).
 
 **D. Truth and time (sim only).** `/clock` → every node with `use_sim_time`. `/drone_1/state/*` → tests.
 
@@ -106,7 +105,6 @@ Measured with RViz and QGC video running:
 | `right/color/rect/image` | – | **0**: no subscriber since 2026-10-10 (the chase view replaced it in RViz and the mosaic), so the wrapper does not send it | – |
 | `depth/depth_registered` (32FC1) | 9–19 Hz | ≈ 70 MB/s **per subscriber** | rviz, video_stream, bridge **×2** |
 | `point_cloud/cloud_registered` | ~10 Hz | ≈ 20 MB/s | rviz only |
-| `optical_flow/image` (PMW3901 drawing; replaced the ZED Farneback `zed/video/optical_flow` 2026-10-14) | ~5 Hz wall (10 Hz sim) | ≈ 3.5 MB/s (640x360 bgr8) | rviz only |
 | `zed_node/imu/data` | 72 Hz combined | small | **none** (two publishers, R1) |
 | `/clock` | 26 Hz | small | ~25 nodes |
 | `/drone_1/state/pose` | 72 Hz | small | tests |
@@ -127,7 +125,7 @@ costs a few MB/s (the bridge's depth only).
 | R6 | **`video_stream` runs by default** (`services.qgc_video.enabled: true`): 3 full-rate subscriptions + Farneback, ~0.5 core | costs CPU even when QGC is closed | enable it only when QGC is watched (`./bisg zed video`), or `enabled: false` by default |
 | R7 | **MAVROS plugins with no consumer in today's flows**: `global_position` (GPS-denied scenarios), `home_position`, `setpoint_velocity`, `vision_pose` (the bridge uses `odometry`), `landing_target`, `debug_value`, `onboard_computer_status`; plus `distance_sensor`'s stock placeholders `lidarlite_pub`, `sonar_1_sub`, `laser_1_sub` | small (one node each, low-rate MAVLink), but 20 nodes and ~90 topics to read through | trim to what a flow uses, keep the ones planned (landing_target for M6). `MAVROS_PLUGINS=lean` stays the knob |
 | R8 | **MAVROS router topics are global** (`/uas1/mavlink_source`, `/uas1/mavlink_sink`), not under `/drone_1` | with two drones both routers would use `/uas1` (not tested yet) | set a per-drone `uas_url` in `docker/px4-bridge/entrypoint.sh` before the swarm phase; `/clicked_point` (plane detection) is global for the same reason |
-| R9 | **Open.** The wrapper dies with `terminate ... std::runtime_error: can't compare times with different time sources` (exit -6): 2026-10-10 after 22 and 27 min (log `/opt/docker-archive/zed_wrapper_crash_20261010T0958Z.log`), 2026-10-15 17 s after tracking started, 2026-10-17 ~24 min into a flight. R2 (`publish_map_tf` off) did not fix it. The launch exits on the crash, so the `zed` container goes down (sim: stays down, B18) | all ZED topics stop; the bridge reports `camera lost`; EKF2 loses EV and holds on flow + range | the wrapper's own Time comparisons are all ROS-clock, so the throw is likely in a library; `docker/zed/debug/terminate_bt.cpp` is preloaded in the `zed` service and prints the throw-site stack on the next crash (`docker logs bisg-zed-1 \| grep terminate_bt`) |
+| R9 | **Fixed 2026-10-21** (ADR-011: wrapper on upstream master `b19902d`, PR #460; throw site `handleVideoDepthPublishing()`, a default-clock `pub_ts` compared with `TIMEZERO_ROS` when `sensors_image_sync` is on, docs/todo.md). History: the wrapper died with `terminate ... std::runtime_error: can't compare times with different time sources` (exit -6): 2026-10-10 after 22 and 27 min (log `/opt/docker-archive/zed_wrapper_crash_20261010T0958Z.log`), 2026-10-15 17 s after tracking started, 2026-10-17 ~24 min into a flight. R2 (`publish_map_tf` off) did not fix it. The launch exits on the crash, so the `zed` container goes down (sim: stays down, B18) | all ZED topics stop; the bridge reports `camera lost`; EKF2 loses EV and holds on flow + range | the wrapper's own Time comparisons are all ROS-clock, so the throw is likely in a library; `docker/zed/debug/terminate_bt.cpp` is preloaded in the `zed` service and prints the throw-site stack on the next crash (`docker logs bisg-zed-1 \| grep terminate_bt`) |
 | R10 | `/clock` is published at ~26 Hz (wall) at RTF 0.65, not every physics step as the contract says | sim-time timers are quantised to ~25 ms | measure against the launcher; correct either the contract or the publisher |
 
 **Not redundant** (looks like it, is not): `mavros_router` + `mavros_node` (MAVROS 2 always splits routing and plugins), the
