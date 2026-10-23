@@ -34,7 +34,7 @@ def parse_args():
 def expand_locator(cfg, path):
     """The locator keys of docker/sim/sim.yaml (what the sim runs) -> the plain scenario keys. `scenario` and `vehicle` are
     files loaded first (like `extends`), `model` is paths.drone, `world` a Pegasus preset name or a .usd path, `px4_params`
-    is px4.params, `objects` / `light_scale` / `ambient_light` are world.<same key>. Relative paths are relative to the
+    is px4.params, `objects` / `light_scale` / `ambient_light` / `keep_only` / `drop` are world.<same key>. Relative paths are relative to the
     locator file."""
     here = os.path.dirname(path)
 
@@ -57,7 +57,7 @@ def expand_locator(cfg, path):
         cfg["world"] = world
     if "px4_params" in cfg:
         cfg.setdefault("px4", {})["params"] = cfg.pop("px4_params")
-    for key in ("objects", "light_scale", "ambient_light"):
+    for key in ("objects", "light_scale", "ambient_light", "keep_only", "drop"):
         if key in cfg:
             cfg.setdefault("world", {})[key] = cfg.pop(key)
     if cfg.get("spawn"):
@@ -374,6 +374,46 @@ def resolve_vehicle_usd(v_cfg):
     return ROBOTS[model]
 
 
+def keep_only_world_prims(patterns, root="/World/layout"):
+    """Deactivate every top-level prim of the world asset whose name matches none of `patterns` (`world.keep_only`,
+    fnmatch globs), e.g. the Warehouse's racks, pallets and signs, leaving its floor, walls and ceiling. A deactivated
+    prim is gone from rendering, physics and scene queries. The override goes into the session's root layer.
+    null / [] = the asset as authored.
+    """
+    if not patterns:
+        return
+    import fnmatch  # noqa: WPS433
+
+    stage = omni.usd.get_context().get_stage()
+    kept, dropped = 0, 0
+    for prim in stage.GetPrimAtPath(root).GetChildren():
+        if any(fnmatch.fnmatchcase(prim.GetName(), p) for p in patterns):
+            kept += 1
+        else:
+            prim.SetActive(False)
+            dropped += 1
+    LOG.info("world prims: kept %d, deactivated %d (keep_only %s)", kept, dropped, list(patterns))
+
+
+def drop_world_prims(patterns, root="/World/layout"):
+    """Deactivate the prims of the world asset whose path below `root` matches one of `patterns` (`world.drop`, fnmatch
+    globs, one glob per path segment, e.g. `SM_PillarPartA_*/SM_PillarPartA_9M/Section1`): parts inside a referenced
+    asset, which keep_only (top-level names) cannot reach. null / [] = nothing dropped.
+    """
+    if not patterns:
+        return
+    import fnmatch  # noqa: WPS433
+
+    stage = omni.usd.get_context().get_stage()
+    for pattern in patterns:
+        level = [stage.GetPrimAtPath(root)]
+        for seg in pattern.strip("/").split("/"):
+            level = [c for p in level for c in p.GetChildren() if fnmatch.fnmatchcase(c.GetName(), seg)]
+        for prim in level:
+            prim.SetActive(False)
+        LOG.info("world prims: dropped %d matching %s", len(level), pattern)
+
+
 def scale_world_lights(scale, root="/World/layout"):
     """Multiply the intensity of every UsdLux light in the world asset by `scale` (`world.light_scale`).
 
@@ -524,6 +564,7 @@ class App:
         self.pg.initialize_world()
         RenderingManager.set_dt(float(self.pg._world_settings.get("rendering_dt", 1.0 / 60.0)))
         self.vehicles = []
+        self.imu_feeders = []   # zed_sdk_rig.StreamImuFeeder, one per ZED (kept alive for their callbacks)
         self.stop = False
         self.web = WebView(WEB_PORT, WEB_INTERVAL) if WEB_VIEW else None
 
@@ -532,6 +573,8 @@ class App:
         LOG.info("loading world %s", world_usd)
         self.pg.load_asset(world_usd, "/World/layout")   # synchronous (load_environment defers to the first update)
         phase("world asset referenced")
+        keep_only_world_prims(world_cfg.get("keep_only"))
+        drop_world_prims(world_cfg.get("drop"))
         scale_world_lights(world_cfg.get("light_scale"))
         set_ambient_light(world_cfg.get("ambient_light"))
         if world_cfg.get("add_ground_plane", False):
@@ -637,12 +680,16 @@ class App:
         if zed.get("enabled", False):
             from zed_sdk_rig import attach_zed_sdk, publish_imu  # noqa: WPS433
             from zed_features import load_features  # noqa: WPS433
-            attach_zed_sdk(veh, vid, f"/drone_{vid + 1}", zed, pos, Rotation.from_quat(quat))
+            from zed_sdk_rig import StreamImuFeeder  # noqa: WPS433
+            rig = attach_zed_sdk(veh, vid, f"/drone_{vid + 1}", zed, pos, Rotation.from_quat(quat))
             # The streamed ZED has no usable sensor channel (docs/zed-sdk-sim.md): the sim publishes the contract's
             # imu/data itself, from a physics IMU on the vehicle body, unless zed.yaml switches it off.
-            if load_features(zed).on("sensors.publish_imu", True):
-                mount = [float(x) for x in zed.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])][:3]
-                publish_imu(f"{veh.prim_path}/body", f"/drone_{vid + 1}", mount, float(zed.get("imu_rate", 200.0)))
+            mount_all = [float(x) for x in zed.get("mount_xyz_rpy", [0.18, 0.0, -0.02, 0, 0, 0])]
+            imu = publish_imu(f"{veh.prim_path}/body", f"/drone_{vid + 1}", mount_all[:3], float(zed.get("imu_rate", 200.0)),
+                              publish=load_features(zed).on("sensors.publish_imu", True))
+            if zed.get("stream_imu", True):   # high-rate IMU into the ZED stream (ingest_imu), for the SDK's IMU fusion
+                r = mount_all[3:6]
+                self.imu_feeders.append(StreamImuFeeder(imu, rig["port"], Rotation.from_euler("ZYX", r[::-1], degrees=True)))
             LOG.info("vehicle %d: ZED SDK twin attached; start the wrapper with ./bisg zed up", vid)
 
     def run(self):

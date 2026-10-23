@@ -9,6 +9,8 @@
 # the image points it at Isaac's bundled ROS libs, whose libcrypto breaks wget/openssl); output stays in
 # docker/zed/zed-isaac-sim/exts/sl.sensor.camera/bin and is picked up by the sim launcher via --ext-folder.
 # Needs `./bisg setup` (bisg/sim image); clones the extension source itself if it is missing.
+# Local fixes to the pinned extension are docker/zed/patches-isaac-ext/*.patch (the clone is git-ignored, so they are the only
+# record): checked, applied for the build, reverted afterwards; the built bin/ keeps them (docs/zed-sdk-sim.md).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$ROOT/scripts/_common.sh"
@@ -30,7 +32,10 @@ fi
 
 BIN="$EXT/exts/sl.sensor.camera/bin"
 STAMP="$EXT/.bisg-built"
-stamp(){ { git -C "$EXT" rev-parse HEAD; git -C "$EXT" diff HEAD | sha256sum; echo "$IMG"; } 2>/dev/null | tr '\n' ' '; }
+PATCHES=("$ROOT"/docker/zed/patches-isaac-ext/*.patch)
+[[ -e "${PATCHES[0]}" ]] || PATCHES=()
+stamp(){ { git -C "$EXT" rev-parse HEAD; git -C "$EXT" diff HEAD | sha256sum; echo "$IMG"
+           if (( ${#PATCHES[@]} )); then cat "${PATCHES[@]}" | sha256sum; fi; } 2>/dev/null | tr '\n' ' '; }
 if [[ "${1:-}" != "--force" && -f "$BIN/libsl.sensor.camera.plugin.so" && -f "$BIN/libsl_zed.so" && -f "$STAMP" && "$(cat "$STAMP")" == "$(stamp)" ]]; then
   ok "extension already built from this source ($EXT/exts); skipping (--force rebuilds)"; exit 0
 fi
@@ -40,6 +45,13 @@ fi
 CACHE="${PACKMAN_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/packman}"
 mkdir -p "$CACHE"
 
+STAMP_NOW="$(stamp)"            # before patching: names the source + patches, not the patched tree
+unpatch(){ for p in "${PATCHES[@]}"; do git -C "$EXT" apply -R "$p" 2>/dev/null || true; done; }
+for p in "${PATCHES[@]}"; do
+  git -C "$EXT" apply --check "$p" || die "patch $(basename "$p") does not apply to zed-isaac-sim at $(git -C "$EXT" rev-parse --short HEAD)"
+done
+trap unpatch EXIT
+for p in "${PATCHES[@]}"; do git -C "$EXT" apply "$p" && info "applied $(basename "$p")"; done
 info "building zed-isaac-sim ${ZED_ISAAC_EXT_TAG} in $IMG (as uid $(id -u); packman cache $CACHE)"
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint bash \
   -e HOME=/tmp -e LD_LIBRARY_PATH= -e PM_PACKAGES_ROOT=/packman \
@@ -48,5 +60,5 @@ docker run --rm --user "$(id -u):$(id -g)" --entrypoint bash \
 for f in libsl.sensor.camera.plugin.so libsl_zed.so; do
   [[ -f "$BIN/$f" ]] || die "build finished but $BIN/$f is missing"
 done
-stamp > "$STAMP"
+echo "$STAMP_NOW" > "$STAMP"
 ok "extension built: $EXT/exts (sl.sensor.camera ${ZED_ISAAC_EXT_TAG})"

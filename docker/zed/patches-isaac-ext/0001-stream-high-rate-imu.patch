@@ -1,0 +1,112 @@
+diff --git a/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.cpp b/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.cpp
+index b7771f7..10e3d9e 100644
+--- a/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.cpp
++++ b/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.cpp
+@@ -390,6 +390,17 @@ namespace sl {
+                 static const pxr::GfMatrix4d rotation_matrix;
+                 static const pxr::GfMatrix4d inv_rotation_matrix;
+ 
++                // bisg: high-rate IMU (inputs:imuSamples), converted to the streamer convention and stamped on the frame
++                // clock by the compute thread, ingested (ingest_imu) by the streaming thread before each frame it sends.
++                struct ImuSample {
++                    unsigned long long ts_ns;
++                    float gx, gy, gz, ax, ay, az, qw, qx, qy, qz;
++                };
++                std::mutex m_imu_mutex;
++                std::vector<ImuSample> m_imu_queue;
++                double m_imu_last_t{ -1.0 };
++                bool m_imu_logged{ false };
++
+                 // Consumer thread: encode + send already-copied frames. This is the
+                 // expensive work (NVENC encode + network/IPC send) kept off the
+                 // OmniGraph compute (render) thread.
+@@ -399,6 +410,25 @@ namespace sl {
+                         FrameSlot* slot = state.m_pipeline.waitReady();
+                         if (!slot) break; // stopping
+ 
++                        {   // bisg: high-rate IMU first, so the SDK has the samples up to this frame's time
++                            std::vector<ImuSample> due;
++                            {
++                                std::lock_guard<std::mutex> lk(state.m_imu_mutex);
++                                auto it = state.m_imu_queue.begin();
++                                while (it != state.m_imu_queue.end() && it->ts_ns <= slot->ts_ns) ++it;
++                                due.assign(state.m_imu_queue.begin(), it);
++                                state.m_imu_queue.erase(state.m_imu_queue.begin(), it);
++                            }
++                            for (const ImuSample& m : due) {
++                                int st = state.m_zedStreamer.ingestIMU(state.m_streamer_id, static_cast<long long>(m.ts_ns),
++                                    m.gx, m.gy, m.gz, m.ax, m.ay, m.az, m.qw, m.qx, m.qy, m.qz);
++                                if (st > 0 && !state.m_imu_logged) {
++                                    CARB_LOG_WARN("[ZED] ingest_imu returned %d", st);
++                                    state.m_imu_logged = true;
++                                }
++                            }
++                        }
++
+                         if (slot->has_depth)
+                         {
+                             state.m_zedStreamer.streamLeftAndDepth(state.m_streamer_id,
+@@ -635,7 +665,8 @@ public:
+                         state.m_zedStreamerParams.image_width = db.inputs.width();
+                         state.m_zedStreamerParams.bitrate = db.inputs.bitrate();
+                         state.m_zedStreamerParams.chunk_size = db.inputs.chunkSize();
+-                        state.m_zedStreamerParams.mode = 1;
++                        // bisg: gen-2 streaming; ingest_imu only takes the high-rate IMU in mode 2 (mode 1 returns 2).
++                        state.m_zedStreamerParams.mode = 2;
+                         state.m_zedStreamerParams.transport_layer_mode = transport_layer_mode;
+                         state.m_zedStreamerParams.input_format = use_yuv ? sl::INPUT_FORMAT::YUV : sl::INPUT_FORMAT::BGR;
+ 
+@@ -913,6 +944,36 @@ public:
+                             state.m_timestamp_base_set = true;
+                         }
+ 
++                        // bisg: queue the high-rate IMU samples taken since the last frame (same conversion as above).
++                        {
++                            const auto& raw = db.inputs.imuSamples();
++                            const size_t n = raw.size() / 11;
++                            std::vector<ImuSample> fresh;
++                            for (size_t i = 0; i < n; ++i) {
++                                const double* r = &raw[i * 11];
++                                if (r[0] <= state.m_imu_last_t || r[0] < state.m_sim_time_base) continue;
++                                pxr::GfMatrix4d w_mat; w_mat.SetTranslate(GfVec3d(r[1], r[2], r[3]));
++                                pxr::GfMatrix4d a_mat; a_mat.SetTranslate(GfVec3d(r[4], r[5], r[6]));
++                                pxr::GfMatrix4d q_mat; q_mat.SetRotate(GfQuatd(r[7], GfVec3d(r[8], r[9], r[10])).GetNormalized());
++                                GfVec3d w = (rotation_matrix * w_mat * inv_rotation_matrix).GetOrthonormalized().ExtractTranslation();
++                                GfVec3d a = (rotation_matrix * a_mat * inv_rotation_matrix).GetOrthonormalized().ExtractTranslation();
++                                GfQuatd q = (rotation_matrix * q_mat * inv_rotation_matrix).GetOrthonormalized().ExtractRotationQuat();
++                                const double deg = 180.0 / 3.14159265358979323846;   // the SDK's IMU angular velocity is deg/s
++                                fresh.push_back({ state.m_epoch_base_ns + static_cast<unsigned long long>((r[0] - state.m_sim_time_base) * 1e9),
++                                    static_cast<float>(w[0] * deg), static_cast<float>(w[1] * deg), static_cast<float>(w[2] * deg),
++                                    static_cast<float>(a[0]), static_cast<float>(a[1]), static_cast<float>(a[2]),
++                                    static_cast<float>(q.GetReal()), -static_cast<float>(q.GetImaginary()[0]),
++                                    -static_cast<float>(q.GetImaginary()[1]), static_cast<float>(q.GetImaginary()[2]) });
++                                state.m_imu_last_t = r[0];
++                            }
++                            if (!fresh.empty()) {
++                                std::lock_guard<std::mutex> lk(state.m_imu_mutex);
++                                state.m_imu_queue.insert(state.m_imu_queue.end(), fresh.begin(), fresh.end());
++                                if (state.m_imu_queue.size() > 4096)   // consumer stalled: keep the newest
++                                    state.m_imu_queue.erase(state.m_imu_queue.begin(), state.m_imu_queue.end() - 4096);
++                            }
++                        }
++
+                         slot->size_left = data_size_left;
+                         slot->size_right = state.m_stereo_camera ? data_size_right : 0;
+                         slot->has_right = state.m_stereo_camera;
+diff --git a/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.ogn b/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.ogn
+index 2e5923b..f3da231 100644
+--- a/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.ogn
++++ b/exts/sl.sensor.camera/plugins/nodes/OgnZEDSimCameraNode.ogn
+@@ -174,6 +174,12 @@
+                     0.0,
+                     0.0
+                 ]
++            },
++            "imuSamples": {
++                "type": "double[]",
++                "description": "bisg: high-rate IMU samples, 11 doubles each: sim time [s], angular velocity xyz [rad/s], linear acceleration xyz [m/s^2], orientation wxyz, in the camera body frame (x forward, z up). Each sample newer than the last one taken is ingested into the stream (ingest_imu) before the next frame. Empty = only the per-frame IMU.",
++                "default": [],
++                "optional": true
+             }
+         },
+         "outputs": {}

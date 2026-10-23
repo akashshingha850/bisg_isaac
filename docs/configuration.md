@@ -134,6 +134,8 @@ model: assets/vehicles/raptor/raptor.usd       # drone USD (null = the vehicle's
 world: Warehouse                               # Pegasus preset, or a .usd path
 light_scale: 0.5                               # x every light in the world asset (1 = as authored)
 ambient_light: 2.0                             # RTX ambient fill: lifts what the world's lamps leave dark (ceiling)
+keep_only: [GroundPlane, SM_floor*, ...]       # world's top-level prims to keep (fnmatch globs; null = all): an empty room
+drop: [SM_PillarPartA_*/.../Section1]         # parts inside kept assets to remove (path globs below the world)
 px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: vehicle file, then overlays
 spawn: {position: [-2.5, 0.0, 0.11], yaw_deg: 0.0}    # first vehicle's start pose
 objects: [...]                                 # static cuboids added to the world (world.objects)
@@ -147,7 +149,9 @@ Any scenario file can also `extends:` one file or a list (paths relative to it; 
 dictionaries merge, lists are replaced), as the `single_iris_*` variants do.
 
 The default (`sim.yaml`) flies the raptor in the Warehouse with `light_scale` 0.5 and `ambient_light` 2 (chosen for photogrammetry
-exposure: the lamps as authored burn out the white walls and leave the ceiling black). `single_iris` uses Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
+exposure: the lamps as authored burn out the white walls and leave the ceiling black), emptied by `keep_only` to floor (+ painted
+stripes), walls and roof (ceiling, beams); racks, pallets, signs and ceiling lamps are deactivated (`launch.py`
+`keep_only_world_prims`), and `drop` removes the lattice trusses hanging under the roof (`drop_world_prims`). The lighting was re-probed in the empty room and stays at x0.5 + ambient 2 (numbers in `sim.yaml`). `single_iris` uses Isaac Sim's built-in Simple Room. In GUI mode the main viewport is the follow camera. The ZED
 is the real SDK on a streamed ZED Mini twin (`docs/zed-sdk-sim.md`); what it publishes is `docker/zed/zed.yaml`. To switch
 worlds, edit `world.preset` in `docker/sim/configs/single_iris.yaml`, for example to `"Warehouse"`, `"Office"`,
 `"Hospital"` or `"Default Environment"`; the launcher resolves that key from Pegasus' built-in environment list.

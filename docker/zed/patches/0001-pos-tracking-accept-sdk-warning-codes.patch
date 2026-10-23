@@ -1,0 +1,20 @@
+diff --git a/zed_components/src/zed_camera/src/zed_camera_component_main.cpp b/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
+index bb738fb..e04d5db 100644
+--- a/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
++++ b/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
+@@ -4271,7 +4271,14 @@ bool ZedCamera::startPosTrackingLocked()
+     std::lock_guard<std::mutex> grab_lock(mGrabMutex);
+     err = mZed->enablePositionalTracking(ptParams);
+ 
+-    if (err != sl::ERROR_CODE::SUCCESS) {
++    // bisg patch: negative ERROR_CODEs are SDK warnings (tracking runs). SDK 5.4.1 returns SENSORS_DATA_REQUIRED (-3) when GEN_3
++    // fuses a source without high-frequency IMU data (a stream, the Isaac Sim twin) and uses its orientation as an attitude prior.
++    if (err < sl::ERROR_CODE::SUCCESS) {
++      RCLCPP_WARN(
++        get_logger(), "Pos. Tracking started with a warning: %s",
++        sl::toString(err).c_str());
++      err = sl::ERROR_CODE::SUCCESS;
++    } else if (err != sl::ERROR_CODE::SUCCESS) {
+       mPosTrackingStarted = false;
+       RCLCPP_WARN(
+         get_logger(), "Pos. Tracking not started: %s",

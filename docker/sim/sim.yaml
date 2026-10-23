@@ -15,11 +15,28 @@ px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: t
 
 light_scale: 0.5                               # x every light's intensity in the world asset (launch.py scale_world_lights); 1 = as authored
 ambient_light: 2.0                             # RTX ambient fill (/rtx/sceneDb/ambientLightIntensity; launch.py set_ambient_light); null = 0
+keep_only:                                     # empty room: only the world's top-level prims matching these globs stay (launch.py
+  [GroundPlane, SM_floor*, SM_FloorDecal_*,    # keep_only_world_prims); the rest (racks, pallets, bins, signs, wires, ceiling lamps)
+   SM_WallA_*, SM_PillarPartA_*,               # is deactivated. Floor + its painted stripes; walls = SM_WallA_* (walls + corners) +
+   SM_CeilingA_*, SM_BeamA_*, SM_PillarA_*,    # SM_PillarPartA_* (pilasters); roof = ceiling + beams, roof pillars, wall brackets.
+   SM_Bracket*, DistantLight, RectLight]       # null = the Warehouse as authored
+drop:                                          # parts inside the kept assets (path globs below the world, launch.py drop_world_prims):
+  - SM_PillarPartA_*/SM_PillarPartA_9M/Section1  # the lattice trusses + knee braces hanging under the roof (z 6-9 m); the columns stay.
+                                               # They were the ZED's texture at scan height: without them GEN_3 VIO drifted 2-4 m in a
+                                               # room scan (crash 2026-10-22); the sim's ZED runs GEN_1 since (zed.yaml sim:), which holds
 
 # Warehouse (Isaac 6.0 Simple_Warehouse/warehouse.usd, measured 2026-10-17 with PhysX scene queries, 0.25 m grid):
 # floor top z = 0.00, ceiling ~9.0 (lowest overhead 5.8 over the open floor), inner walls x -10.5..9.5, y -12..18,
 # pallet racks along the west wall (x < -8.5, y -4..12.5). Obstacle-free floor x -8.5..9.0, y -12.0..12.75. Kinetix
 # scans the whole room (no scan object), so the lighting is tuned for the room's surfaces, not an object.
+# keep_only (2026-10-22) empties the room: no racks, pallets or ceiling lamps, so the whole floor inside the walls is
+# free (not re-measured with scene queries). Lighting re-probed in the empty room (same 72 views, 25 settings, lamps
+# x0.3..1.5, ambient 0.75..3): a flat ridge, worse-of bright/dark texture 39-42 % along x0.3+2 .. x0.5+2 .. x1+1;
+# x0.5+2 = 39.9 % (bright 47, dark 40), ZED view brick 42 % textured, ceiling mean 37, 98.0 % usable, 2.0 % crushed,
+# 0 % clipped (the lamp fittings that clipped are gone). Kept: x1+1.25 scores 41.9 % but the ZED view's brick drops
+# to 29 %; x1+1 (40.4 %) trades ceiling texture (-12 pt) for floor/forward (+2-4 pt). The worst views (81 %, facing +x)
+# are 19 % black at every setting: the gap between the wall tops and the roof looks into unlit void (asset as authored).
+# The full-Warehouse probe (props in place) follows.
 # Lighting probe 2026-10-17 (72 ZED-like views: 3 positions x 1.5/4.5 m x 4 yaws x pitch -30/0/+35, plus the ZED's own
 # spawn view, which matched the real ZED frames within 3 grey levels): the lamps (1 DistantLight + 1 RectLight; 16
 # RectLights hidden) over-light the walls and leave the ceiling black. As authored: 84 % usable (luminance 12..243),
@@ -28,7 +45,8 @@ ambient_light: 2.0                             # RTX ambient fill (/rtx/sceneDb/
 # walls wash out, clipping to 14 %). Lamps x0.5 + ambient 2 maximises the worse of bright-surface texture (47 %) and
 # dark-surface texture (42 %; plateau 0.4-0.6 x, ambient 2): 97.7 % usable, 1.8 % crushed, 0.5 % clipped (the lamps),
 # worst view 82 %; ZED view brick 42 % textured, ceiling mean 9 -> 46. vio check PASS at x0.5+0, x1+2 and x0.5+2.
-# Back to Simple Room (default until 2026-10-17): world: Simple Room, light_scale: 1.0, ambient_light: null, spawn z -0.66.
+# Back to Simple Room (default until 2026-10-17): world: Simple Room, light_scale: 1.0, ambient_light: null, keep_only: null,
+# spawn z -0.66.
 spawn:                                         # first vehicle's start pose (overrides its `position` / `yaw_deg`)
   position: [-2.5, 0.0, 0.11]                  # world ENU m: floor 0.00 + 0.11 rest height (raptor.yaml). PX4's map origin = here
   yaw_deg: 0.0                                 # facing +x, along the hall

@@ -2,8 +2,11 @@
 # (ekf2_vision, ekf2_flow_range) are listed AFTER it in the scenario (`px4.params: [raptor, ekf2_vision]`, later wins).
 # Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32). Names/ranges checked against the pinned PX4 tag (PX4_TAG, ADR-003).
 
-# --- Collision prevention (Position mode), same as iris.params ---------------------------------------------------------
-CP_DIST        1.5  9   # m. Minimum distance PX4 keeps to an obstacle in Position mode; <= 0 turns collision prevention off
+# --- Collision prevention (Position mode): OFF on the raptor since 2026-10-22 ------------------------------------------
+# Kinetix room scans fly close to the walls. PX4 v1.17 applies it in Position mode and to stick nudges in Auto modes, not to
+# OFFBOARD setpoints. The ZED bridge still sends obstacle_distance (QGC proximity radar). iris.params keeps CP_DIST 1.5 for
+# tests/collision_prevention.py (single_iris); set 1.5 here to bring it back on the raptor.
+CP_DIST        -1.0 9   # m. Minimum distance PX4 keeps to an obstacle in Position mode; <= 0 turns collision prevention off
 CP_DELAY       0.4  9   # s. Sensor + actuation delay PX4 allows for when braking
 CP_GUIDE_ANG   30.0 9   # deg. Tolerance for slipping past an obstacle instead of stopping dead
 CP_GO_NO_DATA  0    6   # 0 = allow flight where the map has no data; 1 = forbid it

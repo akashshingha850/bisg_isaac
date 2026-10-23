@@ -32,9 +32,11 @@ class CompileTests(unittest.TestCase):
             self.assertIn(name, data, f"{name} missing from docker/zed/zed.yaml")
 
     def test_sim_deltas_only_in_sim(self):
-        self.assertTrue(config.load().wrapper_params()["pos_tracking"]["imu_fusion"])
+        self.assertTrue(config.load().wrapper_params()["pos_tracking"]["set_gravity_as_origin"])
         sim = config.load(sim=True)
-        self.assertFalse(sim.wrapper_params()["pos_tracking"]["imu_fusion"])
+        self.assertFalse(sim.wrapper_params()["pos_tracking"]["set_gravity_as_origin"])
+        # the sim fuses the IMU like the real camera since 2026-10-23 (high-rate physics IMU fed into the stream)
+        self.assertTrue(sim.wrapper_params()["pos_tracking"]["imu_fusion"])
         self.assertTrue(sim.wrapper_params()["sensors"]["sensors_image_sync"])
         # odometry runs in both (the sim default is GPS-denied since 2026-10-15); only the sim restamps (PX4 is on sim time)
         self.assertTrue(sim.bridge_modules()["odometry"]["restamp"])

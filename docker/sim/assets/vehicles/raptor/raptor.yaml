@@ -66,6 +66,7 @@ vehicles:
         resolution: [1280, 720]
         fps: 30.0
         imu_rate: 200.0
+        stream_imu: true                                    # feed the physics IMU into the ZED stream every physics step (SDK IMU fusion; zed_sdk_rig.py)
         depth_range: [0.1, 15.0]
       tof:                             # Lightware LW20/C under the frame, facing down
         enabled: true

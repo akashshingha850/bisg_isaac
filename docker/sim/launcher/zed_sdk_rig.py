@@ -39,6 +39,35 @@ def _set_world_pose(prim, pos, rot: Rotation):
     xf.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(float(w), Gf.Vec3d(float(x), float(y), float(z))))
 
 
+# The ZED_M asset (extension v5.2.1, unchanged in v5.3.0; ZED_2i the same) authors its Imu_Sensor at orient (w, x, y, z) =
+# (0.5, 0.5, -0.5, -0.5), a 90 deg rotation, while the extension's stream conversion and the SDK expect it aligned with the
+# camera body (x forward, z up): the wrapper's imu/data at rest read accel (0, +9.81, 0), rpy (90, 0, -90), which blocked IMU
+# fusion. Body-aligned (identity), the wrapper reads accel (0, 0, +9.81), rpy (0, 0, 0) like the sim's physics IMU, and a
+# rotated prim comes out as exactly its own attitude (measured 2026-10-22 at rpy (0, 90, 90) and (-90, 0, 0)).
+STREAM_IMU_RPY = [0.0, 0.0, 0.0]     # [roll, pitch, yaw] deg of Imu_Sensor in the ZED_M asset, relative to its camera body
+
+
+def _rotate_stream_imu(stage, imu_path, rpy):
+    """Orient the streamed Imu_Sensor prim by `rpy` (sensors.zed.stream_imu_rpy), keeping its position."""
+    prim = stage.GetPrimAtPath(imu_path)
+    if not prim.IsValid():
+        LOG.warning("zed sdk rig: no %s in the ZED_M asset; streamed IMU left as authored", imu_path)
+        return
+    rpy = [float(v) for v in rpy]
+    x, y, z, w = Rotation.from_euler("ZYX", rpy[::-1], degrees=True).as_quat()
+    xf = UsdGeom.Xformable(prim)
+    ops = {op.GetOpType(): op for op in xf.GetOrderedXformOps()}
+    orient = ops.get(UsdGeom.XformOp.TypeOrient)
+    if orient is None:   # the asset authors translate + orient (quatf); add one if a future asset does not
+        orient = xf.AddOrientOp(UsdGeom.XformOp.PrecisionFloat)
+    if ops.keys() - {UsdGeom.XformOp.TypeTranslate, UsdGeom.XformOp.TypeOrient, UsdGeom.XformOp.TypeScale}:
+        LOG.warning("zed sdk rig: %s has xform ops %s besides translate/orient/scale", imu_path, list(ops))
+    quat = Gf.Quatf if orient.GetPrecision() == UsdGeom.XformOp.PrecisionFloat else Gf.Quatd
+    vec = Gf.Vec3f if quat is Gf.Quatf else Gf.Vec3d
+    orient.Set(quat(float(w), vec(float(x), float(y), float(z))))
+    LOG.info("zed sdk rig: streamed IMU %s rotated rpy %s deg", imu_path, rpy)
+
+
 def attach_zed_sdk(vehicle, vehicle_id: int, ns: str, cfg: dict, spawn_pos, spawn_rot: Rotation):
     """Mount the ZED Mini twin on `vehicle` (Pegasus Multirotor) and start streaming it.
 
@@ -80,6 +109,8 @@ def attach_zed_sdk(vehicle, vehicle_id: int, ns: str, cfg: dict, spawn_pos, spaw
     # neither loads the joint nor shifts the vehicle's hover thrust (PX4 params assume the Iris mass).
     UsdPhysics.MassAPI.Apply(prim).CreateMassAttr(1e-3)
     PhysxSchema.PhysxRigidBodyAPI.Apply(prim).CreateDisableGravityAttr(True)
+
+    _rotate_stream_imu(stage, f"{zed_path}/base_link/ZED_M/Imu_Sensor", cfg.get("stream_imu_rpy", STREAM_IMU_RPY))
 
     joint = UsdPhysics.FixedJoint.Define(stage, Sdf.Path(f"{zed_path}/fixjoint"))
     joint.CreateBody0Rel().SetTargets([Sdf.Path(body_path)])
@@ -170,3 +201,52 @@ def publish_imu(body_path: str, ns: str, imu_local, imu_rate: float = 200.0, pub
         LOG.info("zed sdk rig: imu at %s -> %s/zed/zed_node/imu/data (every physics step; sensor %d Hz)",
                  imu_local, ns, int(imu_rate))
     return imu_sensor
+
+
+class StreamImuFeeder:
+    """Feed the physics IMU to the streamed ZED at the physics rate (the extension alone sends one sample per frame).
+
+    Every physics step: read `imu_sensor` (the body IMU at the ZED's IMU, publish_imu), keep the last `window_s` of samples
+    and write them to the camera node's `inputs:imuSamples` (local extension patch, docker/zed/patches-isaac-ext), which
+    ingests each new one into the stream (ingest_imu) before the next frame. Samples go out in the camera body frame.
+    """
+
+    def __init__(self, imu_sensor, port: int, mount_rot: Rotation, window_s: float = 0.5):
+        from isaacsim.core.simulation_manager import SimulationEvent, SimulationManager  # noqa: WPS433
+
+        self.sensor, self.port, self.window_s = imu_sensor, port, window_s
+        self.inv_mount = mount_rot.inv()
+        self.mount_q = mount_rot
+        self.samples = []
+        self.attr = None
+        self.n_written = 0
+        self._cb = SimulationManager.register_callback(self.step, SimulationEvent.PHYSICS_POST_STEP)
+        LOG.info("zed sdk rig: streaming the physics IMU every physics step into ZED port %d (ingest_imu)", port)
+
+    def _find_attr(self):
+        for graph in og.get_all_graphs():
+            for node in graph.get_nodes():
+                if node.get_type_name() == "sl.sensor.camera.OgnZEDSimCameraNode" and \
+                        node.get_prim_path().endswith(f"/zed_{self.port}") and node.get_attribute_exists("inputs:imuSamples"):
+                    LOG.info("zed sdk rig: IMU feed -> %s", node.get_prim_path())
+                    return node.get_attribute("inputs:imuSamples")
+        return None
+
+    def step(self, _dt, _context=None):
+        d = self.sensor.get_data()
+        t = float(d["time"])
+        if self.samples and t <= self.samples[-1][0]:
+            return
+        w = self.inv_mount.apply(np.asarray(d["angular_velocity"], dtype=float))
+        a = self.inv_mount.apply(np.asarray(d["linear_acceleration"], dtype=float))
+        qw, qx, qy, qz = (float(v) for v in d["orientation"])
+        x, y, z, qw2 = (Rotation.from_quat([qx, qy, qz, qw]) * self.mount_q).as_quat()
+        self.samples.append([t, *w, *a, qw2, x, y, z])
+        while self.samples and self.samples[0][0] < t - self.window_s:
+            self.samples.pop(0)
+        if self.attr is None:
+            self.attr = self._find_attr()
+            if self.attr is None:
+                return
+        self.attr.set([v for s in self.samples for v in s])
+        self.n_written += 1

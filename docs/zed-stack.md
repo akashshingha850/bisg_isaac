@@ -58,8 +58,8 @@ measured on the Orin NX before they are relied on.
 
 ### `sim:` — the only sim-vs-Jetson differences
 The `sim:` block at the bottom is merged over everything above **only** in the sim (`ZED_STACK_SIM=1`, set by the sim compose services and
-the emulated rig). Today: `imu_fusion: false` (the stream has no 400 Hz IMU; GEN_3 refuses a low-rate one), `sensors_image_sync: true`,
-and the bridge's `odometry` module off + `restamp` on. Anything else that differs between sim and hardware belongs in
+the emulated rig). Today (since 2026-10-23): no tracking delta, the sim fuses the physics IMU fed into the stream at 120 Hz (docs/zed-sdk-sim.md), `sensors_image_sync: true`,
+and the bridge's `odometry` `restamp` on (odometry itself runs in both since the sim went GPS-denied, 2026-10-15). Anything else that differs between sim and hardware belongs in
 [zed-sdk-sim.md](zed-sdk-sim.md), not in a script.
 
 ## Services
@@ -73,7 +73,7 @@ input is lost — PX4's own timeouts and failsafes then act, rather than acting 
 |---|---|---|
 | `health` | `status/health`, `pose/status`, depth validity → `zed_stack/status` (JSON, 1 Hz) + STATUSTEXT in QGC | tells the operator *why* another module went silent: "ZED tracking: LOST (odometry_status=1)" |
 | `odometry` | `odom` → `mavros/odometry/out` → EKF2 external vision | silent while `odometry_status != OK` or the source is slower than `min_rate_hz`; frames fixed to `odom`/`base_link` (what MAVROS matches); `restamp` stamps with the node clock (sim: PX4 runs on `/clock`, the wrapper on wall time — B17). Lever arm of the camera: `EKF2_EV_POS_X/Y/Z` |
-| `obstacle_distance` | `depth_registered` → 72×5° sector map → `mavros/obstacle/send` → PX4 collision prevention (`CP_DIST`, `docker/sim/px4/iris.params` / `raptor.params`) + QGC proximity radar | height band ±`band` m around the camera; FOV ±45°, the rest "unknown" (`CP_GO_NO_DATA 0`); acts in Position mode only |
+| `obstacle_distance` | `depth_registered` → 72×5° sector map → `mavros/obstacle/send` → PX4 collision prevention (`CP_DIST`: 1.5 in `docker/sim/px4/iris.params`, off (-1) in `raptor.params` since 2026-10-22) + QGC proximity radar | height band ±`band` m around the camera; FOV ±45°, the rest "unknown" (`CP_GO_NO_DATA 0`); acts in Position mode only |
 
 **Not built yet** (listed so nothing is assumed): a ZED-derived `DISTANCE_SENSOR` (M3; the LW20/C ToF twin is separate and built, [range-flow.md](range-flow.md)), MAVLink camera component so QGC
 finds the video itself (M11), `FOLLOW_TARGET` / `LANDING_TARGET` from object/body detection (M5/M6, needs actors in the sim and `zed_msgs` in

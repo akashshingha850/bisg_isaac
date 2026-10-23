@@ -30,3 +30,9 @@ Upstream fixed it in PR #460 (`cd8bf73`, merged 2026-10-07 as `b19902d`, master 
   `tests/zed_depth_box.py` (`single_iris_vio`) PASS, front face −22.9 mm (−26 mm on v5.4.1); `./bisg zed test` OK; no R9 with spatial mapping on.
 - The Jetson image (`docker/zed/build.sh jetson`) must be rebuilt from the same commit.
 - Back to a tag when Stereolabs releases one containing `cd8bf73` (v5.5.1+); moving to SDK 5.5 is a separate decision.
+
+**Amended 2026-10-22 — local patches.** A fix the pinned wrapper lacks is a `docker/zed/patches/NNNN-*.patch` against the pin;
+`docker/zed/build.sh` checks that each applies, applies them to the submodule's working tree for the build, reverts them on exit,
+and includes them in the rebuild stamp, so the checkout stays at `ZED_WRAPPER_REF`. First: `0001-pos-tracking-accept-sdk-warning-codes`
+(`enablePositionalTracking` returns negative = warning codes with tracking running, e.g. SDK 5.4.1's SENSORS_DATA_REQUIRED for GEN_3
++ IMU fusion on a source without a high-rate IMU; the wrapper treated them as failure). Re-check every patch when the pin moves.

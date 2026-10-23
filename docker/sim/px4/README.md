@@ -6,7 +6,7 @@ comments allowed). Names and ranges are checked against the pinned PX4 tag (`PX4
 | file | what it sets |
 |---|---|
 | `iris.params` | **vehicle file**, the Iris: collision prevention (`CP_*`, fed by the ZED depth through `mavros/obstacle/send`); rate gains are the airframe defaults |
-| `raptor.params` | **vehicle file**, the raptor twin: the same collision prevention + **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer) |
+| `raptor.params` | **vehicle file**, the raptor twin: collision prevention **off** (`CP_DIST -1`, room scans fly close to walls; the other `CP_*` kept for turning it back on) + **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer) |
 | `ekf2_vision.params` | overlay: GPS-denied flight on the ZED visual odometry (EKF2 external vision, GPS and magnetometer off) |
 | `ekf2_flow_range.params` | overlay: GPS-denied flight on the downward ToF + optical flow (docs/range-flow.md) |
 | `ekf2_vio_flow_range.params` | overlay: **the real drone's GPS-denied mode**: baro height reference + LW20 + ZED VIO + PMW3901, no GPS/mag (docs/range-flow.md "GPS-denied on all sensors"). Needs the vehicle's lever arms and `EKF2_MIN_RNG` (raptor.params) |

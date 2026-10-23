@@ -192,12 +192,14 @@ services:
 # ====================================================================================================================
 sim:
   positional_tracking:
-    # The extension streams orientation + acceleration once per rendered frame, never the 400 Hz gyro+accel stream of the
-    # real camera. GEN_3 refuses to fuse a low-rate IMU ("HIGH FREQUENCY SENSORS DATA REQUIRED" -> wrapper FATAL).
-    imu_fusion: false
-    # The SDK reads the streamed ZED Mini IMU 90 deg rolled (wrapper imu/data at rest: accel +9.81 on y, rpy 90/0/-90; the sim's own
-    # IMU: +9.81 on z). Tracking ignores it (imu_fusion off), but the gravity alignment does not: with it on, spatial mapping's
-    # fused_cloud came out rolled 90 deg about x (floor as a wall). Off = the world is the start pose, level on the ground (2026-10-21).
+    # Tracking is the real camera's (AUTO = GEN_3 + imu_fusion) since 2026-10-23: the launcher feeds the physics IMU into the
+    # stream every physics step (120 Hz; zed_sdk_rig.py StreamImuFeeder -> extension patch docker/zed/patches-isaac-ext/0001,
+    # ingest_imu in gen-2 streaming, gyro in deg/s). Without that feed the extension sends one orientation+accel sample per frame
+    # and no mode fuses it (GEN_1 diverges, GEN_3 keeps translation at 0). Route A/B 2026-10-22/23 (4.3 m, ~75 m, trusses
+    # removed), error vs truth median / max: GEN_3 + IMU 0.28-0.45 / 0.40-0.65 m (4 runs), GEN_1 vision-only 0.24-0.29 /
+    # 0.68-0.71 m (2), GEN_3 vision-only 0.72 / 1.01 m (1). `vio check` PASS (20261023-034123: EKF2 h max 7.8 cm, tilt 0.26 deg).
+    # Off since 2026-10-21, when the rolled IMU made spatial mapping's fused_cloud come out rolled 90 deg (floor as a wall). With the
+    # IMU frame fixed it can be true like the real camera; not re-tested yet. Off = the world is the start pose, level on the ground.
     set_gravity_as_origin: false
   sensors:
     # Without this the wrapper polls the (absent) sensor channel on every grab and logs
@@ -208,9 +210,11 @@ sim:
       odometry:                     # on, as on the drone (no `enabled` delta): the sim default is GPS-denied since 2026-10-15
                                     # (sim.yaml px4_params ekf2_vio_flow_range). GPS scenarios ignore it: EKF2_EV_CTRL defaults to 0
         restamp: true               # PX4 SITL runs on sim time; the wrapper stamps with the wall clock
-        restamp_latency_ms: 100.0   # measured: ZED odom reaches the bridge this much SIM time after the true motion (cross-correlated
+        restamp_latency_ms: 95.0    # measured: ZED odom reaches the bridge this much SIM time after the true motion (cross-correlated
                                     # with ground truth). Without it EKF2 fuses every sample late (B17). 85 (2026-10-10, rtf 0.52);
                                     # 95 (2026-10-15: `./bisg vio bench` left +10.8 +- 3.1 ms over 18 flights at rtf 0.56-0.59);
                                     # 100 since 2026-10-17: Warehouse campaign left +5 ms median (3.9 +- 2.1) over 18 flights at rtf 0.60.
+                                    # 165 since 2026-10-22: GEN_1 (positional_tracking above) left +65 ms at 100 (vio check, rtf 0.57).
+                                    # 95 since 2026-10-23: GEN_3 + high-rate IMU fusion left -70 ms at 165 (vio check, rtf 0.56).
                                     # It is wall-clock latency x rtf: `./bisg vio check` prints the correction for this machine
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low

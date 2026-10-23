@@ -7,6 +7,47 @@ Defects with causes: [bugs.md](bugs.md).
 ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio check` / `vio bench` PASS there
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
+## Done 2026-10-22
+- [x] **Empty Warehouse**: new locator key `keep_only` (fnmatch globs over the world asset's top-level prims; the rest is
+  deactivated, `launch.py` `keep_only_world_prims`). `sim.yaml` keeps floor + painted stripes, walls (+ corners, pilasters),
+  ceiling, roof beams/pillars/brackets and the 2 lights: 173 prims kept, 118 deactivated (racks, pallets, bins, signs, wires,
+  ceiling lamps). Lighting re-probed in the empty room (72 views x 25 settings): x0.5 + ambient 2 stays (on the optimum
+  ridge, worse-of bright/dark texture 39.9 % vs best 41.9 % which loses the ZED view's brick texture; numbers in `sim.yaml`).
+  New key `drop` (path globs inside the kept assets, `drop_world_prims`) removes the lattice trusses + knee braces hanging
+  under the roof (`SM_PillarPartA_*/SM_PillarPartA_9M/Section1`, 10 meshes; the wall columns are Section0 and stay).
+  `vio_flight --alt 1.2 --side -1.0` PASS: 6.5 / 2.2 / 9.7 cm before the truss drop, 10.2 / 6.4 / 9.3 cm after (one run
+  each, the first empty-room run was 1.4 / 2.4 / 2.3). `./bisg vio check` in the final room **PASS**
+  (`$ARCHIVE_DIR/vio_bench/20261022-113944-stallman2`): EV latency +0 ms, velocity scale 0.993 / 1.005, lever arm 1.8 cm,
+  worst EKF2 horizontal 6.6 cm (full Warehouse: 7.3-9.1). The lighting probe ran with the trusses in place.
+
+- [x] **Collision prevention off on the raptor** (`raptor.params` `CP_DIST -1`; PX4 reads −1 at boot): room scans fly close to
+  the walls. PX4 v1.17 applies it only in Position mode and to stick nudges in Auto modes, not to Kinetix's OFFBOARD setpoints,
+  so if a scan still stops short the cause is elsewhere. `iris.params` keeps 1.5 for `tests/collision_prevention.py`; the
+  bridge's `obstacle_distance` stays on (QGC radar). Also applies to the Pixracer at its next `push_px4_params.py --file raptor`.
+
+- [x] **Sim ZED fuses a high-rate IMU (2026-10-23): same tracking as the real camera** (AUTO = GEN_3 + `imu_fusion`; the
+  zed.yaml `sim:` tracking deltas are gone). The extension's streamer library exports `ingest_imu` (timestamp + gyro + accel)
+  but the extension never called it and streamed one orientation+accel sample per frame. `docker/zed/patches-isaac-ext/0001`
+  (applied by `build_isaac_ext.sh`) adds a node input `imuSamples`, ingests each new sample before the next frame and switches to
+  gen-2 streaming (`mode = 2`; mode 1 rejects ingested IMU); `zed_sdk_rig.py StreamImuFeeder` writes the physics IMU (every
+  physics step, 120 Hz) into it. The SDK's gyro unit is deg/s: sent as rad/s the ZED frame tilted 12.9 deg in a `vio check`
+  (0.13 deg after). `restamp_latency_ms` 165 -> 95. Route A/B (4.3 m, ~75 m, trusses removed), est-vs-GT median / max: GEN_3 +
+  IMU 0.28-0.45 / 0.40-0.65 m over 4 runs, GEN_1 vision 0.24-0.29 / 0.68-0.71 (2), GEN_3 vision 0.72 / 1.01 (1). Gates: `vio check`
+  PASS (`$ARCHIVE_DIR/vio_bench/20261023-034123-stallman2`: +0 ms, scale 1.003 / 1.005, EKF2 h max 7.8 cm), `smoke` PASS,
+  `vio_flight` PASS (7.9 / 3.7 / 10.3 cm), `zed_depth_box` PASS (−25.5 mm), `zed test` OK. Open: the physics IMU is noiseless and
+  bias-free at 120 Hz (the real ZED Mini: 800 Hz with noise) — add an IMU noise model and/or a faster physics rate before trusting
+  sim-vs-real drift comparisons; `set_gravity_as_origin: true` in sim (now possible, not re-tested); report `ingest_imu` + mode 2
+  to Stereolabs (zed-isaac-sim) so the patch can go
+- [x] ~~superseded 2026-10-23 by the IMU feed above~~ **Sim ZED tracking GEN_1** (zed.yaml `sim:`; real camera unchanged: AUTO = GEN_3 + IMU). A Kinetix `roi_coverage` scan
+  in the emptied Warehouse (roof trusses dropped) crashed into the south wall: GEN_3 visual-only drifted 2-4 m at 4.4 m height
+  (frames' est vs GT), plus ~10 deg yaw jitter while hovering at plain walls. A/B on one route (scratch `high_route.py`: 4.3 m,
+  1 m/s carrot, ~75 m, 30 s hover at the jitter spot), est-vs-GT horizontal median / p95 / max: GEN_3 + trusses 0.34 / 0.77 / 0.86,
+  GEN_3 no trusses 0.72 / 0.83 / 1.01, GEN_1 + trusses 0.24 / 0.59 / 0.67, GEN_1 no trusses 0.29 / 0.64 / 0.71 m; GEN_1 + IMU
+  fusion (Stereolabs' Isaac answer) 1.4 m off after 5 m, aborted at 3 m: the 90 deg rolled stream (below) blocks fusion. So
+  trusses dropped again, GEN_1 in sim, `restamp_latency_ms` 100 -> 165 (GEN_1 is +65 ms); `./bisg vio check` PASS
+  (`$ARCHIVE_DIR/vio_bench/20261022-153200-stallman2`: +0 ms, scale 0.992 / 0.983, lever 1.4 cm, worst EKF2 10.5 cm).
+  One run per config: confirm with `./bisg vio bench` / a high profile before trusting the figures.
+
 ## Now — ZED VIO / localization ([vio.md](vio.md), [vio-campaign.md](vio-campaign.md))
 - [x] **R9 wrapper crash** `can't compare times with different time sources` — **fixed 2026-10-21** (ADR-011). Throw site
   (`terminate_bt`, 2026-10-20, 2 s after spatial mapping started): `handleVideoDepthPublishing()` default-constructs
@@ -16,13 +57,19 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   `vio_flight --alt 1.2 --side -1.0` PASS (1.9 / 3.5 / 2.2 cm), `zed_depth_box` PASS (−22.9 mm, was −26), `./bisg zed test` OK.
 - [ ] Back to a wrapper **tag** once Stereolabs releases one containing `cd8bf73` (v5.5.1+); rebuild the Jetson image from the pin
   (`docker/zed/build.sh jetson`) before the next hardware run.
-- [ ] **Streamed ZED Mini IMU is 90 deg rolled in the SDK** (found 2026-10-21): at rest the wrapper's `imu/data` (frame
-  `zed_imu_link`, from the stream) reads accel (0, +9.81, 0), rpy (90, 0, −90); the sim's own IMU (`drone_1/zed_imu_link`) reads
-  (0, 0, +9.81). The extension's `Imu_Sensor` prim is z-up and its conversion (`OgnZEDSimCameraNode.cpp`, unchanged in v5.3.0) streams
-  (0, −9.81, 0) = image-frame "level", so the extra roll is on the SDK side. Effect: with `set_gravity_as_origin` on, the spatial
-  map (`mapping/fused_cloud`) was rolled 90 deg about x (floor as a vertical plane); the sim now sets it off (zed.yaml `sim:`),
-  after which the fused floor is flat (tilt 0.17 deg, z −0.10 m). Tracking is unaffected (`imu_fusion` off). **Report upstream**
-  (zed-isaac-sim / ZED SDK) with these numbers; blocks any sim IMU fusion
+- [x] **Streamed ZED Mini IMU 90 deg rolled — fixed 2026-10-22.** Cause: the ZED_M asset (extension v5.2.1, same in v5.3.0;
+  ZED_2i too) authors `Imu_Sensor` at orient (w, x, y, z) = (0.5, 0.5, −0.5, −0.5), while the stream conversion expects it aligned
+  with the camera body. `zed_sdk_rig.py` sets it body-aligned (`STREAM_IMU_RPY`, per-vehicle override `sensors.zed.stream_imu_rpy`):
+  the wrapper's `imu/data` at rest reads accel (0, 0, +9.81), rpy (0, 0, 0), and in flight matches the physics IMU (median 0.00,
+  p95 0.04 deg). (Fusion solved 2026-10-23 by the high-rate IMU feed, entry above; as of 10-22:) Sim IMU fusion was not usable (no high-rate IMU in the stream): GEN_1 + fusion diverges on the first
+  acceleration; GEN_3 + fusion (SDK 5.4.1: orientation as rotation prior, returns the WARNING code SENSORS_DATA_REQUIRED that the
+  wrapper treated as failure -> `docker/zed/patches/0001-pos-tracking-accept-sdk-warning-codes.patch`, applied by `build.sh`)
+  keeps translation at 0, the open Stereolabs GEN_3 + IMU bug (forum thread 11361). Sim stays GEN_1 vision-only (route A/B after
+  the fix 0.24 / 0.65 / 0.68 m). Still open: `set_gravity_as_origin: true` in sim (now possible, not re-tested); asset IMU orientation +
+  fusion results reported upstream: stereolabs/zed-isaac-sim#62 (2026-10-23); a high-rate IMU in the extension is the only route to sim fusion
+- [ ] **Jetson image: rebuild with the wrapper patch** (`docker/zed/build.sh jetson`); on the real camera (400 Hz IMU) GEN_3 + fusion
+  returns SUCCESS, so the patch changes nothing there unless the SDK returns a warning code. Bench-check GEN_3 + IMU translation
+  (the forum's stuck-at-0 bug was on real hardware, SDK 5.3) before trusting it in flight
 - [ ] Fused cloud vs TF clocks: `fused_cloud` is stamped wall-clock now, the wrapper's TF with the streamed frame time (falls behind
   at ~rtf: −20 s, growing ~0.5 s per s, measured ~20 s after the wrapper started). Harmless for the map frame in Foxglove; matters for anything that looks TF up at the cloud's stamp (B17)
 - [ ] **VIO drift on long flights**: EKF2 horizontal error vs ground truth grows with distance (0.8 m RMS over 351 m, 2.4 m over
