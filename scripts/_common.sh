@@ -61,7 +61,7 @@ if [[ "$ROS_DOMAIN_ID" == auto ]]; then
   BISG_SRC[ROS_DOMAIN_ID]="${BISG_SRC[ROS_DOMAIN_ID]:-built-in} (auto from hostname)"
 fi
 conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG local-08c9954
-conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF b19902daf0136b6e841b5e415c2d01f425411c45;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
+conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF 60f78bd8393a93392bb2c8a4733006dca3cc9eb5;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
 conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto; conf_default TAILSCALE_WITH_SIM 1
 conf_default PX4_BRIDGE mavros
@@ -77,7 +77,8 @@ conf_default BAG_DIR "${ARCHIVE_DIR}/bags"
 BAG_DIR="${BAG_DIR/#\~/$HOME}"; export BAG_DIR   # compose bind-mounts it into bisg-ros as /bags
 conf_default PEGASUS_REPO https://github.com/akashshingha850/PegasusSimulator.git
 conf_default PEGASUS_UPSTREAM https://github.com/PegasusSimulator/PegasusSimulator.git
-conf_default ZED_WRAPPER_REPO https://github.com/stereolabs/zed-ros2-wrapper.git
+conf_default ZED_WRAPPER_REPO https://github.com/akashshingha850/zed-ros2-wrapper.git
+conf_default ZED_WRAPPER_UPSTREAM https://github.com/stereolabs/zed-ros2-wrapper.git
 conf_default ZED_ISAAC_EXT_REPO https://github.com/stereolabs/zed-isaac-sim.git
 conf_default PX4_REPO https://github.com/PX4/PX4-Autopilot.git
 # The PX4 bridge on the real drone: the Pixracer's serial port instead of the sim's UDP, wall-clock time (docker/bridge/*.yaml read these).

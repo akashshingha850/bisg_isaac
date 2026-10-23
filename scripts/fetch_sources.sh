@@ -26,10 +26,11 @@ else
   clone "$PEGASUS_REPO" "$PEGASUS_TAG" "$SIM/PegasusSimulator"
 fi
 if [[ "$ZED_WRAPPER_REF" =~ ^[0-9a-f]{7,40}$ ]]; then
-  # A commit on upstream master, not a tag (ADR-011): full clone, then check out the pinned SHA on branch `local` (docs/sources.md).
+  # A commit on our fork's branch `local` (ADR-011): full clone, check out the pinned SHA on `local`, upstream as remote `upstream`.
   if [[ -e "$ZED/zed-ros2-wrapper/.git" ]]; then echo "exists: docker/zed/zed-ros2-wrapper"; else
     git clone --no-checkout "$ZED_WRAPPER_REPO" "$ZED/zed-ros2-wrapper"
     git -C "$ZED/zed-ros2-wrapper" checkout -B local "$ZED_WRAPPER_REF"
+    git -C "$ZED/zed-ros2-wrapper" remote add upstream "$ZED_WRAPPER_UPSTREAM"
   fi
 else
   clone "$ZED_WRAPPER_REPO" "$ZED_WRAPPER_REF" "$ZED/zed-ros2-wrapper"

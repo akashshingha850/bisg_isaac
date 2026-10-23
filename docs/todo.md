@@ -63,11 +63,13 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   the wrapper's `imu/data` at rest reads accel (0, 0, +9.81), rpy (0, 0, 0), and in flight matches the physics IMU (median 0.00,
   p95 0.04 deg). (Fusion solved 2026-10-23 by the high-rate IMU feed, entry above; as of 10-22:) Sim IMU fusion was not usable (no high-rate IMU in the stream): GEN_1 + fusion diverges on the first
   acceleration; GEN_3 + fusion (SDK 5.4.1: orientation as rotation prior, returns the WARNING code SENSORS_DATA_REQUIRED that the
-  wrapper treated as failure -> `docker/zed/patches/0001-pos-tracking-accept-sdk-warning-codes.patch`, applied by `build.sh`)
+  wrapper treated as failure -> fixed by `60f78bd` on our wrapper fork's `local`, ADR-011 amendment 2026-10-23)
   keeps translation at 0, the open Stereolabs GEN_3 + IMU bug (forum thread 11361). Sim stays GEN_1 vision-only (route A/B after
   the fix 0.24 / 0.65 / 0.68 m). Still open: `set_gravity_as_origin: true` in sim (now possible, not re-tested); asset IMU orientation +
   fusion results reported upstream: stereolabs/zed-isaac-sim#62 (2026-10-23); a high-rate IMU in the extension is the only route to sim fusion
-- [ ] **Jetson image: rebuild with the wrapper patch** (`docker/zed/build.sh jetson`); on the real camera (400 Hz IMU) GEN_3 + fusion
+- [ ] **Wrapper fix upstream: stereolabs/zed-ros2-wrapper#463** (2026-10-23) = `60f78bd` on our fork's `local`; once merged, move
+  `local` onto upstream (or back to a release tag) and drop the fork (ADR-011 amendment 2026-10-23)
+- [ ] **Jetson image: rebuild from the fork's `local` (`60f78bd`)** (`git submodule sync && git submodule update`, then `docker/zed/build.sh jetson`); on the real camera (400 Hz IMU) GEN_3 + fusion
   returns SUCCESS, so the patch changes nothing there unless the SDK returns a warning code. Bench-check GEN_3 + IMU translation
   (the forum's stuck-at-0 bug was on real hardware, SDK 5.3) before trusting it in flight
 - [ ] Fused cloud vs TF clocks: `fused_cloud` is stamped wall-clock now, the wrapper's TF with the streamed frame time (falls behind

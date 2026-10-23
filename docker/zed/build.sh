@@ -8,9 +8,6 @@
 #   docker/zed/build.sh jetson       # Orin NX, JetPack 7.x: run ON the Jetson; the base image's L4T (r38.4, r39.2, ...) is read from
 #                                    # /etc/nv_tegra_release (ZED_L4T=r39.2 overrides it, e.g. on an arm64 buildx host)
 #
-# Local fixes to the pinned wrapper are docker/zed/patches/*.patch: applied to the submodule's working tree for the build only and
-# reverted afterwards, so the checkout stays at the pin (ZED_WRAPPER_REF).
-#
 # Result: the upstream image is tagged bisg/zed:<variant>-base, then docker/zed/Dockerfile.overlay adds CycloneDDS
 # on top -> bisg/zed:<variant> (what docker/compose.yaml uses: ZED_VARIANT = desktop | jetson, chosen by ./bisg from the CPU architecture).
 set -euo pipefail
@@ -23,10 +20,7 @@ WRAPPER="$ROOT/docker/zed/zed-ros2-wrapper"
 FORCE=0; [[ "${1:-}" == "--force" ]] && { FORCE=1; shift; }
 # The upstream script re-copies the wrapper into its build context every run, so Docker's cache never hits and the wrapper is
 # recompiled (minutes). Skip that when the wrapper checkout + SDK version are exactly what the existing base image was built from.
-PATCHES=("$ROOT"/docker/zed/patches/*.patch)
-[[ -e "${PATCHES[0]}" ]] || PATCHES=()
-src_stamp(){ { git -C "$WRAPPER" rev-parse HEAD; git -C "$WRAPPER" diff HEAD | sha256sum; echo "$ZED_SDK"; sha256sum "$ROOT/docker/zed/build.sh" | cut -d' ' -f1
-               if (( ${#PATCHES[@]} )); then cat "${PATCHES[@]}" | sha256sum; fi; } 2>/dev/null | tr '\n' ' '; }
+src_stamp(){ { git -C "$WRAPPER" rev-parse HEAD; git -C "$WRAPPER" diff HEAD | sha256sum; echo "$ZED_SDK"; sha256sum "$ROOT/docker/zed/build.sh" | cut -d' ' -f1; } 2>/dev/null | tr '\n' ' '; }
 default=desktop; [[ "$(uname -m)" == aarch64 ]] && default=jetson     # pick by CPU architecture
 variant="${1:-$default}"
 STAMP="$ROOT/docker/zed/.build-stamp-$variant"
@@ -36,13 +30,6 @@ if (( ! FORCE )) && [[ "$variant" != "" ]] && docker image inspect "bisg/zed:${v
   final=bisg/zed:${variant}; docker build -f "$ROOT/docker/zed/Dockerfile.overlay" --build-arg BASE="${final}-base" -t "$final" "$ROOT/docker/zed" && echo "built $final"
   exit 0
 fi
-STAMP_NOW="$(src_stamp)"          # before patching: the stamp names the pin + patches, not the patched tree
-unpatch(){ for p in "${PATCHES[@]}"; do git -C "$WRAPPER" apply -R "$p" 2>/dev/null || true; done; }
-for p in "${PATCHES[@]}"; do
-  git -C "$WRAPPER" apply --check "$p" || { echo "patch $(basename "$p") does not apply to the wrapper at $(git -C "$WRAPPER" rev-parse --short HEAD)"; exit 1; }
-done
-trap unpatch EXIT
-for p in "${PATCHES[@]}"; do git -C "$WRAPPER" apply "$p" && echo "applied $(basename "$p")"; done
 case "$variant" in
   desktop)
     ( cd "$WRAPPER/docker" && ./build_desktop.sh --ros-distro jazzy --os ubuntu-24.04 --sdk "$ZED_SDK" --cuda 12.8 )
@@ -61,4 +48,4 @@ esac
 docker tag "$src" "$tag" && echo "tagged $src -> $tag"
 # Overlay: + CycloneDDS (the upstream image is Fast DDS only), see docker/zed/Dockerfile.overlay
 docker build -f "$ROOT/docker/zed/Dockerfile.overlay" --build-arg BASE="$tag" -t "$final" "$ROOT/docker/zed" && echo "built $final"
-echo "$STAMP_NOW" > "$STAMP"
+src_stamp > "$STAMP"
