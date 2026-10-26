@@ -84,11 +84,13 @@ raw = Usd.Stage.Open(os.path.join(ASSET, cfg["cad"]["raw_usd"]))
 raw_root = raw.GetDefaultPrim().GetPath() if raw.GetDefaultPrim() else raw.GetPseudoRoot().GetChildren()[0].GetPath()
 vis.GetPrim().GetReferences().AddReference("./" + cfg["cad"]["raw_usd"], raw_root)
 dropped = []
-for p in Usd.PrimRange(raw.GetPrimAtPath(raw_root)):
-    if any(s in p.GetName() for s in cfg["cad"]["exclude"]) and p.GetParent().GetName() == "Setup":
+prims = iter(Usd.PrimRange(raw.GetPrimAtPath(raw_root)))
+for p in prims:
+    if any(s in p.GetName() for s in cfg["cad"]["exclude"]):  # any depth: the SIYI sits inside the camera holder
         rel_path = str(p.GetPath())[len(str(raw_root)):]
         stage.OverridePrim("/vehicle/body/visual" + rel_path).SetActive(False)
         dropped.append(p.GetName())
+        prims.PruneChildren()
 print(f"[build] visual from {raw_root}; dropped {dropped}")
 
 # collision: one solid cylinder per duct, invisible (purpose=guide)

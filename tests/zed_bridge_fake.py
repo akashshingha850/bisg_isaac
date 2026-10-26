@@ -97,7 +97,8 @@ def main():
     cfg.pop("sim", None)
     br = cfg["services"]["px4_bridge"]
     br.update(enabled=True)
-    br["odometry"].update(enabled=True, restamp=True, restamp_latency_ms=3000.0, min_rate_hz=5.0)   # 3 s: visible on a wall clock
+    br["odometry"].update(enabled=True, restamp=True, restamp_latency_ms=3000.0, min_rate_hz=5.0,   # 3 s: visible on a wall clock
+                          heading="manhattan")      # compass on: the fake's depth and odom stamps differ, so it never measures
     br["obstacle_distance"].update(enabled=True, band=2.0, rate_hz=10.0)
     br["health"].update(enabled=True)
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
@@ -130,6 +131,11 @@ def main():
             check(2.0 < age < 4.0, f"restamp: stamp = arrival - restamp_latency_ms (3 s), not the source's 1 s (age {age:.2f} s)")
         check(node.status is not None and node.status["components"].get("odometry", {}).get("state") == "ok",
               f"status JSON: odometry ok ({node.status and node.status['components'].get('odometry')})")
+        comp = node.status and node.status["components"].get("odometry", {}).get("compass")
+        check(comp is not None and comp["reference_deg"] is None, f"status JSON: compass reported, no reference yet ({comp})")
+        if node.odoms:
+            check(abs(node.odoms[-1][1].pose.pose.position.x - 0.01 * node.n) < 0.05,
+                  "heading manhattan without a reference leaves the odometry as it is")
         check(node.status is not None and node.status["components"].get("obstacle_distance", {}).get("state") == "ok",
               "status JSON: obstacle_distance ok (mav_frame set through MAVROS)")
 

@@ -23,6 +23,7 @@ Hardware target: Jetson Orin NX (JetPack 7.2) + Pixracer + ZED Mini. Single-dron
 | [docs/zed-stack.md](docs/zed-stack.md) | **the ZED Mini stack**: every SDK module switched in `docker/zed/zed.yaml`, the PX4 bridge, QGC video |
 | [docs/zed-sdk-sim.md](docs/zed-sdk-sim.md) | the real ZED SDK + `zed_wrapper` running against the sim's ZED Mini twin  |
 | [docs/vio.md](docs/vio.md) · [docs/vio-campaign.md](docs/vio-campaign.md) | ZED VIO in the GPS-denied default: error sources, calibration, and the `./bisg vio` campaigns with their results |
+| [docs/vio-drift.md](docs/vio-drift.md) · [docs/research/](docs/research/reports/) | long-flight drift: the heading slips behind it, the literature review (papers), the Manhattan compass in the zed-bridge, and the flights that test it |
 | [docs/hardware.md](docs/hardware.md) | Jetson + Pixracer + ZED wiring, PX4 params, bench checklist |
 | [docs/setup.md](docs/setup.md) | Host prerequisites and `./bisg setup` |
 | [docs/runbook-sim.md](docs/runbook-sim.md) | Run, test and operate the sim stack (`./bisg` cheat sheet) |

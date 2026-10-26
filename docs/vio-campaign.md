@@ -254,7 +254,7 @@ Count: 2 of the 18 flights flown with `EKF2_EVA_NOISE 0.1` (`no_eva_fix`, `px4_d
 (one-sided Fisher p = 0.11: not significant on its own). The likely loop is EKF2's heading lagging the ZED (the v1.17 variance floor makes
 0.1 an 18° yaw noise, [vio.md](vio.md) error source 2) inside the yaw controller of the sim's placeholder tune; not verified. Both flights
 still stayed within 0.134 m horizontally, which is why the horizontal metrics in §4.2 do not show it. It is a further reason to keep
-`EKF2_EVA_NOISE 0.01`. `vio_eval.py` has no oscillation detector, so the dominant-event attribution names an SDK event for such a flight.
+`EKF2_EVA_NOISE 0.01`. `vio_eval.py` has an oscillation detector since 2026-10-26 (`yaw_oscillation`: the true yaw rate swings both ways past 30 deg/s for >= 8 s on end; the ring-down after a fast yaw step is shorter). Run over all 70 campaign flights it flags exactly these two, and a flagged flight's dominant event reads `yaw oscillation (vehicle)`.
 
 ## 5. Conclusions
 

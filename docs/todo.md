@@ -74,15 +74,26 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   (the forum's stuck-at-0 bug was on real hardware, SDK 5.3) before trusting it in flight
 - [ ] Fused cloud vs TF clocks: `fused_cloud` is stamped wall-clock now, the wrapper's TF with the streamed frame time (falls behind
   at ~rtf: −20 s, growing ~0.5 s per s, measured ~20 s after the wrapper started). Harmless for the map frame in Foxglove; matters for anything that looks TF up at the cloud's stamp (B17)
-- [ ] **VIO drift on long flights**: EKF2 horizontal error vs ground truth grows with distance (0.8 m RMS over 351 m, 2.4 m over
-  416 m, height within 0.15 m; a 108 m Kinetix tour stays at 0.19 m RMS). `tests/vio_bench.py` flies ~26 m, so the bench never sees
-  it: add a long profile. Data: Kinetix `runs/2026101[78]-*_warehouse_room_*` (frames.jsonl + MCAP bags)
-- [ ] VIO loop closure: ZED GEN_3 `area_memory` (zed.yaml `pos_tracking`, off) bounds drift on revisits; the bridge must raise the EV
-  `reset_counter` on LOOP_CLOSED jumps or EKF2 rejects them. Sim drift is pessimistic: the twin has no 400 Hz IMU (`sim:` imu_fusion off)
+- [x] **VIO drift on long flights — cause found, heading fixed, sim default changed 2026-10-26** ([vio-drift.md](vio-drift.md),
+  papers in [research/](research/reports/)). Long profile `tests/drift_flight.py` (5 laps, 359 m): the sim ZED loses its heading in
+  in-place turns away from take-off (2-40 deg a slip, 115-209 deg over 320-360 m) and jumps its position with it; EKF2 followed (abort at
+  3 m inside 26-36 m). Fix: zed-bridge Manhattan compass (`odometry.heading: manhattan`, heading from the room's walls in the ZED
+  depth, slewed into the odometry) + ZED velocity/yaw only (`ev_compass.params`, `EKF2_EV_CTRL 12`): the 359 m flight landed at
+  1.76 m max / 0.93 m RMS, Kinetix explore EKF2 max 0.62-0.98 m vs 1.50-2.73 m before. Sim only; real drone unchanged
+- [ ] **Compass on the real camera** before `heading: manhattan` + `ev_compass` go on the drone (vio-drift.md "What ships")
+- [ ] **Position from the walls** (vio-drift.md "Open" 1): after the sim ZED depth's ~10 % short reading at 8-15 m is understood
+- [ ] **Why the sim ZED slips** in the south-west of the Warehouse (GEN_3 + streamed IMU; clean at take-off: tests/yaw_wrap_test.py) —
+  report to Stereolabs with an SVO of a slipping turn
+- [ ] VIO loop closure: ZED GEN_3 `area_memory` (zed.yaml `pos_tracking`, off) bounds drift on revisits. The bridge side is built
+  (`odometry.pose_source: map`: the map-frame pose through a slewed correction, since MAVROS cannot send a `reset_counter`), not
+  flown; needs the wrapper's `reset_odom_with_loop_closure: false` (default true: `odom` jumps to the origin at a loop closure) and
+  is exclusive with the compass today (vio-drift.md "Open" 2)
 - [ ] EKF2 map origin vs spawn differs between boots: z −0.14 / +0.12 m (baro height origin), x −0.12 m (ZED odom origin ahead of the
   body). Kinetix measures it at start; anything else that assumes map = world − spawn should too
 - [ ] **Yaw oscillation with `EKF2_EVA_NOISE 0.1`** (vio-campaign.md §4.5): 2 of 18 flights at 0.1, 0 of 36 at 0.01; mechanism not
-  verified. `vio_eval.py` has no oscillation detector and blamed the SDK once: add one (|truth yaw rate| > 30 deg/s, no yaw command)
+  verified. `vio_eval.py` has a detector since 2026-10-26 (`yaw_oscillation`, gated: true yaw rate swinging both ways past 30 deg/s for >= 8 s;
+  finds exactly `px4_defaults-r1` 20261017 and `no_eva_fix-r3` 20261018 of 70 campaign flights). Open: the same limit cycle at 0.01 / EV_CTRL 12 in a
+  3.7 h-old sim (drift flight 2026-10-26, 2.5 Hz, 9 -> 200 deg/s, EKF2 yaw within 1.5 deg of truth; fresh sim hovers clean): cause not found
 - [ ] **Arming without VIO** (safety, [vio.md](vio.md#arming-without-vio-safety-open)): PX4 arms in OFFBOARD with the ZED down (EKF2's
   at-rest fake position); seen live, 1.5 m off at liftoff. Gate takeoff on the zed-bridge `odometry ok` in
   `bisg_vehicle` `offboard_controller.wait_ready` and the tests

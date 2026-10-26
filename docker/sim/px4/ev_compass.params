@@ -1,0 +1,11 @@
+# Overlay on ekf2_vio_flow_range: EKF2 takes the ZED's velocity and yaw, not its position, because the yaw now comes through the
+# zed-bridge's Manhattan compass (docker/zed/zed.yaml `px4_bridge.odometry.heading: manhattan`), which holds it to the room's walls.
+# Use the two together: alone, either fails (docs/vio-drift.md).
+#   - The compass fixes the heading the sim ZED loses in in-place turns (2-40 deg a slip, 115-209 deg over 320-360 m), but the same
+#     tracking events also jump the ZED's position (1.2 m in one 360 deg sweep), which the compass does not see. Fusing the position
+#     passes the jumps to EKF2: 4 laps of the drift flight, then aborted at 3 m.
+#   - Velocity + yaw without the compass: aborted at 36 m, the heading slips unchecked.
+#   - Together (2026-10-26): the 359 m drift flight landed with EKF2 within 1.76 m (0.93 m RMS; the ZED alone was 40 m and 209 deg
+#     off), and two Kinetix explore flights stayed within 0.98 / 0.62 m against 1.50 / 2.73 m on the previous setup.
+# Sim default since 2026-10-26 (sim.yaml px4_params). Not on the Pixracer until the compass is checked on the real camera.
+EKF2_EV_CTRL   12  6   # bit2 3D velocity + bit3 yaw; NOT bit0 horizontal position (ekf2_vio_flow_range: 13)

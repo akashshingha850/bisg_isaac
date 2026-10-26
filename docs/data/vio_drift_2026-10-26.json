@@ -1,0 +1,916 @@
+{
+ "about": "tests/drift_flight.py runs, docs/vio-drift.md",
+ "runs": [
+  {
+   "run": "20261026-compass2",
+   "config": {
+    "heading": "manhattan",
+    "params": {},
+    "note": "compass v2 (unwrapped, 10 deg/s); before the per-view status was recorded",
+    "compass": "v2 (status not yet recorded)"
+   },
+   "landed": false,
+   "distance_m": 19.7,
+   "sim_s": 44.3,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 3.191,
+     "h_final_m": 3.191,
+     "h_rms_m": 0.646,
+     "yaw_max_deg": 35.41,
+     "yaw_final_deg": -33.94,
+     "steps_over_15cm": 0
+    },
+    "zed_odom": {
+     "h_max_m": 3.282,
+     "h_final_m": 3.282,
+     "h_rms_m": 0.663,
+     "yaw_max_deg": 42.45,
+     "yaw_final_deg": -35.09,
+     "steps_over_15cm": 0
+    },
+    "zed_pose": {
+     "h_max_m": 3.28,
+     "h_final_m": 3.28,
+     "h_rms_m": 0.663,
+     "yaw_max_deg": 41.96,
+     "yaw_final_deg": -35.1,
+     "steps_over_15cm": 0
+    },
+    "ev_out": {
+     "h_max_m": 3.222,
+     "h_final_m": 3.222,
+     "h_rms_m": 0.658,
+     "yaw_max_deg": 41.65,
+     "yaw_final_deg": -33.54,
+     "steps_over_15cm": 0
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.5,
+     "dist_m": 13.2,
+     "ekf2": {
+      "h_m": 0.048,
+      "yaw_deg": -0.56
+     },
+     "zed_odom": {
+      "h_m": 0.06,
+      "yaw_deg": -1.21
+     },
+     "zed_pose": {
+      "h_m": 0.058,
+      "yaw_deg": -1.21
+     },
+     "ev_out": {
+      "h_m": 0.047,
+      "yaw_deg": 0.59
+     }
+    },
+    "1": {
+     "t": 44.3,
+     "dist_m": 19.7,
+     "ekf2": {
+      "h_m": 3.191,
+      "yaw_deg": -33.94
+     },
+     "zed_odom": {
+      "h_m": 3.282,
+      "yaw_deg": -35.09
+     },
+     "zed_pose": {
+      "h_m": 3.28,
+      "yaw_deg": -35.1
+     },
+     "ev_out": {
+      "h_m": 3.222,
+      "yaw_deg": -33.54
+     }
+    }
+   }
+  },
+  {
+   "run": "20261026-compass3",
+   "config": {
+    "heading": "manhattan",
+    "params": {},
+    "compass": "v2: 3 Hz, n_avg 5, <= 10 deg/s, slew 10 deg/s"
+   },
+   "landed": false,
+   "distance_m": 322.0,
+   "sim_s": 433.1,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 3.531,
+     "h_final_m": 3.531,
+     "h_rms_m": 1.91,
+     "yaw_max_deg": 32.38,
+     "yaw_final_deg": -5.15,
+     "steps_over_15cm": 1
+    },
+    "zed_odom": {
+     "h_max_m": 33.779,
+     "h_final_m": 22.031,
+     "h_rms_m": 15.704,
+     "yaw_max_deg": 179.62,
+     "yaw_final_deg": -169.36,
+     "steps_over_15cm": 299
+    },
+    "zed_pose": {
+     "h_max_m": 33.747,
+     "h_final_m": 21.994,
+     "h_rms_m": 15.69,
+     "yaw_max_deg": 179.59,
+     "yaw_final_deg": -169.33,
+     "steps_over_15cm": 296
+    },
+    "ev_out": {
+     "h_max_m": 3.524,
+     "h_final_m": 3.524,
+     "h_rms_m": 1.918,
+     "yaw_max_deg": 35.92,
+     "yaw_final_deg": -0.77,
+     "steps_over_15cm": 4
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.5,
+     "dist_m": 13.2,
+     "ekf2": {
+      "h_m": 0.068,
+      "yaw_deg": 0.08
+     },
+     "zed_odom": {
+      "h_m": 0.123,
+      "yaw_deg": -0.74
+     },
+     "zed_pose": {
+      "h_m": 0.121,
+      "yaw_deg": -0.73
+     },
+     "ev_out": {
+      "h_m": 0.143,
+      "yaw_deg": 1.36
+     }
+    },
+    "1": {
+     "t": 113.6,
+     "dist_m": 79.2,
+     "ekf2": {
+      "h_m": 0.638,
+      "yaw_deg": -1.0
+     },
+     "zed_odom": {
+      "h_m": 6.575,
+      "yaw_deg": -22.78
+     },
+     "zed_pose": {
+      "h_m": 6.553,
+      "yaw_deg": -22.79
+     },
+     "ev_out": {
+      "h_m": 0.703,
+      "yaw_deg": 0.12
+     }
+    },
+    "2": {
+     "t": 200.6,
+     "dist_m": 145.1,
+     "ekf2": {
+      "h_m": 0.683,
+      "yaw_deg": -0.28
+     },
+     "zed_odom": {
+      "h_m": 13.649,
+      "yaw_deg": -43.48
+     },
+     "zed_pose": {
+      "h_m": 13.633,
+      "yaw_deg": -43.51
+     },
+     "ev_out": {
+      "h_m": 0.733,
+      "yaw_deg": 0.72
+     }
+    },
+    "3": {
+     "t": 287.7,
+     "dist_m": 214.3,
+     "ekf2": {
+      "h_m": 2.455,
+      "yaw_deg": 0.5
+     },
+     "zed_odom": {
+      "h_m": 19.012,
+      "yaw_deg": -118.75
+     },
+     "zed_pose": {
+      "h_m": 19.0,
+      "yaw_deg": -118.76
+     },
+     "ev_out": {
+      "h_m": 2.468,
+      "yaw_deg": 0.65
+     }
+    },
+    "4": {
+     "t": 374.7,
+     "dist_m": 280.8,
+     "ekf2": {
+      "h_m": 2.93,
+      "yaw_deg": 0.01
+     },
+     "zed_odom": {
+      "h_m": 20.174,
+      "yaw_deg": -141.6
+     },
+     "zed_pose": {
+      "h_m": 20.18,
+      "yaw_deg": -141.58
+     },
+     "ev_out": {
+      "h_m": 2.974,
+      "yaw_deg": 0.3
+     }
+    },
+    "5": {
+     "t": 433.1,
+     "dist_m": 322.0,
+     "ekf2": {
+      "h_m": 3.531,
+      "yaw_deg": -5.15
+     },
+     "zed_odom": {
+      "h_m": 22.031,
+      "yaw_deg": -169.36
+     },
+     "zed_pose": {
+      "h_m": 21.994,
+      "yaw_deg": -169.33
+     },
+     "ev_out": {
+      "h_m": 3.524,
+      "yaw_deg": -0.77
+     }
+    }
+   }
+  },
+  {
+   "run": "20261026-vel-only1",
+   "config": {
+    "heading": "none",
+    "params": {
+     "EKF2_EV_CTRL": 12
+    }
+   },
+   "landed": false,
+   "distance_m": 36.3,
+   "sim_s": 64.7,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 3.725,
+     "h_final_m": 3.725,
+     "h_rms_m": 1.568,
+     "yaw_max_deg": 20.25,
+     "yaw_final_deg": -19.0,
+     "steps_over_15cm": 0
+    },
+    "zed_odom": {
+     "h_max_m": 4.385,
+     "h_final_m": 4.385,
+     "h_rms_m": 1.899,
+     "yaw_max_deg": 24.61,
+     "yaw_final_deg": -16.82,
+     "steps_over_15cm": 0
+    },
+    "zed_pose": {
+     "h_max_m": 4.386,
+     "h_final_m": 4.386,
+     "h_rms_m": 1.899,
+     "yaw_max_deg": 24.81,
+     "yaw_final_deg": -16.81,
+     "steps_over_15cm": 0
+    },
+    "ev_out": {
+     "h_max_m": 4.385,
+     "h_final_m": 4.385,
+     "h_rms_m": 1.899,
+     "yaw_max_deg": 24.61,
+     "yaw_final_deg": -16.82,
+     "steps_over_15cm": 0
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.7,
+     "dist_m": 13.0,
+     "ekf2": {
+      "h_m": 0.176,
+      "yaw_deg": -0.0
+     },
+     "zed_odom": {
+      "h_m": 0.117,
+      "yaw_deg": -1.33
+     },
+     "zed_pose": {
+      "h_m": 0.116,
+      "yaw_deg": -1.32
+     },
+     "ev_out": {
+      "h_m": 0.117,
+      "yaw_deg": -1.33
+     }
+    },
+    "1": {
+     "t": 64.7,
+     "dist_m": 36.3,
+     "ekf2": {
+      "h_m": 3.725,
+      "yaw_deg": -19.0
+     },
+     "zed_odom": {
+      "h_m": 4.385,
+      "yaw_deg": -16.82
+     },
+     "zed_pose": {
+      "h_m": 4.386,
+      "yaw_deg": -16.81
+     },
+     "ev_out": {
+      "h_m": 4.385,
+      "yaw_deg": -16.82
+     }
+    }
+   }
+  },
+  {
+   "run": "20261026-compass-vel1",
+   "config": {
+    "heading": "manhattan",
+    "params": {
+     "EKF2_EV_CTRL": 12
+    },
+    "compass": "v2: 3 Hz, n_avg 5, <= 10 deg/s, slew 10 deg/s"
+   },
+   "landed": true,
+   "distance_m": 358.3,
+   "sim_s": 500.9,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 2.039,
+     "h_final_m": 1.891,
+     "h_rms_m": 1.106,
+     "yaw_max_deg": 33.1,
+     "yaw_final_deg": 2.26,
+     "steps_over_15cm": 0
+    },
+    "zed_odom": {
+     "h_max_m": 35.988,
+     "h_final_m": 7.479,
+     "h_rms_m": 11.727,
+     "yaw_max_deg": 179.99,
+     "yaw_final_deg": -173.9,
+     "steps_over_15cm": 211
+    },
+    "zed_pose": {
+     "h_max_m": 36.292,
+     "h_final_m": 7.56,
+     "h_rms_m": 11.91,
+     "yaw_max_deg": 179.86,
+     "yaw_final_deg": -176.25,
+     "steps_over_15cm": 213
+    },
+    "ev_out": {
+     "h_max_m": 4.718,
+     "h_final_m": 4.696,
+     "h_rms_m": 2.796,
+     "yaw_max_deg": 39.49,
+     "yaw_final_deg": 0.1,
+     "steps_over_15cm": 4
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.7,
+     "dist_m": 13.4,
+     "ekf2": {
+      "h_m": 0.068,
+      "yaw_deg": -0.87
+     },
+     "zed_odom": {
+      "h_m": 0.624,
+      "yaw_deg": -3.65
+     },
+     "zed_pose": {
+      "h_m": 0.623,
+      "yaw_deg": -3.65
+     },
+     "ev_out": {
+      "h_m": 0.52,
+      "yaw_deg": 0.85
+     }
+    },
+    "1": {
+     "t": 113.8,
+     "dist_m": 79.2,
+     "ekf2": {
+      "h_m": 0.324,
+      "yaw_deg": -0.63
+     },
+     "zed_odom": {
+      "h_m": 1.851,
+      "yaw_deg": -8.46
+     },
+     "zed_pose": {
+      "h_m": 1.851,
+      "yaw_deg": -8.46
+     },
+     "ev_out": {
+      "h_m": 1.029,
+      "yaw_deg": 0.24
+     }
+    },
+    "2": {
+     "t": 200.8,
+     "dist_m": 145.1,
+     "ekf2": {
+      "h_m": 1.268,
+      "yaw_deg": -1.2
+     },
+     "zed_odom": {
+      "h_m": 8.136,
+      "yaw_deg": -28.73
+     },
+     "zed_pose": {
+      "h_m": 8.251,
+      "yaw_deg": -31.09
+     },
+     "ev_out": {
+      "h_m": 1.755,
+      "yaw_deg": 0.37
+     }
+    },
+    "3": {
+     "t": 287.9,
+     "dist_m": 211.1,
+     "ekf2": {
+      "h_m": 1.309,
+      "yaw_deg": 0.42
+     },
+     "zed_odom": {
+      "h_m": 9.759,
+      "yaw_deg": -50.22
+     },
+     "zed_pose": {
+      "h_m": 9.819,
+      "yaw_deg": -52.56
+     },
+     "ev_out": {
+      "h_m": 2.311,
+      "yaw_deg": 0.88
+     }
+    },
+    "4": {
+     "t": 375.0,
+     "dist_m": 277.3,
+     "ekf2": {
+      "h_m": 1.397,
+      "yaw_deg": -1.83
+     },
+     "zed_odom": {
+      "h_m": 11.423,
+      "yaw_deg": -80.34
+     },
+     "zed_pose": {
+      "h_m": 11.451,
+      "yaw_deg": -82.69
+     },
+     "ev_out": {
+      "h_m": 4.033,
+      "yaw_deg": 1.26
+     }
+    },
+    "5": {
+     "t": 462.1,
+     "dist_m": 344.0,
+     "ekf2": {
+      "h_m": 1.656,
+      "yaw_deg": 0.91
+     },
+     "zed_odom": {
+      "h_m": 11.263,
+      "yaw_deg": -158.15
+     },
+     "zed_pose": {
+      "h_m": 11.157,
+      "yaw_deg": -160.51
+     },
+     "ev_out": {
+      "h_m": 4.623,
+      "yaw_deg": 1.05
+     }
+    },
+    "6": {
+     "t": 500.9,
+     "dist_m": 358.3,
+     "ekf2": {
+      "h_m": 1.891,
+      "yaw_deg": 2.26
+     },
+     "zed_odom": {
+      "h_m": 7.479,
+      "yaw_deg": -173.9
+     },
+     "zed_pose": {
+      "h_m": 7.56,
+      "yaw_deg": -176.25
+     },
+     "ev_out": {
+      "h_m": 4.696,
+      "yaw_deg": 0.1
+     }
+    }
+   }
+  },
+  {
+   "run": "20261026-compass-vel-eva1",
+   "config": {
+    "heading": "manhattan",
+    "compass": "v2: 3 Hz, n_avg 5, <= 10 deg/s, slew 10 deg/s",
+    "params": {
+     "EKF2_EV_CTRL": 12,
+     "EKF2_EVA_NOISE": 0.001
+    }
+   },
+   "landed": false,
+   "distance_m": 349.5,
+   "sim_s": 474.0,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 3.495,
+     "h_final_m": 3.495,
+     "h_rms_m": 1.688,
+     "yaw_max_deg": 18.79,
+     "yaw_final_deg": -10.92,
+     "steps_over_15cm": 0
+    },
+    "zed_odom": {
+     "h_max_m": 22.272,
+     "h_final_m": 9.815,
+     "h_rms_m": 11.314,
+     "yaw_max_deg": 121.09,
+     "yaw_final_deg": -114.69,
+     "steps_over_15cm": 9
+    },
+    "zed_pose": {
+     "h_max_m": 22.271,
+     "h_final_m": 9.838,
+     "h_rms_m": 11.314,
+     "yaw_max_deg": 121.34,
+     "yaw_final_deg": -114.72,
+     "steps_over_15cm": 10
+    },
+    "ev_out": {
+     "h_max_m": 2.979,
+     "h_final_m": 2.979,
+     "h_rms_m": 1.647,
+     "yaw_max_deg": 27.34,
+     "yaw_final_deg": -10.89,
+     "steps_over_15cm": 3
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.4,
+     "dist_m": 13.1,
+     "ekf2": {
+      "h_m": 0.189,
+      "yaw_deg": -0.19
+     },
+     "zed_odom": {
+      "h_m": 0.083,
+      "yaw_deg": -0.1
+     },
+     "zed_pose": {
+      "h_m": 0.083,
+      "yaw_deg": -0.1
+     },
+     "ev_out": {
+      "h_m": 0.077,
+      "yaw_deg": 0.7
+     }
+    },
+    "1": {
+     "t": 113.4,
+     "dist_m": 78.8,
+     "ekf2": {
+      "h_m": 0.745,
+      "yaw_deg": 0.47
+     },
+     "zed_odom": {
+      "h_m": 2.695,
+      "yaw_deg": -27.4
+     },
+     "zed_pose": {
+      "h_m": 2.694,
+      "yaw_deg": -27.41
+     },
+     "ev_out": {
+      "h_m": 1.072,
+      "yaw_deg": 1.2
+     }
+    },
+    "2": {
+     "t": 200.5,
+     "dist_m": 144.5,
+     "ekf2": {
+      "h_m": 1.429,
+      "yaw_deg": 0.66
+     },
+     "zed_odom": {
+      "h_m": 4.308,
+      "yaw_deg": -52.02
+     },
+     "zed_pose": {
+      "h_m": 4.308,
+      "yaw_deg": -52.01
+     },
+     "ev_out": {
+      "h_m": 1.205,
+      "yaw_deg": 2.21
+     }
+    },
+    "3": {
+     "t": 287.7,
+     "dist_m": 210.6,
+     "ekf2": {
+      "h_m": 2.137,
+      "yaw_deg": 2.18
+     },
+     "zed_odom": {
+      "h_m": 6.558,
+      "yaw_deg": -61.07
+     },
+     "zed_pose": {
+      "h_m": 6.559,
+      "yaw_deg": -61.06
+     },
+     "ev_out": {
+      "h_m": 1.59,
+      "yaw_deg": 3.33
+     }
+    },
+    "4": {
+     "t": 374.8,
+     "dist_m": 276.2,
+     "ekf2": {
+      "h_m": 2.117,
+      "yaw_deg": -1.31
+     },
+     "zed_odom": {
+      "h_m": 13.13,
+      "yaw_deg": -93.48
+     },
+     "zed_pose": {
+      "h_m": 13.13,
+      "yaw_deg": -93.49
+     },
+     "ev_out": {
+      "h_m": 2.199,
+      "yaw_deg": 0.82
+     }
+    },
+    "5": {
+     "t": 461.8,
+     "dist_m": 342.1,
+     "ekf2": {
+      "h_m": 2.367,
+      "yaw_deg": -1.09
+     },
+     "zed_odom": {
+      "h_m": 13.81,
+      "yaw_deg": -102.31
+     },
+     "zed_pose": {
+      "h_m": 13.808,
+      "yaw_deg": -102.33
+     },
+     "ev_out": {
+      "h_m": 2.661,
+      "yaw_deg": 1.49
+     }
+    },
+    "6": {
+     "t": 474.0,
+     "dist_m": 349.5,
+     "ekf2": {
+      "h_m": 3.495,
+      "yaw_deg": -10.92
+     },
+     "zed_odom": {
+      "h_m": 9.815,
+      "yaw_deg": -114.69
+     },
+     "zed_pose": {
+      "h_m": 9.838,
+      "yaw_deg": -114.72
+     },
+     "ev_out": {
+      "h_m": 2.979,
+      "yaw_deg": -10.89
+     }
+    }
+   }
+  },
+  {
+   "run": "20261026-compass3-vel1",
+   "config": {
+    "heading": "manhattan",
+    "compass": "v3: 10 Hz, n_avg 3, <= 30 deg/s, slew 30 deg/s",
+    "params": {
+     "EKF2_EV_CTRL": 12
+    }
+   },
+   "landed": true,
+   "distance_m": 358.8,
+   "sim_s": 498.9,
+   "sources": {
+    "ekf2": {
+     "h_max_m": 1.757,
+     "h_final_m": 1.468,
+     "h_rms_m": 0.927,
+     "yaw_max_deg": 9.91,
+     "yaw_final_deg": 1.27,
+     "steps_over_15cm": 0
+    },
+    "zed_odom": {
+     "h_max_m": 40.676,
+     "h_final_m": 16.716,
+     "h_rms_m": 19.151,
+     "yaw_max_deg": 177.91,
+     "yaw_final_deg": 151.13,
+     "steps_over_15cm": 508
+    },
+    "zed_pose": {
+     "h_max_m": 40.077,
+     "h_final_m": 16.289,
+     "h_rms_m": 19.006,
+     "yaw_max_deg": 179.66,
+     "yaw_final_deg": 149.31,
+     "steps_over_15cm": 501
+    },
+    "ev_out": {
+     "h_max_m": 3.206,
+     "h_final_m": 3.116,
+     "h_rms_m": 1.868,
+     "yaw_max_deg": 25.31,
+     "yaw_final_deg": -0.97,
+     "steps_over_15cm": 2
+    }
+   },
+   "laps": {
+    "0": {
+     "t": 26.5,
+     "dist_m": 13.2,
+     "ekf2": {
+      "h_m": 0.322,
+      "yaw_deg": 0.58
+     },
+     "zed_odom": {
+      "h_m": 0.077,
+      "yaw_deg": -1.51
+     },
+     "zed_pose": {
+      "h_m": 0.079,
+      "yaw_deg": -1.53
+     },
+     "ev_out": {
+      "h_m": 0.061,
+      "yaw_deg": 0.39
+     }
+    },
+    "1": {
+     "t": 113.6,
+     "dist_m": 79.4,
+     "ekf2": {
+      "h_m": 0.29,
+      "yaw_deg": -0.66
+     },
+     "zed_odom": {
+      "h_m": 1.055,
+      "yaw_deg": -14.0
+     },
+     "zed_pose": {
+      "h_m": 1.067,
+      "yaw_deg": -13.98
+     },
+     "ev_out": {
+      "h_m": 0.321,
+      "yaw_deg": -0.6
+     }
+    },
+    "2": {
+     "t": 200.6,
+     "dist_m": 146.0,
+     "ekf2": {
+      "h_m": 0.507,
+      "yaw_deg": -0.8
+     },
+     "zed_odom": {
+      "h_m": 3.719,
+      "yaw_deg": -72.25
+     },
+     "zed_pose": {
+      "h_m": 4.427,
+      "yaw_deg": -74.07
+     },
+     "ev_out": {
+      "h_m": 1.292,
+      "yaw_deg": -0.45
+     }
+    },
+    "3": {
+     "t": 287.7,
+     "dist_m": 212.1,
+     "ekf2": {
+      "h_m": 0.418,
+      "yaw_deg": -0.27
+     },
+     "zed_odom": {
+      "h_m": 8.72,
+      "yaw_deg": -98.41
+     },
+     "zed_pose": {
+      "h_m": 9.267,
+      "yaw_deg": -100.24
+     },
+     "ev_out": {
+      "h_m": 1.944,
+      "yaw_deg": -0.51
+     }
+    },
+    "4": {
+     "t": 374.6,
+     "dist_m": 279.0,
+     "ekf2": {
+      "h_m": 1.496,
+      "yaw_deg": -0.91
+     },
+     "zed_odom": {
+      "h_m": 15.797,
+      "yaw_deg": -153.0
+     },
+     "zed_pose": {
+      "h_m": 16.199,
+      "yaw_deg": -154.82
+     },
+     "ev_out": {
+      "h_m": 2.936,
+      "yaw_deg": -1.2
+     }
+    },
+    "5": {
+     "t": 461.7,
+     "dist_m": 345.3,
+     "ekf2": {
+      "h_m": 1.239,
+      "yaw_deg": 0.43
+     },
+     "zed_odom": {
+      "h_m": 20.824,
+      "yaw_deg": 150.42
+     },
+     "zed_pose": {
+      "h_m": 20.771,
+      "yaw_deg": 148.61
+     },
+     "ev_out": {
+      "h_m": 2.892,
+      "yaw_deg": -0.38
+     }
+    },
+    "6": {
+     "t": 498.9,
+     "dist_m": 358.8,
+     "ekf2": {
+      "h_m": 1.468,
+      "yaw_deg": 1.27
+     },
+     "zed_odom": {
+      "h_m": 16.716,
+      "yaw_deg": 151.13
+     },
+     "zed_pose": {
+      "h_m": 16.289,
+      "yaw_deg": 149.31
+     },
+     "ev_out": {
+      "h_m": 3.116,
+      "yaw_deg": -0.97
+     }
+    }
+   }
+  }
+ ]
+}

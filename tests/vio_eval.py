@@ -15,6 +15,8 @@ What it measures (airborne samples only):
   yaw        EV yaw (after removing the constant start offset: the EV frame has an arbitrary heading) vs true yaw: drift
              -> EKF2_EVA_NOISE (PX4 v1.17 quirk: the yaw floor is max(var, EVA_NOISE), so effective std = sqrt(EVA_NOISE)).
   yaw_steps  per rotation (|yaw rate| > 0.3 rad/s): angle, peak rate, yaw error the ZED and EKF2 kept afterwards (-> MC_YAWRATE_MAX).
+  yaw_oscillation  a limit cycle in the true yaw rate (swings both ways, peak > 30 deg/s, >= 8 s on end): gated; it is the vehicle's yaw loop and
+             was once blamed on the SDK (vio-campaign.md 4.5).
   position   EV body position (camera minus R*r_cam) in the start-aligned frame vs ground truth, as displacements from takeoff:
              drift over time and per metre flown, plus the short-term noise (residual after a 2 s moving average) -> EKF2_EVP_NOISE.
   lever arm  the yaw-correlated part of the position error: fits the camera offset that best explains it (vs EKF2_EV_POS_*).
@@ -76,7 +78,31 @@ GATES = {
     "ekf_horiz_max_m": 0.30,         # Phase 3 bound (tests/vio_flight.py)
     "ev_pos_fused_min": 0.90,        # fraction of airborne EV samples fused
     "ev_vel_fused_min": 0.90,
+    "yaw_osc_peak_dps": 30.0,        # a yaw-rate limit cycle (both directions, >= 8 s on end) this strong = the vehicle, not the SDK
 }
+
+
+def yaw_oscillation(t_us, w, air, min_s=8.0, peak_dps=GATES["yaw_osc_peak_dps"], lo_dps=10.0):
+    """Yaw-rate limit cycle in the TRUE yaw rate `w` (rad/s) at the EV samples `t_us`: a 1 s block counts when the rate swings
+    past +-`lo_dps` in both directions (noise at rest does not count) and peaks above `peak_dps`; the verdict needs `min_s` of
+    consecutive such blocks. A commanded turn has one sign, and the ring-down after a fast step decays below the peak in ~5 s,
+    so neither lasts (2026-10-26: 2.5 Hz, 9 -> 200 deg/s for 5 min, EKF2 yaw fine)."""
+    w, t = np.degrees(w), t_us / 1e6
+    flagged, run, best, first = [], 0, 0, None
+    for a in np.arange(t[air][0], t[air][-1] - 1.0, 1.0):
+        i, j = np.searchsorted(t, [a, a + 1.0])
+        x, ok = w[i:j], air[i:j]
+        hit = ok.sum() > 5 and x[ok].max() > lo_dps and x[ok].min() < -lo_dps and np.abs(x[ok]).max() >= peak_dps
+        run = run + 1 if hit else 0
+        if run > best:
+            best, first = run, a - run + 1
+        if hit:
+            flagged.append(float(np.abs(x[ok]).max()))
+    det = best >= min_s
+    return {"detected": bool(det), "longest_s": float(best), "first_t_s": float(first - t[air][0]) if det else None,
+            "peak_dps": max(flagged, default=0.0),
+            "note": f">= {min_s:g} s of 1 s blocks where the true yaw rate swings both ways past +-{lo_dps:g} deg/s and peaks >= "
+                    f"{peak_dps:g}: the vehicle's yaw loop, not a ZED event"}
 
 
 # ---- I/O -----------------------------------------------------------------------------------------------------------
@@ -315,6 +341,10 @@ def analyse(d, air_margin=0.15):
                         "worst_ev_err_added_deg": max((abs(r["ev_err_added_deg"]) for r in steps), default=0.0)}
     if yerr_k is not None:
         rep["yaw"]["ekf_end_deg"] = float(np.degrees(np.median(yerr_k[air][-100:])))
+    rep["yaw_oscillation"] = yaw_oscillation(t_ev, wg[:, 2], air)
+    if rep["yaw_oscillation"]["detected"]:
+        o = rep["yaw_oscillation"]
+        fails.append(f"yaw oscillation from t+{o['first_t_s']:.0f} s, peak {o['peak_dps']:.0f} deg/s, {o['longest_s']:.0f} s on end")
 
     # ---- position -------------------------------------------------------------------------------------------------
     R0 = rz(off)                                                # EV local frame -> NED (heading offset at takeoff)
@@ -394,6 +424,8 @@ def analyse(d, air_margin=0.15):
               "yaw slip in a rotation": rep["yaw_steps"]["worst_ev_err_added_deg"] / 3.0}
     top = max(causes, key=causes.get)
     rep["dominant_event"] = top if causes[top] >= 1.0 else "none (drift)"
+    if rep["yaw_oscillation"]["detected"]:      # the slips it causes are its symptom, not an SDK event (vio-campaign.md 4.5)
+        rep["dominant_event"] = "yaw oscillation (vehicle)"
 
     # ---- tilt of the EV frame (roll/pitch vs truth; a pure heading offset does not change them) ---------------------
     (re_, pe_), (rt_, pt_) = roll_pitch(q_ev), roll_pitch(qg)

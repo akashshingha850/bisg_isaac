@@ -177,6 +177,24 @@ services:
       jump_inject_at_s: 0.0         # TEST ONLY (docs/vio.md): s after the first sample at which a permanent fault is added to the ZED stream ...
       jump_inject_m: 0.0            # ... a pose jump of this many metres along x ...
       jump_inject_yaw_deg: 0.0      # ... and a yaw slip of this many degrees. Both 0 = off
+      # Drift correction (docs/vio-drift.md). Both go through one slewed correction (bridge/mapcorr.py): out = C o odom, C moving
+      # towards its target at <= map_max_mps / map_max_dps, so EKF2 never sees a step (MAVROS cannot send a reset_counter).
+      heading: none                 # manhattan = heading from the room's walls in the ZED depth (bridge/compass.py): the room axis vs the
+                                    # one seen on the ground at start is the odometry's yaw drift. For box rooms / halls; off elsewhere
+      compass_rate_hz: 10.0         # depth images evaluated per second (8 ms each)
+      compass_min_sharpness: 2.0    # a view counts when its best axis scores this many times the median axis (Manhattan enough)
+      compass_max_rate_dps: 30.0    # no measurement while turning faster (each view is paired with the odom sample of its own stamp)
+      compass_n_ref: 10             # good views on the ground that fix the reference room axis
+      compass_n_avg: 3              # the drift is the median of this many recent views
+      pose_source: odom             # map = the SDK's map-frame pose (loop closures, with positional_tracking.area_memory) instead of
+                                    # the never-corrected odom chain. Not used when heading is manhattan
+      map_max_mps: 0.2              # slew limits of the correction: added speed ...
+      map_max_dps: 30.0             # ... and added yaw rate (30: a 30 deg compass correction in 1 s; 1 deg per odom sample)
+      map_max_step_m: 3.0           # a target step larger than this (or ...
+      map_max_step_deg: 30.0        # ... this) is a false correction: ignored, counted
+      turn_vel_sigma: 0.0           # > 0: while turning faster than turn_rate_dps, report the ZED velocity good only to this many m/s
+                                    # (twist covariance), so EKF2 leans on flow + IMU in the turns where the ZED loses itself. 0 = off
+      turn_rate_dps: 20.0
     obstacle_distance:              # M2: depth -> 72 x 5 deg sector map -> PX4 collision prevention + QGC proximity radar
       enabled: true
       band: 0.6                     # m: only depth within +-band of the camera height counts (drone's own height band)
@@ -227,3 +245,6 @@ sim:
                                     # 95 since 2026-10-23: GEN_3 + high-rate IMU fusion left -70 ms at 165 (vio check, rtf 0.56).
                                     # It is wall-clock latency x rtf: `./bisg vio check` prints the correction for this machine
         min_rate_hz: 2.0            # the sim runs at ~0.4x real time, so the camera's wall-clock rate is low
+        heading: manhattan          # since 2026-10-26, with sim.yaml px4_params ev_compass (EKF2_EV_CTRL 12): the sim ZED loses its heading
+                                    # in in-place turns away from take-off (115-209 deg over 320-360 m flights); the room's walls hold it
+                                    # (docs/vio-drift.md). The real camera keeps `none` until checked on hardware

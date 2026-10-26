@@ -9,6 +9,10 @@ recalibration to `restamp_latency_ms` 100 are in [vio-campaign.md](vio-campaign.
 Path: `zed_wrapper` odom (pose of `zed_camera_link`, twist in the camera frame) -> zed-bridge (`restamp`, stamp = arrival - `restamp_latency_ms`, 100 ms on Workstation A) ->
 MAVROS `odometry/out` (`MAV_FRAME_LOCAL_FRD` pose, `BODY_FRD` velocity) -> EKF2 (`EKF2_EV_POS_*` removes the camera lever arm).
 
+**Long flights (2026-10-26): [vio-drift.md](vio-drift.md).** Past the bench profile's 26 m the sim ZED loses its heading in
+in-place turns (2-40 deg a slip, 115-209 deg over 320-360 m) and EKF2 follows it; the zed-bridge's Manhattan compass
+(`odometry.heading: manhattan`) holds the heading from the room's walls.
+
 ## Jump gate (experimental, OFF, does not pass the sim): `docker/zed/zed_stack/bridge/jumpgate.py`
 
 The campaigns show the ZED odometry error is rare sudden events (a 0.4-0.54 m pose jump, an 8-13 deg yaw slip, mostly at camera frame
@@ -84,8 +88,10 @@ crashes (R9) or never connects, or EV that is never fused, is an infra failure: 
 reported under "Reliability", not counted against the VIO. Configs are interleaved per repetition.
 
 Configs (`tests/vio_bench.yaml`): `calibrated` (the shipped params), `no_yaw_limit` (`MC_YAWRATE_MAX 200`), `no_eva_fix`
-(`EKF2_EVA_NOISE 0.1`), `px4_defaults` (all three calibrations undone), `no_flow` (`EKF2_OF_CTRL 0`), `ev_no_position`
-(`EKF2_EV_CTRL 12`: ZED velocity + yaw only).
+(`EKF2_EVA_NOISE 0.1`), `px4_defaults` (all three calibrations undone), `no_flow` (`EKF2_OF_CTRL 0`), `ev_position`
+(`EKF2_EV_CTRL 13`: the ZED position fused again). Until 2026-10-26 the shipped mode fused the position (13) and the ablation was
+`ev_no_position` (12); since then the sim fuses velocity + yaw with the Manhattan compass ([vio-drift.md](vio-drift.md)), and the
+campaign results below were taken before that.
 
 Output `$ARCHIVE_DIR/vio_bench/<date>-<host>/` (`--archive` also copies it, without the `.ulg`, to `archive/vio-bench/`):
 `summary.md` (verdict, experimental setup: machine, images, versions, RTF, design, profile, configs; results mean ± std (min-max) per

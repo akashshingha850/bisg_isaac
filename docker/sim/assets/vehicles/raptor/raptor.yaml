@@ -6,7 +6,7 @@
 cad:
   raw_usd: raptor_visual.usd           # step_to_usd.py output (docker/sim/tools/step_to_usd.py), copied next to this file
   rotate_z_deg: 90
-  exclude: [ZEDMSTEP]                  # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh
+  exclude: [ZEDMSTEP, SiYi, SIYI]      # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh; SIYI A8 gimbal camera hidden
 
 # Motors in PX4 quad-X order (rotor0..3 = motor 1..4: front-right, rear-left, front-left, rear-right); spin direction is the
 # Pegasus default [-1,-1,1,1] = PX4's. Positions fitted to the 4 duct holes of the frame (inner radius 68.6 mm => 5" props):

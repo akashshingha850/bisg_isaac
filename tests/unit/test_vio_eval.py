@@ -32,11 +32,11 @@ def yaw_quat(psi, pitch=0.0):
     return np.stack([cy * cp, -sy * sp, cy * sp, sy * cp], 1)
 
 
-def flight(latency_s=0.0, lever_err=(0.0, 0.0, 0.0), yaw_slip_deg=0.0, gap=None, tilt_deg=0.0, ev=True, seed=0):
+def flight(latency_s=0.0, lever_err=(0.0, 0.0, 0.0), yaw_slip_deg=0.0, gap=None, tilt_deg=0.0, ev=True, yaw_osc=False, seed=0):
     """A 60 s log as vio_eval reads it. Truth: rest 5 s, climb to 1 m, figure flown with yaw swings from 20 s.
     EV = the camera's pose/velocity in a frame turned 0.7 rad from NED, sampled at 30 Hz with the faults asked for:
     latency_s (EV shows the motion this late), lever_err (camera offset error, body FRD), yaw_slip_deg (EV yaw error after
-    40 s), gap=(t_s, length_s, slip_m) (no EV samples, then the position off by slip_m in x), tilt_deg (EV frame pitched)."""
+    40 s), gap=(t_s, length_s, slip_m) (no EV samples, then the position off by slip_m in x), tilt_deg (EV frame pitched), yaw_osc (a 2.5 Hz, +-200 deg/s yaw-rate limit cycle from 30 s, the 2026-10-26 flight)."""
     rng = np.random.default_rng(seed)
     t = np.arange(0.0, 60.0, 0.01)
     z = -np.clip((t - 5) / 3, 0, 1) ** 2 * (3 - 2 * np.clip((t - 5) / 3, 0, 1))      # smooth climb to 1 m (NED up = -z)
@@ -45,6 +45,8 @@ def flight(latency_s=0.0, lever_err=(0.0, 0.0, 0.0), yaw_slip_deg=0.0, gap=None,
     sstep = lambda u: np.clip(u, 0, 1) ** 2 * (3 - 2 * np.clip(u, 0, 1))
     psi = sum(np.pi / 2 * sstep((t - t0) / 1.5) for t0 in (9.0, 12.0, 15.0, 18.0))   # four 90 deg hover yaw steps (vio_bench)
     psi = psi + np.where(t > 22, 1.5 * np.sin(0.4 * (t - 22)), 0.0)                # then yaw swings in flight
+    if yaw_osc:
+        psi = psi + np.where(t > 30, 0.22 * np.sin(2 * np.pi * 2.5 * (t - 30)), 0.0)
     p = np.stack([x, y, z], 1)
     v = np.gradient(p, t, axis=0)
     w = np.stack([0 * t, 0 * t, np.gradient(psi, t)], 1)
@@ -117,6 +119,16 @@ class Synthetic(unittest.TestCase):
         self.assertEqual(rep["frame_gaps"]["count"], 0)
         self.assertLess(rep["tilt"]["median_deg"], 0.1)
         self.assertGreater(len(rep["yaw_steps"]["steps"]), 0)
+
+    def test_yaw_oscillation_is_found_and_commanded_turns_are_not(self):
+        rep, fails = self.run_eval(yaw_osc=True)
+        o = rep["yaw_oscillation"]
+        self.assertTrue(o["detected"])
+        self.assertAlmostEqual(o["first_t_s"], 30 - 6, delta=2)                 # t since takeoff (liftoff at ~6 s)
+        self.assertGreater(o["peak_dps"], 150)
+        self.assertTrue(any("yaw oscillation" in f for f in fails))
+        self.assertEqual(rep["dominant_event"], "yaw oscillation (vehicle)")
+        self.assertFalse(self.run_eval()[0]["yaw_oscillation"]["detected"])     # four 90 deg steps + 34 deg/s swings: not one
 
     def test_latency_is_measured_and_gated(self):
         rep, fails = self.run_eval(latency_s=0.06)

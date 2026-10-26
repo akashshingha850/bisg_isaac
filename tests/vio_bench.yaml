@@ -20,7 +20,7 @@ flight_args: ""              # extra tests/vio_bench.py arguments (e.g. "--hover
 # report can say what was under test). `params` of a config = the PX4 params set live for it, on top of those files.
 configs:
   calibrated:
-    about: "the shipped GPS-denied mode: ekf2_vio_flow_range.params as is (MC_YAWRATE_MAX 60, EKF2_EVA_NOISE 0.01, EKF2_OF_QMIN_GND 1)"
+    about: "the shipped GPS-denied mode: ekf2_vio_flow_range.params + ev_compass.params as is (MC_YAWRATE_MAX 60, EKF2_EVA_NOISE 0.01, EKF2_OF_QMIN_GND 1, EKF2_EV_CTRL 12 with the zed-bridge's Manhattan compass, zed.yaml sim heading)"
     params: {}
   no_yaw_limit:
     about: "ablation: PX4's default yaw-rate cap (fast yaw steps slip the sim ZED's yaw)"
@@ -34,10 +34,10 @@ configs:
   no_flow:
     about: "sensor ablation: PMW3901 optical flow off (ZED + baro + LW20 only)"
     params: {EKF2_OF_CTRL: 0}
-  ev_no_position:
-    about: "fusion ablation: ZED velocity + yaw only, no ZED position (EKF2_EV_CTRL 12); position from velocity + flow"
-    params: {EKF2_EV_CTRL: 12}
-default_configs: [calibrated, no_yaw_limit, no_eva_fix, px4_defaults, no_flow, ev_no_position]
+  ev_position:
+    about: "fusion ablation: the ZED position fused again (EKF2_EV_CTRL 13, the default until 2026-10-26; the compass stays on: it is a zed.yaml setting)"
+    params: {EKF2_EV_CTRL: 13}
+default_configs: [calibrated, no_yaw_limit, no_eva_fix, px4_defaults, no_flow, ev_position]
 
 # Verdict of `./bisg vio bench` / `./bisg vio report` (exit 0 = PASS) = is the VIO pipeline CALIBRATED on this machine:
 #   pipeline checks over every flight that reached the air (they do not depend on the EKF2 params), and the `calibrated` flights

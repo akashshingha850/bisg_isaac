@@ -12,6 +12,15 @@ NED/FRD and sends MAVLink ODOMETRY. Differences from a plain relay, all on purpo
     the ZED's relative motion over 0.4 s with the flight controller's own (mavros local_position/pose: EKF2, independent of the ZED
     over such a window); removal re-anchors the trajectory so EKF2 sees it continuous. Off by default: switch on per scenario in
     docker/zed/zed.yaml and check with `./bisg vio check` (docs/vio.md). Valid within the calibrated yaw-rate cap (MC_YAWRATE_MAX 60).
+  * pose_source: map sends the SDK's map-frame pose (`pose`: takes loop closures / relocalisation when area memory is on) instead
+    of the `odom` chain, through a slewed correction (mapcorr.py): out = C o odom, C following map o odom^-1 at <= map_max_mps /
+    map_max_dps, so EKF2 never sees a step (MAVROS cannot send a reset_counter). Velocity stays the odom twist (body frame).
+  * heading: manhattan corrects the heading with the walls of the room (compass.py: the room axis in the ZED depth vs the one seen
+    at take-off = the odometry's yaw drift), through the same slewed correction (yaw only, pivoting about the current position).
+    Measured only while the yaw rate is under compass_max_rate_dps; needs `compass_n_ref` good views on the ground first.
+  * turn_vel_sigma > 0: while the yaw rate is above turn_rate_dps the twist covariance says the velocity is only good to this many
+    m/s, so EKF2 (EKF2_EV_NOISE_MD 0: max(message variance, EKF2_EVV_NOISE^2)) leans on flow + IMU there: the sim ZED loses itself
+    in fast in-place turns and its velocity is wrong then too (docs/vio-drift.md). 0 = the wrapper's covariance as it is.
   * jump_inject_*: TEST ONLY. Adds a permanent pose jump / yaw slip to the ZED stream at a given time, as an SDK event would, so the
     gate can be checked end to end in the sim (docs/vio.md). Zero = off.
 Pose lever arm of the camera on the airframe: EKF2_EV_POS_X/Y/Z on the PX4 side.
@@ -19,13 +28,17 @@ Pose lever arm of the camera on the airframe: EKF2_EV_POS_X/Y/Z on the PX4 side.
 import copy
 import math
 
+import numpy as np
 import rclpy.duration
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import CameraInfo, Image
 from zed_msgs.msg import PosTrackStatus
 
 from .common import DEGRADED, LOST, OK, RELIABLE_QOS, SENSOR_QOS, Module, Rate
+from .compass import Compass, room_axis
 from .jumpgate import JumpGate, qmul, qrot
+from .mapcorr import MapCorrection
 
 ODOM_FRAME, BASE_FRAME = "odom", "base_link"
 
@@ -48,6 +61,30 @@ class Odometry2Px4(Module):
             self.gate = JumpGate(settings.get("jump_pos_thresh_m", 0.25), settings.get("jump_rot_thresh_deg", 7.5),
                                  window_s=settings.get("jump_window_s", 0.4))
             node.create_subscription(PoseStamped, f"{ctx.mavros}/local_position/pose", self.on_ekf_pose, SENSOR_QOS)
+        self.mapcorr, self.map_poses = None, {}
+        if settings.get("pose_source", "odom") == "map":
+            self.mapcorr = MapCorrection(settings.get("map_max_mps", 0.2), settings.get("map_max_dps", 30.0),
+                                         settings.get("map_max_step_m", 3.0), settings.get("map_max_step_deg", 30.0))
+            node.create_subscription(PoseStamped, f"{ctx.zed}/pose", self.on_map_pose, SENSOR_QOS)
+        self.compass = None
+        if settings.get("heading", "none") == "manhattan":
+            if self.mapcorr:
+                self.warn("heading manhattan and pose_source map both set: the compass owns the heading, map poses are not used")
+            self.mapcorr = MapCorrection(settings.get("map_max_mps", 0.2), settings.get("map_max_dps", 30.0),
+                                         settings.get("map_max_step_m", 3.0), settings.get("map_max_step_deg", 30.0))
+            self.compass = Compass(min_sharpness=settings.get("compass_min_sharpness", 2.0), n_ref=settings.get("compass_n_ref", 10),
+                                   n_avg=settings.get("compass_n_avg", 3))
+            self.compass_period = 1.0 / settings.get("compass_rate_hz", 10.0)
+            self.compass_max_rate = math.radians(settings.get("compass_max_rate_dps", 30.0))
+            self.compass_t, self.compass_K, self.compass_drift = 0.0, None, None
+            self.compass_skip = {"unpaired": 0, "turning": 0}
+            self.compass_last = None
+            self.odom_hist = []                 # (stamp s, orientation, |yaw rate| rad/s) of recent odom samples
+            node.create_subscription(CameraInfo, f"{ctx.zed}/depth/camera_info", self.on_depth_info, SENSOR_QOS)
+            node.create_subscription(Image, f"{ctx.zed}/depth/depth_registered", self.on_depth, SENSOR_QOS)
+        self.turn_vel_var = float(settings.get("turn_vel_sigma", 0.0)) ** 2
+        self.turn_rate = math.radians(settings.get("turn_rate_dps", 20.0))
+        self.turn_samples = 0
         self.inject = (float(settings.get("jump_inject_at_s", 0.0)), float(settings.get("jump_inject_m", 0.0)),
                        float(settings.get("jump_inject_yaw_deg", 0.0)))
         self.t_first, self.injected, self.inject_p0 = None, False, None
@@ -55,11 +92,65 @@ class Odometry2Px4(Module):
         node.create_subscription(Odometry, f"{ctx.zed}/odom", self.on_odom, SENSOR_QOS)
         node.create_subscription(PosTrackStatus, f"{ctx.zed}/pose/status", self.on_track, SENSOR_QOS)
         self.log(f"{ctx.zed}/odom -> {ctx.mavros}/odometry/out (restamp={self.restamp}{f' -{self.latency_ns / 1e6:g} ms' if self.restamp and self.latency_ns else ''}, min rate {self.min_rate} Hz"
-                 f"{', jump gate on' if self.gate else ''}{f', TEST: injecting {self.inject[1]} m / {self.inject[2]} deg at +{self.inject[0]:g} s' if self.inject[1] or self.inject[2] else ''})")
+                 f"{', jump gate on' if self.gate else ''}{', heading from the room walls (Manhattan compass)' if self.compass else (', pose from the map frame (slewed)' if self.mapcorr else '')}{f', TEST: injecting {self.inject[1]} m / {self.inject[2]} deg at +{self.inject[0]:g} s' if self.inject[1] or self.inject[2] else ''})")
 
     def on_ekf_pose(self, msg):
         p, o = msg.pose.position, msg.pose.orientation
         self.gate.witness(msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9, (p.x, p.y, p.z), (o.x, o.y, o.z, o.w))
+
+    def on_map_pose(self, msg):
+        """The wrapper stamps `pose` and `odom` of one grab alike: keep the last few to pair them."""
+        s = msg.header.stamp
+        self.map_poses[(s.sec, s.nanosec)] = msg.pose
+        while len(self.map_poses) > 10:
+            self.map_poses.pop(next(iter(self.map_poses)))
+
+    def on_depth_info(self, msg):
+        self.compass_K = (msg.k[0], msg.k[4], msg.k[2], msg.k[5])
+
+    def on_depth(self, msg):
+        """Manhattan compass: one depth image (at <= compass_rate_hz, while not turning) -> the odometry's yaw drift."""
+        now = self.node.get_clock().now().nanoseconds * 1e-9
+        if self.compass_K is None or not self.odom_hist or now - self.compass_t < self.compass_period:
+            return
+        t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        dt, q, rate = min(((abs(t - s), q, r) for s, q, r in self.odom_hist), key=lambda x: x[0])
+        if dt > 0.05 or msg.encoding != "32FC1":
+            self.compass_skip["unpaired"] += 1
+            return
+        if rate > self.compass_max_rate:
+            self.compass_skip["turning"] += 1
+            return
+        self.compass_t = now
+        depth = np.frombuffer(msg.data, dtype=np.float32).reshape(msg.height, msg.step // 4)[:, :msg.width]
+        before = self.compass.ref
+        meas = room_axis(depth, *self.compass_K, q)
+        drift = self.compass.add(meas)
+        self.compass_last = None if meas is None else (round(now, 1), round(math.degrees(meas[0]), 2), round(meas[1], 2), meas[2])
+        if before is None and self.compass.ref is not None:
+            self.log(f"compass reference: room axis {math.degrees(self.compass.ref):.1f} deg in the odometry frame")
+        if drift is not None:
+            self.compass_drift = drift
+            self.mapcorr.set_yaw(-drift, self.last_pos or (0.0, 0.0, 0.0))
+
+    def corrected(self, src, out, t):
+        """pose_source map: `out` (a copy of the odom message `src`) gets the slewed map-frame pose, in place."""
+        o, pp = src.pose.pose.orientation, src.pose.pose.position
+        op, oq = (pp.x, pp.y, pp.z), (o.x, o.y, o.z, o.w)
+        mp = self.map_poses.get((src.header.stamp.sec, src.header.stamp.nanosec))
+        n0, r0 = self.mapcorr.targets, self.mapcorr.rejected
+        if mp is not None and not self.compass:
+            self.mapcorr.target((mp.position.x, mp.position.y, mp.position.z),
+                                (mp.orientation.x, mp.orientation.y, mp.orientation.z, mp.orientation.w), op, oq)
+        p, q = self.mapcorr.step(t, op, oq)
+        out.pose = copy.deepcopy(out.pose)
+        out.pose.pose.position.x, out.pose.pose.position.y, out.pose.pose.position.z = p
+        out.pose.pose.orientation.x, out.pose.pose.orientation.y, out.pose.pose.orientation.z, out.pose.pose.orientation.w = q
+        if self.mapcorr.rejected != r0:
+            self.warn(f"map correction rejected: implausible step (> {self.mapcorr.max_step_m:g} m / {self.mapcorr.max_step_deg:g} deg)")
+        elif self.mapcorr.targets != n0:
+            m, deg = self.mapcorr.pending(op)
+            self.log(f"map correction {self.mapcorr.targets}: {m:.2f} m, {deg:.1f} deg to apply")
 
     def _inject(self, t, p, q):
         """TEST ONLY: from `jump_inject_at_s` after the first sample, a permanent x offset and yaw slip in the raw ZED pose."""
@@ -121,6 +212,19 @@ class Odometry2Px4(Module):
             t = stamp.nanoseconds * 1e-9        # the same clock as the flight controller's stamps: what the gate compares against
         else:
             t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        if self.compass:
+            o = msg.pose.pose.orientation
+            st = msg.header.stamp
+            self.odom_hist = (self.odom_hist + [(st.sec + st.nanosec * 1e-9, (o.x, o.y, o.z, o.w), abs(msg.twist.twist.angular.z))])[-60:]
+        if self.mapcorr:
+            self.corrected(msg, out, t)
+        if self.turn_vel_var and abs(msg.twist.twist.angular.z) > self.turn_rate:
+            out.twist = copy.deepcopy(out.twist)
+            cov = list(out.twist.covariance)
+            for i in (0, 7, 14):                                    # linear x, y, z variances
+                cov[i] = max(cov[i], self.turn_vel_var)
+            out.twist.covariance = cov
+            self.turn_samples += 1
         if self.inject[1] or self.inject[2]:
             o = out.pose.pose.orientation
             pi, qi = self._inject(t, (p.x, p.y, p.z), (o.x, o.y, o.z, o.w))
@@ -135,11 +239,23 @@ class Odometry2Px4(Module):
 
     def status(self):
         detail = {"rate_hz": round(self.out.hz(), 1), "lost_events": self.lost_events}
+        if self.turn_vel_var:
+            detail["turn_deweighted"] = self.turn_samples
         if self.gate:
             c_m, c_deg = self.gate.correction()
             detail["jump_gate"] = {"jumps": self.gate.jumps, "removed_m": round(self.gate.removed_m, 2),
                                    "removed_deg": round(self.gate.removed_deg, 1), "offset_m": round(c_m, 2),
                                    "offset_deg": round(c_deg, 1), "bypassed": self.gate.bypassed, "tripped": self.gate.tripped}
+        if self.mapcorr:
+            m, deg = self.mapcorr.pending(self.last_pos or (0.0, 0.0, 0.0))
+            detail["map_correction"] = {"corrections": self.mapcorr.targets, "rejected": self.mapcorr.rejected,
+                                        "applied_m": round(self.mapcorr.applied_m, 2), "applied_deg": round(self.mapcorr.applied_deg, 1),
+                                        "pending_m": round(m, 2), "pending_deg": round(deg, 1)}
+        if self.compass:
+            detail["compass"] = {"reference_deg": None if self.compass.ref is None else round(math.degrees(self.compass.ref), 2),
+                                 "drift_deg": None if self.compass_drift is None else round(math.degrees(self.compass_drift), 2),
+                                 "accepted": self.compass.accepted, "rejected": self.compass.rejected, **self.compass_skip,
+                                 "last": self.compass_last}     # (t, axis deg, sharpness, points) of the last view evaluated
         if self.src.age() > 2.0:
             return {"state": LOST, "detail": "no odometry from the ZED", **detail}
         if self.track_ok is False:
