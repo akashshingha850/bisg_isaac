@@ -9,6 +9,46 @@ recalibration to `restamp_latency_ms` 100 are in [vio-campaign.md](vio-campaign.
 Path: `zed_wrapper` odom (pose of `zed_camera_link`, twist in the camera frame) -> zed-bridge (`restamp`, stamp = arrival - `restamp_latency_ms`, 100 ms on Workstation A) ->
 MAVROS `odometry/out` (`MAV_FRAME_LOCAL_FRD` pose, `BODY_FRD` velocity) -> EKF2 (`EKF2_EV_POS_*` removes the camera lever arm).
 
+## Jump gate (experimental, OFF, does not pass the sim): `docker/zed/zed_stack/bridge/jumpgate.py`
+
+The campaigns show the ZED odometry error is rare sudden events (a 0.4-0.54 m pose jump, an 8-13 deg yaw slip, mostly at camera frame
+gaps), not smooth noise, and EKF2 resets to them. The gate tries to remove them in the odometry bridge, before `mavros/odometry/out`:
+compare the ZED's motion over a 0.4 s window with the flight controller's own (`mavros/local_position/pose`) and, on a disagreement of
+>= 0.25 m or >= 7.5 deg, re-anchor the trajectory (`out = C ∘ zed`, C re-solved so the output continues by the controller's own
+displacement and rotation) so EKF2 sees it continuous. Fail-open: 5 jumps in 2 s bypass it for 10 s; an accumulated correction above 1 m or
+15 deg trips it off until restart. Settings in `docker/zed/zed.yaml` (`px4_bridge.odometry.jump_*`, off); status in `zed_stack/status`
+(`jump_gate`). Tests: `tests/unit/test_jumpgate.py`. **Do not switch it on**: results below.
+
+Results (2026-10-24, sim, `./bisg vio bench`, `calibrated`, fresh sim and scripted flight per run, scored against ground truth):
+
+| gate | flights | clean | failed | EKF2 horizontal max | ZED yaw error at the end |
+|---|---|---|---|---|---|
+| off (v0 baseline, ~5 min airborne) | 4 | 4 | 0 | 0.05-0.15 m | 0.09-0.57 deg |
+| off (standard profile) | 2 | 2 | 0 | 0.06-0.08 m | 0.4-0.6 deg |
+| **v1: per-sample motion allowance** | 4 | 2 | **2** (pose jumps 0.41 and 0.82 m) | 0.09-1.29 m | up to 4.5 deg |
+| **v3: relative motion vs EKF2, 0.4 s window** | 4 | 3 | **1** | 0.13-0.50 m | 0.0, 2.9, 9.5, 2.7 deg |
+
+Why they fail, and what was learned:
+* **v1** judged each sample against the peak speed or rate over its own tiny `dt`. The restamped samples are irregular (16, 25, 33, 50 ms)
+  and the orientation advances in lumps, so per-sample rates reach 360 deg/s on a vehicle that never exceeds 100 deg/s: ~30 false alarms
+  per clean flight, each removing a rotation that was not a jump, accumulating to a 30 deg offset.
+* **v3** (disagreement over a window) is quiet on clean logs and catches the real events offline (below), but it **fails closed-loop**:
+  EKF2 fuses the vision yaw with `EKF2_EVA_NOISE 0.01`, so its attitude follows what the gate outputs and is not an independent yaw
+  witness. A raw-gyro integration (`imu/data`) would be, and was not tried. EKF2's position is closer to independent over 0.4 s.
+* Offline replay of v3 on PX4 log extracts (open loop, so blind to that feedback): 0 firings on the 4 clean flights, and on archived flights
+  with real events (`archive/vio-bench/20261015-152046-stallman2`): yaw slip at a gap 10.2 -> 2.5 deg final error, yaw slip in a rotation
+  8.5 -> 0.8 deg, pose jump 0.54 m detected and removed; a 2.1 deg slip missed; one ablation flight with `MC_YAWRATE_MAX 200` made worse
+  (36 deg).
+* My first replay was invalid: the `*_groundtruth` topics have `timestamp_sample` = 0 in these extracts (use `timestamp`), which made every
+  truth comparison and the gyro witness garbage. The extracts hold the EV stream, EKF2 and the attitude on one clock, which is what makes
+  the replay possible: `tests/vio_gate_replay.py`.
+* The end-to-end fault-injection check (`jump_inject_*`, test only) did not test anything: the EV stream of a bench flight spans only
+  ~150 s from the first sample, and the fault was set for +160 s. Use `jump_inject_at_s` of about 80.
+
+Next if it is picked up: an independent rotation witness (raw gyro integration), then the closed-loop check above with the fault landing
+mid-flight, several flights per arm: events are random in the sim (9 of 18 flights in the 2026-10-15 ablation, 0 of 6 now), so one flight
+per arm shows nothing.
+
 ## Tools
 | | |
 |---|---|

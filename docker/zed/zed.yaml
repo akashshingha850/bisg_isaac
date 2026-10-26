@@ -168,6 +168,15 @@ services:
       restamp: false                # true = stamp with the node clock on arrival (what the sim needs, see `sim:`)
       restamp_latency_ms: 0.0       # restamp only: stamp = arrival - this, the camera->bridge latency on the node clock
       min_rate_hz: 5.0              # below this the source counts as lost and nothing is sent (sim: lower, it runs at ~0.4x real time)
+      jump_gate: false              # true = remove the ZED's rare pose jumps / yaw slips before EKF2 (bridge/jumpgate.py): the ZED's motion over
+                                    # 0.4 s is compared with the flight controller's own (mavros local_position/pose); a jump is re-anchored away so
+                                    # EKF2 sees a continuous trajectory. Off until measured on the target (`./bisg vio check`, docs/vio.md)
+      jump_pos_thresh_m: 0.25       # displacement disagreement over the window that counts as a jump (clean flights: <= 0.15 m)
+      jump_rot_thresh_deg: 7.5      # rotation disagreement (clean flights: <= 4.9 deg; real slips 8-13 deg)
+      jump_window_s: 0.4
+      jump_inject_at_s: 0.0         # TEST ONLY (docs/vio.md): s after the first sample at which a permanent fault is added to the ZED stream ...
+      jump_inject_m: 0.0            # ... a pose jump of this many metres along x ...
+      jump_inject_yaw_deg: 0.0      # ... and a yaw slip of this many degrees. Both 0 = off
     obstacle_distance:              # M2: depth -> 72 x 5 deg sector map -> PX4 collision prevention + QGC proximity radar
       enabled: true
       band: 0.6                     # m: only depth within +-band of the camera height counts (drone's own height band)

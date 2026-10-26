@@ -87,6 +87,8 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   at-rest fake position); seen live, 1.5 m off at liftoff. Gate takeoff on the zed-bridge `odometry ok` in
   `bisg_vehicle` `offboard_controller.wait_ready` and the tests
 - [ ] ZED pose jump without a frame gap (0.42 m in one sample): EKF2 resets to it; consider `EKF2_EV_CTRL 12` on the drone if the
+  (2026-10-24: a jump gate was built and tested, `docs/vio.md#jump-gate`: quiet on clean logs and fixes real events offline, but harms flights in the sim
+  because EKF2's yaw follows the vision yaw. Open: an independent gyro-integrated rotation witness.)
   real ZED shows jumps
 - [ ] ZED odometry gaps > 150 ms (4 in ~400 s, Simple Room; none in the Warehouse campaigns): find the source (render, grab, DDS);
   a real-rate IMU from the Isaac extension would let the sim SDK fuse it

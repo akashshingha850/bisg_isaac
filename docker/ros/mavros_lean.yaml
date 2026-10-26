@@ -18,6 +18,7 @@
       - vision_pose
       - obstacle_distance
       - distance_sensor
+      - rc_io                        # SERVO_OUTPUT_RAW -> mavros/rc/out: the motor knobs of the GCS dashboard (needs the stream request, mavros-gcs mavros_streams.py)
       - px4flow                      # OPTICAL_FLOW_RAD (PMW3901) -> mavros/px4flow/raw/optical_flow_rad (docs/range-flow.md)
       - landing_target
       - manual_control               # mavros/manual_control/send: virtual sticks for Position mode (tests/collision_prevention.py)
