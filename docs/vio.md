@@ -1,6 +1,6 @@
 # ZED VIO in the GPS-denied default: accuracy, error sources, calibration
 
-What EKF2 takes from the ZED in the sim default (`docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range]`): horizontal
+What EKF2 takes from the ZED in the sim default (`docker/sim/sim.yaml` `px4_params: [raptor]`): horizontal
 position, 3D velocity and yaw (`EKF2_EV_CTRL 13`). Height is baro + LW20, horizontal velocity also comes from the PMW3901
 ([range-flow.md](range-flow.md#gps-denied-on-all-sensors-zed--lw20--pmw3901--baro-2026-10-15)). Analysed 2026-10-15 on the RTX 4500 box,
 raptor in Simple Room, RTF 0.55-0.58. Since 2026-10-17 the default world is the Warehouse; the campaigns there and the
@@ -201,5 +201,5 @@ so 1, 3 and 4 should be much smaller there. Streaming a real-rate IMU from the I
 With the ZED down, PX4 still arms in OFFBOARD: at rest EKF2 always fuses a "valid fake position" (`fake_pos_control.cpp`), so
 `xy_valid` is true, and "Ready for takeoff" never meant the ZED was fused. Seen live (run 2, the wrapper had not connected): EKF2 called the position valid for 157 s at rest while it drifted
 0.69 m on quality-0 flow, then ran 1.5 m off at liftoff (flow is below its 8 cm minimum there) and the test aborted.
-`EKF2_OF_QMIN_GND 1` (ekf2_vio_flow_range) stops the ground drift; it cannot stop the arming. The gate belongs in our stack: take off only
+`EKF2_OF_QMIN_GND 1` (raptor.params) stops the ground drift; it cannot stop the arming. The gate belongs in our stack: take off only
 while the zed-bridge reports `odometry ok` (bridge status / `./bisg zed status`), e.g. in `bisg_vehicle` `offboard_controller.wait_ready`.

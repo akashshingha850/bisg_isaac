@@ -6,7 +6,7 @@
 cad:
   raw_usd: raptor_visual.usd           # step_to_usd.py output (docker/sim/tools/step_to_usd.py), copied next to this file
   rotate_z_deg: 90
-  exclude: [ZEDMSTEP, SiYi, SIYI]      # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh; SIYI A8 gimbal camera hidden
+  exclude: [ZEDMSTEP, CameraMainMount]  # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh; the whole SIYI A8 payload (CameraMainMount = ball camera + mount + SiYiA8 plates) hidden
 
 # Motors in PX4 quad-X order (rotor0..3 = motor 1..4: front-right, rear-left, front-left, rear-right); spin direction is the
 # Pegasus default [-1,-1,1,1] = PX4's. Positions fitted to the 4 duct holes of the frame (inner radius 68.6 mm => 5" props):
@@ -41,7 +41,8 @@ mass_groups:
 
 # Sensor mounts, CAD-FLU, for the scenario YAML (the script converts them to body-frame offsets).
 sensors:
-  zed_camera_link: [0.2450, 0.0693, -0.002]   # centre of the ZED M body in the CAD
+  zed_camera_link: [0.2450, 0.0693, -0.015]   # BOTTOM of the ZED M body in the CAD (body spans z -0.015..0.012): the twin's origin and the wrapper's
+                                              # zed_camera_link are the bottom of the camera (its mesh/URDF centre is 13.3 mm above); the CAD z of -0.002 sat it 13 mm too high
   tof: [0.0600, 0.0715, -0.090]               # Lightware LW20 bottom face
 
 # --- the raptor as a scenario vehicle (read by the launcher through docker/sim/sim.yaml `vehicle:`; build_raptor.py ignores it) ----
@@ -60,7 +61,7 @@ vehicles:
     sensors:
       zed:
         enabled: true
-        mount_xyz_rpy: [0.1205, 0.0, 0.0527, 0, 0, 0]      # base_link -> zed_camera_link, relative to the CoM: on the centreline (real drone:
+        mount_xyz_rpy: [0.1205, 0.0, 0.0397, 0, 0, 0]      # base_link -> zed_camera_link, relative to the CoM: on the centreline (real drone:
                                                             # centred, forward offset only; y was the placeholder CoM's -1.1 mm)
         baseline: 0.063
         resolution: [1280, 720]

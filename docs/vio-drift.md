@@ -80,7 +80,7 @@ Four questions, four note files, one report. What decided the design:
    does not skew it).
 3. **Correction**: out = C o odom with C's yaw moving towards -drift at <= 30 deg/s, pivoting about the current position (the
    position does not jump; later motion is rotated right). EKF2 sees a smooth heading change of at most 1 deg per sample.
-4. **EKF2 takes the ZED velocity and yaw, not its position** (`ev_compass.params`, `EKF2_EV_CTRL 12`): the tracking events that slip
+4. **EKF2 takes the ZED velocity and yaw, not its position** (`raptor.params`, `EKF2_EV_CTRL 12`): the tracking events that slip
    the heading also jump the position, which the compass cannot see.
 
 Measured in flight (`compass3-vel1`, 506 samples of the bridge status against the raw ZED's true heading error): the compass's drift
@@ -165,12 +165,12 @@ than 20 deg/s, so EKF2 leans on flow + IMU): worse in its one Kinetix flight (0.
 
 ## What ships (2026-10-26)
 
-- **Sim default**: zed.yaml `sim:` `heading: manhattan` + `docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range, ev_compass]`
+- **Sim default**: zed.yaml `sim:` `heading: manhattan` + `docker/sim/sim.yaml` `px4_params: [raptor]`
   (`EKF2_EV_CTRL 12`). `./bisg vio check` on it: **PASS** (`$ARCHIVE_DIR/vio_bench/20261026-071807-stallman2`: latency +0 ms,
   velocity scale 0.999 / 0.998, lever arm 2.3 cm, worst EKF2 0.155 m vs the 0.25 m gate; 7.8 cm on 2026-10-23 with the position
   fused: on a 26 m bench flight velocity fusion costs that, as in the 2026-10-15 ablation, and buys the long flights above). `tests/vio_bench.yaml`: `calibrated` is this mode, the
   ablation `ev_position` puts the ZED position back (13).
-- **Real drone unchanged** (zed.yaml main block `heading: none`, Pixracer params without `ev_compass`): the compass needs a check on
+- **Real drone unchanged** (zed.yaml main block `heading: none`, Pixracer params with `EKF2_EV_CTRL 13`): the compass needs a check on
   the real camera first (its depth is noisier at range, real rooms are less Manhattan, and the real ZED with its 400 Hz IMU may not
   slip at all). Check: hover, yaw 360 deg, compare `zed_stack/status` `compass.drift_deg` with the ZED's own yaw at the start heading.
 - **Not for every room**: the compass assumes walls on two orthogonal directions. A round, angled or cluttered room gives views

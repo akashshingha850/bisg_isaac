@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from range_flow_bench import Bench  # noqa: E402
 from vio_flight import Abort  # noqa: E402
 
-LEVER = (0.1205, 0.0, 0.0527)          # zed_camera_link in the body, FLU (raptor.params EKF2_EV_POS_*, FRD there)
+LEVER = (0.1205, 0.0, 0.0397)          # zed_camera_link in the body, FLU (raptor.params EKF2_EV_POS_*, FRD there)
 SOURCES = ("ekf2", "zed_odom", "zed_pose", "ev_out")
 
 

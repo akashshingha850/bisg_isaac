@@ -78,9 +78,9 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   papers in [research/](research/reports/)). Long profile `tests/drift_flight.py` (5 laps, 359 m): the sim ZED loses its heading in
   in-place turns away from take-off (2-40 deg a slip, 115-209 deg over 320-360 m) and jumps its position with it; EKF2 followed (abort at
   3 m inside 26-36 m). Fix: zed-bridge Manhattan compass (`odometry.heading: manhattan`, heading from the room's walls in the ZED
-  depth, slewed into the odometry) + ZED velocity/yaw only (`ev_compass.params`, `EKF2_EV_CTRL 12`): the 359 m flight landed at
+  depth, slewed into the odometry) + ZED velocity/yaw only (`raptor.params`, `EKF2_EV_CTRL 12`): the 359 m flight landed at
   1.76 m max / 0.93 m RMS, Kinetix explore EKF2 max 0.62-0.98 m vs 1.50-2.73 m before. Sim only; real drone unchanged
-- [ ] **Compass on the real camera** before `heading: manhattan` + `ev_compass` go on the drone (vio-drift.md "What ships")
+- [ ] **Compass on the real camera** before `heading: manhattan` + `EKF2_EV_CTRL 12` go on the drone (vio-drift.md "What ships")
 - [ ] **Position from the walls** (vio-drift.md "Open" 1): after the sim ZED depth's ~10 % short reading at 8-15 m is understood
 - [ ] **Why the sim ZED slips** in the south-west of the Warehouse (GEN_3 + streamed IMU; clean at take-off: tests/yaw_wrap_test.py) —
   report to Stereolabs with an SVO of a slipping turn

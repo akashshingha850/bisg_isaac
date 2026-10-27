@@ -21,7 +21,7 @@ python3 tests/vio_export.py $ARCHIVE_DIR/vio_bench/*/ --out docs/data/vio_campai
 
 ## 1. Purpose
 
-The sim default is GPS-denied like the real drone (`docker/sim/sim.yaml` `px4_params: [raptor, ekf2_vio_flow_range]`): EKF2 gets
+The sim default is GPS-denied like the real drone (`docker/sim/sim.yaml` `px4_params: [raptor]`): EKF2 gets
 horizontal position, 3D velocity and yaw from the ZED Mini (real ZED SDK on the Isaac twin), height from baro + LW20, and horizontal
 velocity also from the PMW3901 optical flow. Without GPS and magnetometer, the ZED is EKF2's only absolute horizontal and heading
 reference, so EKF2's horizontal error is, to first order, the ZED's error. Whether that chain is right depends on things a single

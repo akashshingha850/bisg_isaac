@@ -7,7 +7,7 @@ Three parts:
               frame, no VIO): tests/vio_eval.py must recover each one, and must not invent faults in a clean flight.
   Archive     the 2026-10-15 sim flights (archive/vio-2026-10-15/*/topics.npz, the fields of the PX4 logs that vio_eval reads):
               re-analysed here, they must still show what docs/vio.md reports (the regression data for the calibration).
-  Params      the calibrated values stay in docker/sim/px4/ekf2_vio_flow_range.params, and vio_eval's camera lever arm stays
+  Params      the calibrated values stay in docker/sim/px4/raptor.params, and vio_eval's camera lever arm stays
               equal to EKF2_EV_POS_* in raptor.params.
 """
 import os
@@ -268,11 +268,11 @@ def read_params(name):
 
 class Params(unittest.TestCase):
     def test_gps_denied_overlay_keeps_the_calibration(self):
-        p = read_params("ekf2_vio_flow_range")
+        p = read_params("raptor")
         self.assertEqual(p["EKF2_EVA_NOISE"], 0.01)        # sqrt -> 0.1 rad effective (PX4 v1.17 yaw-variance quirk)
         self.assertEqual(p["MC_YAWRATE_MAX"], 60.0)
         self.assertEqual(p["EKF2_OF_QMIN_GND"], 1)
-        self.assertEqual(p["EKF2_EV_CTRL"], 13)            # hpos + 3D vel + yaw, not the drifting vertical position
+        self.assertEqual(p["EKF2_EV_CTRL"], 12)            # 3D vel + yaw (the Manhattan compass holds the yaw), not position / the drifting z
         self.assertEqual(p["EKF2_EV_DELAY"], 0)            # the bridge stamps at capture
 
     def test_camera_mount_is_one_value_in_three_files(self):

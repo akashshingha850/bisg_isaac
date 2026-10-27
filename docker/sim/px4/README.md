@@ -1,20 +1,18 @@
 # PX4 parameter files
 
-One file per vehicle plus mode overlays, `NAME VALUE MAV_PARAM_TYPE` per line (6 = INT32, 9 = REAL32; not the 5-column QGC save format, `#`
+One file per vehicle, `NAME VALUE MAV_PARAM_TYPE` per line (6 = INT32, 9 = REAL32; not the 5-column QGC save format, `#`
 comments allowed). Names and ranges are checked against the pinned PX4 tag (`PX4_TAG`, ADR-003).
 
-| file | what it sets |
-|---|---|
-| `iris.params` | **vehicle file**, the Iris: collision prevention (`CP_*`, fed by the ZED depth through `mavros/obstacle/send`); rate gains are the airframe defaults |
-| `raptor.params` | **vehicle file**, the raptor twin: collision prevention **off** (`CP_DIST -1`, room scans fly close to walls; the other `CP_*` kept for turning it back on) + **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer) |
-| `ekf2_vision.params` | overlay: GPS-denied flight on the ZED visual odometry (EKF2 external vision, GPS and magnetometer off) |
-| `ekf2_flow_range.params` | overlay: GPS-denied flight on the downward ToF + optical flow (docs/range-flow.md) |
-| `ekf2_vio_flow_range.params` | overlay: **the real drone's GPS-denied mode**: baro height reference + LW20 + ZED VIO + PMW3901, no GPS/mag (docs/range-flow.md "GPS-denied on all sensors"). Needs the vehicle's lever arms and `EKF2_MIN_RNG` (raptor.params) |
-| `ev_compass.params` | overlay on `ekf2_vio_flow_range`, **sim default since 2026-10-26**: ZED velocity + yaw only (`EKF2_EV_CTRL 12`), the yaw held by the zed-bridge's Manhattan compass (zed.yaml `heading: manhattan`, docs/vio-drift.md). Only together with the compass; not on the Pixracer yet |
+**The drone has one file, `raptor.params`** (sim.yaml `px4_params: [raptor]`; the Pixracer loads the same file): collision prevention
+**off** (`CP_DIST -1`), the **sim-only** rate gains that stop its takeoff shake (never load that block onto the Pixracer), the EKF2
+lever arms, and the GPS-denied mode (baro height reference + LW20 + ZED VIO velocity + yaw + PMW3901, no GPS/mag; the yaw held by the
+zed-bridge's Manhattan compass, `EKF2_EV_CTRL 12`; docs/range-flow.md, docs/vio-drift.md). A new vehicle-wide setting is a block
+there, not a new file. Not yet on the Pixracer: the compass block (load `EKF2_EV_CTRL 13` there until the compass is checked on the
+real camera).
 
-A scenario lists **its vehicle's file first, then any overlays** (later wins): `px4.params: [iris]`, `[iris, ekf2_vision]`,
-`[raptor]`. Everything a vehicle always flies with goes in its vehicle file; only a sensing mode that switches EKF2 sources
-is an overlay. A new vehicle-wide setting (failsafes, geofence, tuning, ...) is a block in each vehicle file, not a new file.
+Legacy Iris scenarios (GPS, `single_iris_*`) keep their own files: `iris.params` (collision prevention, fed by the ZED depth) + an
+optional overlay, `ekf2_vision.params` (GPS-denied on the ZED VIO) or `ekf2_flow_range.params` (ToF + optical flow): `params: [iris, ekf2_vision]`
+(later wins).
 
 **SITL:** a scenario lists the files it wants, applied in order at PX4 boot (later wins, an override is logged):
 

@@ -2,7 +2,7 @@
 OFFBOARD takeoff and landing over raw MAVLink (pymavlink), for the tests that talk to PX4 without MAVROS (smoke_takeoff.py,
 hover_stability.py). Needs only a local position (LOCAL_POSITION_NED), so it works with GPS and GPS-denied alike; PX4's
 AUTO.TAKEOFF / AUTO.LAND need a global position and refuse without GPS (the sim default is GPS-denied since 2026-10-15,
-docker/sim/px4/ekf2_vio_flow_range.params). Same sequence as tests/vio_flight.py over MAVROS:
+docker/sim/px4/raptor.params). Same sequence as tests/vio_flight.py over MAVROS:
   stream a setpoint -> OFFBOARD -> arm -> climb to `alt` above the start -> ... -> descend with a velocity setpoint (PX4's land
   detector only accepts ground contact while a descent is commanded) -> landed -> disarm.
 All waits are wall-clock and scale with `patience`; the setpoint stream (20 Hz wall) is far above PX4's 2 Hz OFFBOARD minimum

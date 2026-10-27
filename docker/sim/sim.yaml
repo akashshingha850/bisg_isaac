@@ -9,11 +9,9 @@ scenario: configs/raptor_scenario.yaml         # app, render, physics, PX4 airfr
 vehicle: assets/vehicles/raptor/raptor.yaml    # the `vehicles:` entry: spawn pose, ZED/ToF mounts, chase cam
 model: assets/vehicles/raptor/raptor.usd       # drone USD for every vehicle without its own usd_path (null = the vehicle's `model:`)
 world: Warehouse                               # Pegasus preset name (pegasus.simulator.params.SIMULATION_ENVIRONMENTS) or a .usd path
-px4_params: [raptor, ekf2_vio_flow_range, ev_compass]   # docker/sim/px4/<name>.params: the vehicle file (iris | raptor), then
-                                               # overlays, later wins. ekf2_vio_flow_range = the real drone's GPS-denied mode (baro height,
-                                               # LW20, ZED VIO, flow; docs/range-flow.md). ev_compass (since 2026-10-26) = ZED velocity + yaw
-                                               # only, the yaw held by the zed-bridge's Manhattan compass (zed.yaml sim: heading; docs/vio-drift.md).
-                                               # [raptor] alone = GPS (the default until 2026-10-15)
+px4_params: [raptor]   # docker/sim/px4/<name>.params, the drone's one file: CP off, sim rate gains, lever arms and the real drone's
+                       # GPS-denied mode (baro height, LW20, ZED VIO velocity + yaw, flow; docs/range-flow.md), the yaw held by the
+                       # zed-bridge's Manhattan compass (zed.yaml sim: heading; docs/vio-drift.md)
 
 light_scale: 0.5                               # x every light's intensity in the world asset (launch.py scale_world_lights); 1 = as authored
 ambient_light: 2.0                             # RTX ambient fill (/rtx/sceneDb/ambientLightIntensity; launch.py set_ambient_light); null = 0

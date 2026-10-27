@@ -136,7 +136,7 @@ light_scale: 0.5                               # x every light in the world asse
 ambient_light: 2.0                             # RTX ambient fill: lifts what the world's lamps leave dark (ceiling)
 keep_only: [GroundPlane, SM_floor*, ...]       # world's top-level prims to keep (fnmatch globs; null = all): an empty room
 drop: [SM_PillarPartA_*/.../Section1]         # parts inside kept assets to remove (path globs below the world)
-px4_params: [raptor, ekf2_vio_flow_range]      # docker/sim/px4/<name>.params: vehicle file, then overlays
+px4_params: [raptor]      # docker/sim/px4/<name>.params: the drone's one file
 spawn: {position: [-2.5, 0.0, 0.11], yaw_deg: 0.0}    # first vehicle's start pose
 objects: [...]                                 # static cuboids added to the world (world.objects)
 ```
