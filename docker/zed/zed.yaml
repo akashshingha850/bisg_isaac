@@ -182,10 +182,10 @@ services:
       heading: none                 # manhattan = heading from the room's walls in the ZED depth (bridge/compass.py): the room axis vs the
                                     # one seen on the ground at start is the odometry's yaw drift. For box rooms / halls; off elsewhere
       compass_rate_hz: 10.0         # depth images evaluated per second (8 ms each)
-      compass_min_sharpness: 2.0    # a view counts when its best axis scores this many times the median axis (Manhattan enough)
+      compass_min_sharpness: 2.5    # a view counts when its best axis scores this many times the median axis (Manhattan enough)
       compass_max_rate_dps: 30.0    # no measurement while turning faster (each view is paired with the odom sample of its own stamp)
       compass_n_ref: 10             # good views on the ground that fix the reference room axis
-      compass_n_avg: 3              # the drift is the median of this many recent views
+      compass_n_avg: 5              # the drift is the median of this many recent views (2.5 + 5: compass.py, replay 2026-10-27)
       pose_source: odom             # map = the SDK's map-frame pose (loop closures, with positional_tracking.area_memory) instead of
                                     # the never-corrected odom chain. Not used when heading is manhattan
       map_max_mps: 0.2              # slew limits of the correction: added speed ...

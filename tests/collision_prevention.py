@@ -11,7 +11,7 @@ and the closest forward range stayed above CP_DIST - --slack. Lands in POSCTL wi
 lat/lon and flew a GPS-denied drone into a wall, tests/vio_flight.py); PX4 disarms itself after landing (COM_DISARM_LAND).
 
 Needs: sim up, `./bisg mavros up`, `./bisg zed up` (services.px4_bridge.obstacle_distance on), PX4 CP_DIST > 0 (scenario px4.params),
-MAVROS' `manual_control` plugin (mavros_lean.yaml), and NO other stick source: a QGroundControl with its (virtual) joystick on
+MAVROS' `manual_control` plugin (mavros_plugins.yaml), and NO other stick source: a QGroundControl with its (virtual) joystick on
 streams MANUAL_CONTROL on the GCS link first and PX4 keeps that source (manual_control_setpoint data_source 2), so our sticks are ignored.
     docker exec bisg-ros bash -lc 'source /opt/ros/jazzy/setup.bash; python3 /workspace/tests/collision_prevention.py --alt 1.5 --cp-dist 1.5'
 Exit 0 = PASS.

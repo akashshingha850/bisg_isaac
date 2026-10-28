@@ -25,7 +25,7 @@ PX4_BRIDGE=mavros          # mavros | mavsdk | xrce | none — or several, comma
 PX4_BRIDGE=xrce docker compose -f docker/compose.yaml --profile px4-bridge up -d      # raw compose: same variable, one bridge, default mavros
 ```
 `./bisg all` and `./bisg drone up` start what `PX4_BRIDGE` names (with MAVROS among them, `./bisg all` still adds `vio_mock`); `./bisg mavros up|state|down` still works (it forces `mavros`).
-Other settings in `config/bisg.conf`: `MAVROS_PLUGINS` (`lean` = 20 plugins, 9 % CPU / 144 MB measured with 17; `full` = stock ~50, 28 % / 255 MB), `MAVSDK_PORT`, `XRCE_PORT` (sim), `XRCE_BAUD` (drone).
+Other settings in `config/bisg.conf`: `MAVROS_PLUGINS` (groups of `docker/ros/mavros_plugins.yaml` joined with `+`: `lean` = 21 plugins, 9 % CPU / 144 MB measured with 17; `lean+debug` adds vibration, altitude, vfr_hud, esc_status, log_transfer; `full` = stock ~50, 28 % / 255 MB), `MAVSDK_PORT`, `XRCE_PORT` (sim), `XRCE_BAUD` (drone).
 `--hw` (default on arm64) uses the serial port `/dev/px4` (`DRONE_FCU_URL`, default `serial:///dev/px4:921600`) instead of the sim's UDP.
 
 ## Several drones, several methods
@@ -56,7 +56,7 @@ If you want xrce under `/drone_<id>` as well, the options are a relay node that 
 
 ## Using them
 
-- **mavros**: `ros2 topic echo /drone_1/mavros/local_position/pose`; plugin list `docker/ros/mavros_lean.yaml`.
+- **mavros**: `ros2 topic echo /drone_1/mavros/local_position/pose`; plugin list `docker/ros/mavros_plugins.yaml`.
 - **mavsdk**: gRPC, with the `mavsdk_grpc` package (in the image, or `pip install mavsdk-grpc`):
   ```python
   import asyncio, mavsdk_grpc

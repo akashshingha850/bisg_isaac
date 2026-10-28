@@ -1,0 +1,36 @@
+# MAVROS plugin groups. MAVROS_PLUGINS (config/bisg.conf) names the groups to load, joined with `+`: `lean` (the default),
+# `lean+debug`. `full` = MAVROS' stock px4_pluginlists.yaml (~50 plugins), no groups. docker/px4-bridge/entrypoint.sh writes the
+# union as MAVROS' `plugin_allowlist`; every plugin not listed is not loaded (each is its own node + subscriptions).
+# A new group is a new top-level list here; nothing else to change.
+
+# lean: the plugins this project needs on the drone (variant "mavros_lean" of the PX4-link benchmark)
+lean:
+  - sys_status
+  - sys_time
+  - command
+  - param
+  - imu
+  - local_position
+  - global_position
+  - home_position
+  - setpoint_position
+  - setpoint_velocity
+  - setpoint_raw
+  - odometry
+  - vision_pose
+  - obstacle_distance
+  - distance_sensor
+  - rc_io                        # SERVO_OUTPUT_RAW -> mavros/rc/out: the motor knobs of the GCS dashboard (needs the stream request, MRGCS mavros_streams.py)
+  - px4flow                      # OPTICAL_FLOW_RAD (PMW3901) -> mavros/px4flow/raw/optical_flow_rad (docs/range-flow.md)
+  - landing_target
+  - manual_control               # mavros/manual_control/send: virtual sticks for Position mode (tests/collision_prevention.py)
+  - onboard_computer_status
+  - debug_value
+
+# debug: analysis and log tools, on demand (`MAVROS_PLUGINS=lean+debug`, e.g. for the MRGCS Sensors tab)
+debug:
+  - vibration                    # VIBRATION -> mavros/vibration/raw/vibration: PX4's gyro / accel vibration metrics + accel clipping
+  - altitude                     # ALTITUDE -> mavros/altitude: PX4's local / relative / terrain heights and bottom clearance
+  - vfr_hud                      # VFR_HUD -> mavros/vfr_hud: throttle (hover thrust), climb rate
+  - esc_status                   # ESC_STATUS / ESC_INFO -> mavros/esc_status/*: rpm, voltage, current (DShot / UAVCAN telemetry)
+  - log_transfer                 # LOG_* -> mavros/log_transfer/*: list and download the PX4 ulogs over MAVLink

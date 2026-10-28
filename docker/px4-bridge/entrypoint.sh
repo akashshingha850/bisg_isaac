@@ -17,10 +17,23 @@ mavros() {
   # FCU_URL empty = the sim's PX4 (udp://:14540+i@127.0.0.1:14580+i); serial:///dev/px4:921600 on the drone
   local fcu="${FCU_URL:-udp://:$((14540 + INSTANCE))@127.0.0.1:$((14580 + INSTANCE))}"
   local ns="${NS:-drone_${DRONE_ID}}" sim="${USE_SIM_TIME:-false}" share=/opt/ros/jazzy/share/mavros/launch
-  # lean (docker/ros/mavros_lean.yaml, 20 plugins) falls back to MAVROS' stock list when the repo is not mounted
-  local plugins=/workspace/docker/ros/mavros_lean.yaml
-  if [[ "${MAVROS_PLUGINS:-lean}" == full || ! -f "$plugins" ]]; then plugins="${share}/px4_pluginlists.yaml"; fi
-  echo "[px4-bridge] mavros ns=/${ns} tgt_system=${DRONE_ID} fcu_url=${fcu} plugins=$(basename "$plugins") use_sim_time=${sim} ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
+  # MAVROS_PLUGINS = groups of docker/ros/mavros_plugins.yaml joined with + (lean, lean+debug), written as one allowlist;
+  # full, or no repo mounted, = MAVROS' stock list
+  local groups=/workspace/docker/ros/mavros_plugins.yaml want="${MAVROS_PLUGINS:-lean}" plugins="${share}/px4_pluginlists.yaml"
+  if [[ "$want" != full && -f "$groups" ]]; then
+    plugins=/tmp/mavros_plugins.yaml
+    python3 - "$groups" "$want" "$plugins" <<'EOF'
+import sys, yaml
+groups, want = yaml.safe_load(open(sys.argv[1])), sys.argv[2].split('+')
+bad = [w for w in want if w not in groups]
+if bad:
+    sys.exit(f"[px4-bridge] MAVROS_PLUGINS={sys.argv[2]}: unknown group(s) {bad}, known: {list(groups)} or full")
+names = list(dict.fromkeys(p for w in want for p in groups[w]))
+yaml.safe_dump({'/**': {'ros__parameters': {'plugin_allowlist': names}}}, open(sys.argv[3], 'w'))
+print(f"[px4-bridge] MAVROS plugins {sys.argv[2]}: {len(names)} ({' '.join(names)})")
+EOF
+  fi
+  echo "[px4-bridge] mavros ns=/${ns} tgt_system=${DRONE_ID} fcu_url=${fcu} plugins=${want} use_sim_time=${sim} ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
   # Same node + param files as `ros2 launch mavros px4.launch`, run directly so use_sim_time can be set (px4.launch has no argument for it).
   # -p reaches mavros_node and the router only; MAVROS 2.15.1 builds each plugin node with use_global_arguments(false), so they ignore
   # -p and every --params-file: mavros_sim_time.py sets use_sim_time on them at runtime.

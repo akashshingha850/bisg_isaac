@@ -177,6 +177,42 @@ than 20 deg/s, so EKF2 leans on flow + IMU): worse in its one Kinetix flight (0.
   that fail the sharpness gate (they are skipped), but a room with two wall families at, say, 60 deg would bias it: Atlanta-world
   handling (several headings, StructVIO) is not built.
 
+## Compass v4: the walls below a high camera (2026-10-27)
+
+Kinetix scans fly 3.5-5 m up. The v3 compass kept only points 0.3-4 m over the camera (upper wall panels, roof beams), so in a Kinetix
+explore flight (`20261027-171625`) it rejected 91 % of its views (sharpness < 2) and EKF2's heading showed 4-7 deg spikes after turns.
+Replayed on 579 Kinetix keyframes at the true camera orientation (the compass's own error, `kinetix/runs/...`, depth + GT pose saved):
+
+| compass | views accepted | output error median / p90 / max |
+|---|---|---|
+| v3: 0.3-4 m over the camera, points 1/z^2, sharpness >= 2.0, median of 3 | 33 % | 3.1 / 7.6 / 13.7 deg |
+| v4: 0.5 m over the floor (lowest 1 % of the view) to 4 m over the camera, 1/z, >= 2.5, median of 5 | 23 % | 2.1 / 3.9 / 5.8 deg |
+
+Flown (Kinetix explore, slow, fresh sim, `20261027-182638` vs v3 `20261027-170418`): EKF2 heading vs GT at the 28 explore views
+0.7 / 2.0 deg (median / max) vs 1.1 / 6.1; position 0.07 / 0.26 m vs 0.09 / 0.30; live acceptance 34 % vs 9 %; room fit within 0.27 m.
+One flight each. The magnetometer stays off (indoor fields; the sim's would be perfect and hide the real drone's problem).
+
+## Magnetometer vs ZED heading: `tests/compass_compare.py` (2026-10-27)
+
+A passive recorder for the question "is the Pixracer's compass good enough indoors to fuse as well?". It pairs the tilt-compensated
+magnetometer heading (`mavros/imu/mag` + the attitude's roll/pitch) with EKF2's heading (the ZED + wall compass, what the drone flies
+with), the raw ZED odometry and, in the sim, ground truth. Each gets a constant offset (the calibration: where magnetic north lies in
+the odometry frame) and the residual after it, counted only while the heading turns slower than 15 deg/s. GT-free health: the field
+strength and inclination must stay put while the drone turns and moves; a hard-iron offset or a steel structure moves both.
+
+Sim, `yaw_wrap_test.py` (23 turns, 384 deg swept), residual vs truth median / p90 / max: EKF2 0.09 / 0.87 / 4.8 deg, magnetometer
+0.40 / 1.01 / 5.7, magnetometer vs EKF2 0.53 / 1.31 / 3.3; field 44.5 uT +-0.3 %, inclination 53.2 +-0.3 deg: HEALTHY. That only
+checks the tool: Pegasus' magnetometer is the ideal Earth field (WMM at the take-off point + white noise, computed from the true
+attitude; no motors, no steel), so it is healthy by construction and not evidence for the real drone.
+
+Fusing both is not an EKF2 setting: PX4 v1.17 fuses magnetometer heading only while EV yaw is off (`mag_control.cpp`:
+`!_control_status.flags.ev_yaw` in both `mag_hdg` and `mag_3D`). The choices are EKF2 on the magnetometer (`EKF2_MAG_TYPE 1`,
+`EKF2_EV_CTRL 4`, the wall compass unused) or both blended in the zed-bridge before EKF2 (the magnetometer as a second absolute
+heading next to the wall compass). Neither is enabled, and neither should be in the sim, where an ideal magnetometer would hide the
+real drone's heading problem. Real drone first: QGC compass calibration (+ power compensation, `CAL_MAG_COMP_TYP`), then
+`compass_compare.py` on the Jetson while the drone is carried and turned through 360 deg over the flight area, motors off, then a
+hover (motor current). Fuse only if both come out HEALTHY.
+
 ## Open, in the order the research ranks them
 
 1. **Position from the walls** (L-SLAM style: once the heading is fixed, each wall is a 1-D landmark along its normal). Not built:

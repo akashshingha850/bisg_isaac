@@ -102,7 +102,7 @@ services:
       # mavros
       FCU_URL: ${FCU_URL:-}                     # empty = the sim's PX4 (udp, port from DRONE_ID); serial:///dev/px4:921600 on the drone
       GCS_URL: ${GCS_URL:-}                     # second MAVROS link (QGC / logger); empty = off
-      MAVROS_PLUGINS: ${MAVROS_PLUGINS:-lean}   # lean = docker/ros/mavros_lean.yaml | full = MAVROS' stock ~50 plugins
+      MAVROS_PLUGINS: ${MAVROS_PLUGINS:-lean}   # groups of docker/ros/mavros_plugins.yaml: lean | lean+debug | full = MAVROS' stock ~50
       USE_SIM_TIME: ${BRIDGE_SIM_TIME:-true}    # PX4 SITL runs on sim time; false on the drone
       # mavsdk
       MAVSDK_PORT: ${MAVSDK_PORT:-50051}

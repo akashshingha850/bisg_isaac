@@ -8,11 +8,14 @@ error when it is not, so (room axis now) - (room axis at take-off), folded into 
 
 Method: the idea of Straub et al. ("Real-time Manhattan World Rotation Estimation in 3D", IROS 2015) reduced to yaw, because gravity
 gives roll / pitch, and used as a heading aid like Doer & Trommer (ICINS 2021). Back-project a decimated depth image, rotate it into
-the odometry frame with the camera's gravity-aligned orientation, keep the points 0.3-4 m above the camera (walls, columns: no floor),
-project them on the horizontal plane and search the rotation that makes their x and y histograms sharpest (sum of squared bin
+the odometry frame with the camera's gravity-aligned orientation, keep the points from 0.5 m over the floor (the lowest 1 % of the
+view; 0.3 m over the camera when that is lower) to 4 m over the camera (walls, columns: no floor), project them on the horizontal plane and search the rotation that makes their x and y histograms sharpest (sum of squared bin
 weights; walls collapse into single bins when the axes line up with them). Every point votes, so the stereo noise of a wall 10 m
 away (residuals ~0.7 m) averages out; per-pixel surface normals do not survive it (tried first: 2-6 deg wandering on a still drone,
-and depth edges posing as walls). Points are weighted by 1/z^2 (stereo depth error grows with z^2). One wall in view is enough.
+and depth edges posing as walls). Points are weighted by 1/z (1/z^2 gave the same accuracy and rejected more views). One wall in view
+is enough. Replayed on 579 Kinetix keyframes at the true orientation (2026-10-27, Warehouse, camera mostly 3.5-5 m up): the walls
+below the camera (floor-aware band) + 1/z + min_sharpness 2.5 + n_avg 5 put the compass output within 2.2 / 3.6 / 5.9 deg (median /
+p90 / max) of the room axis, against 3.1 / 7.6 / 13.7 with the band starting 0.3 m over the camera, 1/z^2, 2.0 and 3.
 `sharpness` (best score / median score over all angles) says how Manhattan the view is; a cluttered or round view is rejected.
 """
 import math
@@ -47,7 +50,8 @@ def _score(xy, w, th, bin_m):
     return out
 
 
-def room_axis(depth, fx, fy, cx, cy, q_odom_cam, step=4, z_range=(0.4, 12.0), z_band=(0.3, 4.0), bin_m=0.1, min_points=200):
+def room_axis(depth, fx, fy, cx, cy, q_odom_cam, step=4, z_range=(0.4, 12.0), z_band=(0.3, 4.0), bin_m=0.1, min_points=200,
+              floor_clear=0.5):
     """Room axis (rad, in [-pi/4, pi/4)) in the odometry frame from one depth image (H x W float metres, optical frame) taken with
     the camera at orientation q_odom_cam (x, y, z, w of zed_camera_link in odom). Returns (axis, sharpness, n_points) or None."""
     d = np.asarray(depth, dtype=np.float64)[::step, ::step]
@@ -58,10 +62,14 @@ def room_axis(depth, fx, fy, cx, cy, q_odom_cam, step=4, z_range=(0.4, 12.0), z_
     P = np.stack([(u - cx) / fx * d, (v - cy) / fy * d, d], axis=-1)
     with np.errstate(invalid="ignore"):
         Pw = P @ (quat_to_R(q_odom_cam) @ R_LINK_OPT).T
-        ok = np.isfinite(d) & (d > z_range[0]) & (d < z_range[1]) & (Pw[..., 2] > z_band[0]) & (Pw[..., 2] < z_band[1])
+        valid = np.isfinite(d) & (d > z_range[0]) & (d < z_range[1])
+        if valid.sum() < min_points:
+            return None
+        lo = min(z_band[0], float(np.percentile(Pw[..., 2][valid], 1)) + floor_clear)   # the walls below a high camera count too
+        ok = valid & (Pw[..., 2] > lo) & (Pw[..., 2] < z_band[1])
     if ok.sum() < min_points:
         return None
-    xy, w = Pw[..., :2][ok], 1.0 / np.maximum(d[ok], 1.0) ** 2
+    xy, w = Pw[..., :2][ok], 1.0 / np.maximum(d[ok], 1.0)
     coarse = np.radians(np.arange(-45.0, 45.0, 1.0))
     sc = np.array([_score(xy, w, t, bin_m) for t in coarse])
     k = int(np.argmax(sc))

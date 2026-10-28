@@ -52,7 +52,7 @@ video → QGC (RTP/UDP 5600), and MAVROS → QGC (MAVLink, when `GCS_URL` is set
 | *(OmniGraph IMU node, not always listed)* | `bisg-sim` (`zed_sdk_rig.publish_imu`) | the ZED IMU the streamed twin cannot carry, on `zed/zed_node/imu/data` | only with a consumer of the ZED IMU (none today), see R1 |
 | `/drone_1/mavros_router` | `bisg-mavros-1` | MAVROS 2 MAVLink router: FCU link (`fcu_url`) + optional GCS link, bridges to `/uas1/mavlink_*` | always (it is the PX4 link) |
 | `/drone_1/mavros_node` + `/drone_1/mavros` | `bisg-mavros-1` | the UAS host: decodes MAVLink, owns `/drone_1/mavros/*`, `tf_static` NED helpers | always |
-| `/drone_1/mavros/<plugin>` (20 nodes) | `bisg-mavros-1` | one ROS node per allow-listed plugin (`docker/ros/mavros_lean.yaml`) | per plugin, see §5 |
+| `/drone_1/mavros/<plugin>` (20 nodes) | `bisg-mavros-1` | one ROS node per allow-listed plugin (`docker/ros/mavros_plugins.yaml`) | per plugin, see §5 |
 | `/drone_1/zed/zed_container` | `bisg-zed-1` | component container hosting the wrapper (intra-process capable, `enable_ipc`) | with the ZED |
 | `/drone_1/zed/zed_node` | `bisg-zed-1` | **the real ZED SDK** (`zed_wrapper`): images, depth, confidence, cloud, VIO, health, TF | with the ZED; the only image/depth source |
 | `/drone_1/zed/zed_state_publisher` | `bisg-zed-1` | `robot_state_publisher` for the ZED URDF: `zed_camera_link → center → left/right → optical` | with the ZED |

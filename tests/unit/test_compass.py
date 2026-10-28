@@ -52,6 +52,15 @@ class CompassTest(unittest.TestCase):
                 self.assertAlmostEqual(math.degrees(axis), err_deg, delta=0.5, msg=f"yaw {yaw} err {err_deg}")
                 self.assertGreater(conc, 2.0)
 
+    def test_a_high_camera_uses_the_walls_below_it(self):
+        """Kinetix scans fly 3.5-5 m up: the walls below the camera (down to 0.5 m over the floor) count, the floor does not."""
+        d = render((0.0, 0.0, 4.5), 0.4)
+        q = yaw_q(0.4 + math.radians(6.0))
+        axis, conc, n = room_axis(d, FX, FY, CX, CY, q)
+        _, _, n_above = room_axis(d, FX, FY, CX, CY, q, floor_clear=100.0)    # the band starting 0.3 m over the camera only
+        self.assertAlmostEqual(math.degrees(axis), 6.0, delta=0.5)
+        self.assertGreater(n, 1.5 * n_above)
+
     def test_one_wall_is_enough(self):
         d = render((0.0, 15.0, 2.0), math.pi / 2)           # facing the near north wall (3 m), nothing else but floor / ceiling
         axis, conc, n = room_axis(d, FX, FY, CX, CY, yaw_q(math.pi / 2 + math.radians(7.0)))

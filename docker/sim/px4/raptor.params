@@ -1,5 +1,5 @@
 # PX4 params for the raptor: the ONE file of the default drone (sim.yaml `px4_params: [raptor]`): collision prevention, the sim-only
-# rate gains, the EKF2 lever arms and the GPS-denied sensing mode (baro + LW20 + ZED VIO + PMW3901, no GPS/mag).
+# rate gains, the EKF2 lever arms and the GPS-denied sensing mode (LW20 + baro + ZED VIO + PMW3901 + magnetometer, no GPS).
 # Format: NAME VALUE MAV_PARAM_TYPE (6 INT32, 9 REAL32). Names/ranges checked against the pinned PX4 tag (PX4_TAG, ADR-003).
 
 # --- Collision prevention (Position mode): OFF on the raptor since 2026-10-22 ------------------------------------------
@@ -47,10 +47,11 @@ EKF2_MIN_RNG    0.10    9
 
 # --- GPS-denied sensing: the real drone's mode (sim and Pixracer) -------------------------------------------------------
 #   barometer (on the FC)            -> height REFERENCE
-#   LW20/C downward rangefinder      -> height aid + height above the floor; EKF2 learns the baro's bias from it over flat floor
-#   ZED Mini VIO (external vision)   -> 3D velocity + yaw (not position, see EKF2_EV_CTRL)
+#   LW20/C downward rangefinder      -> height aid + height above the floor (terrain); EKF2 learns the baro's bias from it
+#   ZED Mini VIO (external vision)   -> 3D velocity (not position, not yaw: see EKF2_EV_CTRL)
 #   PMW3901 optical flow             -> horizontal velocity
-# No GPS, no magnetometer (indoors: EV supplies yaw). Lever arms + EKF2_MIN_RNG are above. Needs `services.px4_bridge.odometry.enabled`
+#   magnetometer (on the FC)         -> yaw (magnetic heading)
+# No GPS. Lever arms + EKF2_MIN_RNG are above. Needs `services.px4_bridge.odometry.enabled`
 # in docker/zed/zed.yaml (sim:). GPS scenarios (Iris) use iris.params + an ekf2_* overlay instead.
 #
 # Height reference, measured 2026-10-15 on the raptor in Simple Room (docs/range-flow.md "GPS-denied on all sensors"):
@@ -58,16 +59,23 @@ EKF2_MIN_RNG    0.10    9
 #                         anchors height. The Iris VIO scenario (no ToF/flow) failed vio_flight with 0.85 m of z error this way.
 #   range  (2)          : 3.7 cm on a flat floor, but crossing the 0.78 m table edge the drone CLIMBED 0.53 m (0.60 m error):
 #                         PX4 warns range/vision references assume a flat floor.
-#   baro   (0, chosen)  : 2.1 cm flat, 3.2 cm over the table. Caveat: the sim's baro has no drift or prop wash (Pegasus barometer,
+#   baro   (0)          : 2.1 cm flat, 3.2 cm over the table. Caveat: the sim's baro has no drift or prop wash (Pegasus barometer,
 #                         drift 0); on the drone the range aid corrects slow drift, but check prop-wash height jumps near the floor.
+#   2026-10-28: range (2), chosen from the MRGCS Sensors tab (analyse flight, Warehouse, sim truth): range 0.003 m p90 vs
+#   ZED 0.02-0.21, baro 0.043. The emptied Warehouse has no table or rack to cross; a room with steps needs baro (0) again.
+#   2026-10-28 later: back to baro (0). As the reference, range leaves terrain unobserved (PX4 v1.17 zeros its gain in range and
+#   flow fusion); re-initialised at liftoff, it soaked up the climb and froze: EKF z +0.12 / +0.28 m over truth all flight, adding
+#   up over the take-offs of one PX4 boot (docs/todo.md).
 # Names/semantics checked against /opt/PX4-Autopilot/src/modules/ekf2/*.yaml (PX4 v1.17.0).
 
 EKF2_GPS_CTRL  0   6   # GPS fusion off
-EKF2_MAG_TYPE  5   6   # magnetometer off: EV yaw instead (indoor magnetic fields, and two yaw sources would fight)
-EKF2_HGT_REF   0   6   # height reference = baro (0 Baro 1 GPS 2 Range 3 Vision). Reboot-required: applied at SITL boot
+EKF2_MAG_TYPE  1   6   # magnetic heading (5 = off, EV yaw instead: two yaw sources would fight). Reboot-required. 2026-10-28, Sensors tab:
+                       # magnetometer 0.6-0.7 deg p90 vs truth against 1.5-2.1 for the ZED + wall compass. The sim's magnetometer is
+                       # Pegasus' ideal Earth field: re-check on the Pixracer indoors (motors, steel) before trusting this there
+EKF2_HGT_REF   0   6   # height reference = baro (0 Baro 1 GPS 2 Range 3 Vision; see above). Reboot-required: applied at SITL boot
 EKF2_BARO_CTRL 1   6   # baro fusion on (the default; stated because it is the reference)
 EKF2_RNG_CTRL  2   6   # range fusion always on (1 = only low and slow): height aid + terrain; it also learns the baro bias
-EKF2_EV_CTRL   12  6   # bit2 3D velocity + bit3 yaw; NOT bit0 horizontal position, NOT bit1 vertical position (the drifting z): see below
+EKF2_EV_CTRL   4   6   # bit2 3D velocity only: yaw from the magnetometer (PX4 v1.17 fuses one), no position, no z: see below
 EKF2_EV_DELAY  0   9   # ms. Samples are stamped at capture (sim: zed-bridge restamp, zed.yaml; drone: wrapper capture time).
                        # Checked 2026-10-15 (tests/vio_eval.py): residual EV lag vs ground truth 10 ms
 EKF2_EVA_NOISE 0.01 9  # EV yaw. PX4 v1.17 floors the yaw variance at max(var, EKF2_EVA_NOISE) (ev_yaw_control.cpp: a std used as a
@@ -86,6 +94,8 @@ EKF2_OF_QMIN_GND 1 6   # on the ground use flow only with quality >= 1. The defa
                        # estimate runs off at liftoff. Check the zed-bridge odometry before takeoff (docs/vio.md)
 EKF2_OF_DELAY  0   9   # ms. The twin stamps at the end of its integration window (docs/range-flow.md)
 #
+# EKF2_EV_CTRL 4 since 2026-10-28 (yaw from the magnetometer, EKF2_MAG_TYPE). With EV yaw off the zed-bridge's Manhattan compass no
+# longer reaches EKF2's heading (it corrects only the EV yaw); back to 12 + EKF2_MAG_TYPE 5 if the magnetometer fails on the drone.
 # EKF2_EV_CTRL 12 (it was 13 until 2026-10-26): EKF2 takes the ZED's velocity and yaw, not its position, because the yaw now comes through the
 # zed-bridge's Manhattan compass (docker/zed/zed.yaml `px4_bridge.odometry.heading: manhattan`), which holds it to the room's walls.
 # Use the two together: alone, either fails (docs/vio-drift.md).

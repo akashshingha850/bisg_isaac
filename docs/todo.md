@@ -7,6 +7,27 @@ Defects with causes: [bugs.md](bugs.md).
 ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio check` / `vio bench` PASS there
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
+## Done 2026-10-28
+- [x] **MAVROS plugin groups**: `docker/ros/mavros_lean.yaml` -> `docker/ros/mavros_plugins.yaml`, one list per group (`lean` = the
+  21 plugins as before, `debug` = vibration, altitude, vfr_hud, esc_status, log_transfer). `MAVROS_PLUGINS=lean+debug` loads both
+  (`+` joins any groups, `full` = stock); `docker/px4-bridge/entrypoint.sh` writes the union as the allowlist, an unknown group
+  stops the container with the known names. Sim: `MAVROS_PLUGINS=lean+debug ./bisg px4-bridge up` -> 26 plugins,
+  `mavros/vibration/raw/vibration` live. A new group is a new list in that file.
+- [x] **raptor.params from the Sensors tab** (sim truth, Warehouse): `EKF2_MAG_TYPE 1` (magnetic heading), `EKF2_EV_CTRL 4` (ZED
+  velocity only), `EKF2_HGT_REF 2` (range; back to 0 the same day, item below). Not yet re-flown: next `./bisg restart`, then the Sensors tab's analyse flight and the
+  migration gate (`vio_flight`, `./bisg vio check`). The sim magnetometer is ideal; `push_px4_params.py --file raptor` would put
+  the same on the Pixracer: re-check there first.
+- [x] **`EKF2_HGT_REF 2` takes a height bias on take-off** (2026-10-28, Kinetix flights, ulog + Pegasus truth): with range as the
+  reference PX4 v1.17 zeros the terrain gain of range and flow fusion, so nothing observes terrain; at liftoff it is re-initialised
+  with var `EKF2_MIN_RNG`^2 and soaks up the climb's EV-vz/baro push, then stays: EKF z read +0.12 / +0.28 m over truth for the
+  whole flight (2nd and 3rd flight of one PX4 boot, the bias adding up across take-offs: 0.45 m on the ground after the 3rd),
+  -0.006 on a fresh boot. The Kinetix/GCS error plots show it as the "initial spike" (0.1 m over 2 m flown = 5 %). Options:
+  back to `EKF2_HGT_REF 0` (baro ref; range then estimates terrain; no such ramp in the 2026-10-27 flights) or restart PX4
+  between flights. **Done: `EKF2_HGT_REF 0`** (raptor.params), two Kinetix explore flights on one boot (`20261028-104849`,
+  `105507`): no take-off ramp (|z err| <= 0.02 m for the first 60 s), terrain estimated again (`rng_terrain` 1), the 2nd flight
+  starts at the 1st's height (no carry-over). Cost: z wanders mid-flight, explore views z p90 0.15 / 0.11 m, max 0.23 (range ref,
+  fresh boot: 0.03), as on the 2026-10-27 baro flights. Not re-run: the migration gate / `./bisg vio check`.
+
 ## Done 2026-10-22
 - [x] **Empty Warehouse**: new locator key `keep_only` (fnmatch globs over the world asset's top-level prims; the rest is
   deactivated, `launch.py` `keep_only_world_prims`). `sim.yaml` keeps floor + painted stripes, walls (+ corners, pilasters),
@@ -49,6 +70,17 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
   One run per config: confirm with `./bisg vio bench` / a high profile before trusting the figures.
 
 ## Now — ZED VIO / localization ([vio.md](vio.md), [vio-campaign.md](vio-campaign.md))
+- [ ] **EKF2 sources on the real drone** ([vio-drift.md](vio-drift.md) "Magnetometer vs ZED heading"): MRGCS **Sensors** tab
+  (`sensor_check.py` + `sensor_analysis.py`, rewritten 2026-10-28; calibrations stay in QGC). *Analyse flight* (OFFBOARD 1.5 m:
+  hover, 16 yaw steps of 45 deg, +-0.6 m height step, 1 m square, lands on the start point) compares magnetometer vs ZED heading
+  (error per yaw step against the integrated FCU gyro: no truth needed), baro vs LW20 vs ZED height and flow vs ZED velocity,
+  plus IMU noise / vibration / clipping, ZED stamp latency, Kinetix settle time / blur, and prints the `EKF2_*` params to set.
+  Run it on the Pixracer after the QGC calibrations, with `MAVROS_PLUGINS=lean+debug` (vibration); a magnetometer verdict only
+  means something there (the sim's is ideal). EKF2 can't take magnetometer + EV yaw together (v1.17 `mag_control.cpp`).
+  `tests/compass_compare.py` = the passive recorder with ground truth (sim). Sim run 2026-10-28 (Warehouse, fresh sim, 184 s):
+  vision heading 2.1 deg p90 vs truth (step error 0.7 / 2.0 deg), ideal magnetometer 0.7; range 0.003 m p90, ZED 0.022, baro
+  0.042; flow 0.058 m/s vs ZED 0.046; EV lever arm fit 0.132 m (config 0.1205); EKF2 pose at capture 5.1 cm / 2.3 deg p90. Leads
+  to check: vision stamps -30 ms vs the FCU gyro (`vio check` says +0 ms), flow scale 0.83 against truth.
 - [x] **R9 wrapper crash** `can't compare times with different time sources` — **fixed 2026-10-21** (ADR-011). Throw site
   (`terminate_bt`, 2026-10-20, 2 s after spatial mapping started): `handleVideoDepthPublishing()` default-constructs
   `rclcpp::Time pub_ts` (RCL_SYSTEM_TIME), `publishVideoDepth()` leaves it unset on a repeated grab and, with

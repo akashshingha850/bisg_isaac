@@ -66,7 +66,7 @@ and the bridge's `odometry` `restamp` on (odometry itself runs in both since the
 
 ### `px4_bridge` (compose `zed-bridge`) — ZED → PX4 through MAVROS
 One rclpy node (`docker/zed/zed_stack/bridge/`), one module per feature, each switched under `services.px4_bridge`. It talks to MAVROS over DDS
-(ADR-001, lean plugin list `docker/ros/mavros_lean.yaml`); it needs MAVROS, not the other way round. Modules go **silent** when their
+(ADR-001, lean plugin list `docker/ros/mavros_plugins.yaml`); it needs MAVROS, not the other way round. Modules go **silent** when their
 input is lost — PX4's own timeouts and failsafes then act, rather than acting on stale data.
 
 | Module | In → out | Notes |

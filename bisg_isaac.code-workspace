@@ -9,8 +9,8 @@
 			"path": "../kinetix"
 		},
 		{
-			"name": "mavros-gcs",
-			"path": "../mavros-gcs"
+			"name": "MRGCS",
+			"path": "../MRGCS"
 		}
 	],
 	"settings": {}
