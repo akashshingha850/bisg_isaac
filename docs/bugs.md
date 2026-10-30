@@ -331,6 +331,12 @@ starts before the stream exists. `./bisg zed up` retries once, which covers a mi
 ---
 
 ## Fixed
+- **2026-10-30 — B20: `./bisg zed up` after `./bisg all` / `restart` left the ZED without frames** (`scripts/zed.sh`). Symptom: the
+  wrapper opens the stream (`Input -> STREAM`), then every `grab` fails with `CAMERA NOT INITIALIZED`; only the IMU flows, MRGCS and
+  the bridge show the camera `lost` (6 of 7 boots that day). Cause: `ZED_AUTOSTART=1` already starts the wrapper ~30 s after the
+  stream port opens, and `zed up` force-recreated it: a second connect against one sim run, which never gets frames ([B18](#b18)).
+  Ruled out on the way: the IMU feed patch (`stream_imu: false` stalled too), stale `/dev/shm/sl_local_*` (deleted: 0 of 3), 1080p.
+  Fix: `zed up` leaves a wrapper that started after the running sim alone and waits for its frames (2 of 2 `restart` + `zed up`).
 - **2026-10-02 — B4: launcher RTF metric under-reported** (`docker/sim/launcher/launch.py`, Isaac 6.0 migration). Cause confirmed:
   it counted loop iterations, and a render iteration ran more than one physics step. The 6.0 loop is
   `simulation_app.update()` and the heartbeat now counts `SimulationManager.get_num_physics_steps()`, so

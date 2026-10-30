@@ -78,6 +78,18 @@ case "$sub" in
     container_running "$SIM_NAME" || die "the sim is not running: ./bisg up headless"
     [[ -e "/dev/shm/sl_local_video_${ZED_SIM_PORT}" ]] \
       || warn "no ZED stream segment /dev/shm/sl_local_video_${ZED_SIM_PORT} yet: the sim opens it once the timeline plays (./bisg wait)"
+    # A wrapper started after this sim run began (ZED_AUTOSTART, or an earlier `zed up`) is already its one connect: recreating
+    # it is the second connect that never gets frames (B18; 6 of 7 boots on 2026-10-30, `./bisg restart` + `zed up`). Wait for it.
+    if container_running "$ZNAME" && (( $(date -d "$(docker inspect -f '{{.State.StartedAt}}' "$ZNAME")" +%s) \
+                                      >= $(date -d "$(docker inspect -f '{{.State.StartedAt}}' "$SIM_NAME")" +%s) )); then
+      info "$ZNAME already runs against this sim run (ZED_AUTOSTART or an earlier zed up): not recreating it (B18)"
+      if (( ! detach )); then
+        for _ in $(seq 1 45); do have_frames && break; sleep 4; done
+        have_frames || die "$ZNAME has no frames after ~3 min; it cannot reconnect to this sim run (B18): ./bisg restart"
+        ok "$ZNAME publishing /drone_${DRONE_ID}/zed/zed_node/*"
+      fi
+      start_services; exit 0
+    fi
     for attempt in 1 2; do
       info "zed_wrapper for drone ${DRONE_ID} (stream port ${ZED_SIM_PORT}, attempt ${attempt}/2)"
       compose --profile zed up -d --force-recreate zed >/dev/null

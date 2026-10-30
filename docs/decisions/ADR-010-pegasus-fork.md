@@ -23,3 +23,10 @@ machine can fetch, so Workstation B could not `git submodule update`. We have no
 - M18 is closed: the pinned history no longer depends on the PR ref surviving upstream.
 - Rebasing onto an upstream tag is unchanged (`docs/sources.md`), plus a force-push of `local` to the fork; a tag bump still needs
   a `docs/plan.md` §4 update.
+
+## Amendment 2026-10-28: upstream merged into `local`
+Upstream updates come in by `git fetch upstream && git merge upstream/main` on `local` (no force-push needed), push, then pin.
+First one: `e51b9a3` = `08c9954` + upstream `main` `e13dc65` (= `dev_6.0.1`; two commits of 2026-07-24: `PegasusOptimized` drone
+asset, `BoxWithCylinders_optimized.usdc` world; clean merge). bisg uses neither (raptor in the Warehouse), so no behaviour change is
+expected. PRs #144 / #147 / #148 are still open upstream; once #144 lands, rebase `local` onto upstream instead of merging (the
+same changes would come in twice as different commits).

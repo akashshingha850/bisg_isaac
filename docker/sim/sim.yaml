@@ -18,8 +18,8 @@ ambient_light: 2.0                             # RTX ambient fill (/rtx/sceneDb/
 keep_only:                                     # empty room: only the world's top-level prims matching these globs stay (launch.py
   [GroundPlane, SM_floor*, SM_FloorDecal_*,    # keep_only_world_prims); the rest (racks, pallets, bins, signs, wires, ceiling lamps)
    SM_WallA_*, SM_PillarPartA_*,               # is deactivated. Floor + its painted stripes; walls = SM_WallA_* (walls + corners) +
-   SM_CeilingA_*, SM_BeamA_*, SM_PillarA_*,    # SM_PillarPartA_* (pilasters); roof = ceiling + beams, roof pillars, wall brackets.
-   SM_Bracket*, DistantLight, RectLight]       # null = the Warehouse as authored
+   SM_CeilingA_*, SM_BeamA_*, SM_PillarA_*,    # SM_PillarPartA_* (pilasters); roof = ceiling + beams, roof pillars. SM_Bracket* (wall
+   DistantLight, RectLight]                    # brackets) removed 2026-10-30 (pillars kept: docs/todo.md); null = the Warehouse as authored
 drop:                                          # parts inside the kept assets (path globs below the world, launch.py drop_world_prims):
   - SM_PillarPartA_*/SM_PillarPartA_9M/Section1  # the lattice trusses + knee braces hanging under the roof (z 6-9 m); the columns stay.
                                                # They were the ZED's texture at scan height: without them GEN_3 VIO drifted 2-4 m in a

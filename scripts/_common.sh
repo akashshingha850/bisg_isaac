@@ -60,7 +60,7 @@ if [[ "$ROS_DOMAIN_ID" == auto ]]; then
   ROS_DOMAIN_ID=$(( 1 + $(printf '%s' "$(hostname -s 2>/dev/null || echo sim)" | cksum | cut -d' ' -f1) % 99 )); export ROS_DOMAIN_ID
   BISG_SRC[ROS_DOMAIN_ID]="${BISG_SRC[ROS_DOMAIN_ID]:-built-in} (auto from hostname)"
 fi
-conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG local-08c9954
+conf_default ISAAC_TAG 6.0.0;      conf_default PX4_TAG v1.17.0;           conf_default PEGASUS_TAG local-e51b9a3
 conf_default ZED_SDK 5.4.1;        conf_default ZED_WRAPPER_REF 60f78bd8393a93392bb2c8a4733006dca3cc9eb5;  conf_default ISAAC_IMAGE nvcr.io/nvidia/isaac-sim
 conf_default ZED_ISAAC_EXT_TAG v5.2.1;  conf_default TAILSCALE_TAG v1.102.5;  conf_default LICHTBLICK_TAG 1.29.1
 conf_default TAILSCALE_HOSTNAME "bisg-$(hostname -s 2>/dev/null || echo sim)"; conf_default TAILSCALE_EXTRA_ARGS ""; conf_default TAILSCALE_MODE auto; conf_default TAILSCALE_WITH_SIM 1

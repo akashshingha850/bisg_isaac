@@ -17,7 +17,7 @@
 
 # --- SDK module: Camera (open parameters) ---------------------------------------------------------------------------
 camera:
-  grab_resolution: HD1080            # HD2K | HD1080 | HD720 | VGA   (ZED Mini 720p: 15/30/60 fps)
+  grab_resolution: HD1080            # HD2K | HD1080 | HD720 | VGA   (ZED Mini: 1080p 15/30 fps, a crop: 84 deg; 720p 15/30/60, 101 deg; the sim twin streams raptor.yaml's resolution, HD720)
   grab_frame_rate: 30
   pub_frame_rate: 30.0              # publish rate of images + depth; <= grab_frame_rate, 0 = grab rate
   camera_timeout_sec: 5

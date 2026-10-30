@@ -7,7 +7,27 @@ Defects with causes: [bugs.md](bugs.md).
 ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio check` / `vio bench` PASS there
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
+## Now — Warehouse pillars kept, brackets removed (2026-10-30)
+- [x] **Decision: pillars in, wall brackets out** (world Q; `sim.yaml` `keep_only` without `SM_Bracket*`, `drop` of the trusses as before).
+  Analysis behind it: **Were the pillars needed for VIO? Short flights no, long
+  room scans yes (A/B 2026-10-30, 720p, same sim image, one run each; worlds P = committed: pillars + brackets in, Q = pillars in /
+  brackets out, N = both out).** Hover view at 4.1 m facing +x: ORB corners 1532 / 1050 / 501, textured 8 px blocks 31 / 32 / 25 %
+  (pillars and brackets each carry about half of what P has over N). `vio_flight` hover 120 s at 4.1 m: drift 0.08 / 0.08 /
+  0.07 m/min, 5 m square: max error 0.17 / 0.13 / 0.28 m, all PASS (N failed the same 5 m square an hour earlier with z 0.34: noise
+  is as large as the difference). The MRGCS NBV scan (Kinetix `roi_coverage`, the real use): P 24 views / 10 min, EKF2-vs-truth
+  drift worst 0.52 m, compass drift -1 deg; N 17 views, drift 0.2 -> 0.65 m over 7 min, then 1.51 m (watchdog abort), compass 5.7 deg
+  off. Older flights, same direction: pillars in (`163032` tour, 3.8-5.2 m) 0.3 m/min hover, out (two NBV scans this morning) 1.1-2.6
+  m/min, but those two stalled at their first view and did not repeat in the later N run. Open: Q in an NBV scan, a repeat of N, and
+  whether it is the compass (Manhattan walls/columns) or the ZED tracking. Chosen: Q (keeps two thirds of P's texture
+  with a cleaner room); not yet flown in an NBV scan.
+
 ## Done 2026-10-28
+- [x] **Pegasus: upstream merged into the fork** (ADR-010 amendment): `local` = `08c9954` + upstream `main` `e13dc65` (= `dev_6.0.1`:
+  `PegasusOptimized` drone asset + `BoxWithCylinders_optimized.usdc`; neither used here) as merge `e51b9a3`, clean, pushed; pin
+  `PEGASUS_TAG=local-e51b9a3`, `bisg/sim:6.0.0` rebuilt (rollback `bisg/sim:6.0.0-pre-e51b9a3`). Gate on the new image: `smoke` PASS,
+  `vio_flight` PASS (0.093 / 0.028 / 0.079 m, 810 samples), `zed_depth_box` PASS (−12.9 mm), `zed check` PASS. A first gate run
+  failed vio_flight / depth_box because the script ran `./bisg zed up` after `ZED_AUTOSTART` had started the wrapper (B18: the
+  second connect gets no frames); not the pin. The submodule had been left on `main` (`e13dc65`) — `local` is checked out again.
 - [x] **MAVROS plugin groups**: `docker/ros/mavros_lean.yaml` -> `docker/ros/mavros_plugins.yaml`, one list per group (`lean` = the
   21 plugins as before, `debug` = vibration, altitude, vfr_hud, esc_status, log_transfer). `MAVROS_PLUGINS=lean+debug` loads both
   (`+` joins any groups, `full` = stock); `docker/px4-bridge/entrypoint.sh` writes the union as the allowlist, an unknown group

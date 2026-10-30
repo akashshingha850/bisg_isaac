@@ -64,7 +64,8 @@ vehicles:
         mount_xyz_rpy: [0.1205, 0.0, 0.0397, 0, 0, 0]      # base_link -> zed_camera_link, relative to the CoM: on the centreline (real drone:
                                                             # centred, forward offset only; y was the placeholder CoM's -1.1 mm)
         baseline: 0.063
-        resolution: [1280, 720]
+        resolution: [1280, 720]                             # HD720: 101 x 68 deg. HD1080 is a crop of the 2K sensor (84 x 54 deg): tried
+                                                            # 2026-10-30, the dry Warehouse explore/tour lost coverage (docs/todo.md)
         fps: 30.0
         imu_rate: 200.0
         stream_imu: true                                    # feed the physics IMU into the ZED stream every physics step (SDK IMU fusion; zed_sdk_rig.py)
