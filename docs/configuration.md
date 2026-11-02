@@ -125,6 +125,12 @@ SIM_SCENARIO=/workspace/docker/sim/sim.yaml   # config/bisg.conf: the locator be
 path is passed to the container as `SIM_CONFIG=/workspace/docker/sim/configs/<file>.yaml`. Unknown names are
 warned about before the container starts.
 
+**Scenes from outside the repo** (`SCENES_DIR`, default `~/kinetix-data/scenes`; this machine's in `docker/.env`): the folder is
+mounted read-only at `/scenes` in the sim container, and a host path inside it given to `-c` / `SIM_SCENARIO` becomes `/scenes/...`.
+Each scene folder holds a locator that extends this repo's and changes only the world, e.g. Kinetix's `office_buddha/bisg.yaml`:
+`scenario: /workspace/docker/sim/sim.yaml`, `world: scene.usd` (relative to the locator), `spawn:`, and the lighting /
+`keep_only` / `drop` keys reset for that world. `./bisg up -c ~/kinetix-data/scenes/office_buddha/bisg.yaml`.
+
 **`docker/sim/sim.yaml` (the locator) says what the sim runs**, one key each:
 
 ```yaml

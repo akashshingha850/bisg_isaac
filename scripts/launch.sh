@@ -291,7 +291,7 @@ cmd_config(){
   show(){ info "$1"; shift; for k in "$@"; do v="${!k:-}"; printf '  %-18s %-46s %s\n' "$k" "${v:-<empty>}" "${BISG_SRC[$k]:-unset}"; done; }
   show "view"       SIM_VIEW SIM_VIEW_ADDR SIM_WEB_PORT SIM_WEB_INTERVAL DISPLAY
   show "remote"     TAILSCALE_HOSTNAME TAILSCALE_EXTRA_ARGS TAILSCALE_MODE TAILSCALE_WITH_SIM
-  show "sim"        SIM_SCENARIO SIM_WAIT_TIMEOUT
+  show "sim"        SIM_SCENARIO SCENES_DIR SIM_WAIT_TIMEOUT
   show "ros 2"      ROS_DOMAIN_ID FOXGLOVE_UI_PORT FOXGLOVE_LAYOUT
   show "endpoints"  DRONE_ID FCU_URL GCS_URL MAVLINK_GCS_PORT
   show "px4 bridge" PX4_BRIDGE MAVROS_PLUGINS MAVSDK_PORT XRCE_PORT XRCE_BAUD

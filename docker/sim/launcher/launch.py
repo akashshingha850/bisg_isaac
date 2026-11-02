@@ -541,6 +541,18 @@ class SimClock:
         self._cb = SimulationManager.register_callback(self.on_step, SimulationEvent.PHYSICS_POST_STEP)
         LOG.info("sim clock: publishing /clock every physics step (use_sim_time:=true on the ROS side)")
 
+    def announce(self, config, world_cfg, world_usd):
+        """Latched /sim/scenario: which scenario and world this sim run loaded (docs/interface-contract.md)."""
+        import json  # noqa: WPS433
+        from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy  # noqa: WPS433
+        from std_msgs.msg import String  # noqa: WPS433
+
+        qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.scenario_pub = self.node.create_publisher(String, "/sim/scenario", qos)
+        doc = {"config": config, "world": None if world_cfg.get("usd_path") else world_cfg.get("preset"), "usd": world_usd}
+        self.scenario_pub.publish(String(data=json.dumps(doc)))
+        LOG.info("sim scenario: /sim/scenario %s", doc)
+
     def on_step(self, _step_size, _context=None):
         # Same base as IsaacReadSimulationTime, which stamps the ZED images/IMU/TF.
         self.msg.clock.sec, self.msg.clock.nanosec = divmod(int(round(SimulationManager.get_simulation_time() * 1e9)), 1_000_000_000)
@@ -602,6 +614,8 @@ class App:
                 except Exception as exc:  # noqa: BLE001 — a view camera must never stop the sim
                     LOG.warning("could not start the chase camera of vehicle %s: %s", v.get("id", 0), exc)
         self.clock = SimClock() if cfg.get("app", {}).get("ros_clock", True) else None
+        if self.clock:
+            self.clock.announce(ARGS.config, world_cfg, world_usd)
         app_cfg = cfg.get("app", {})
         eye, target = app_cfg.get("viewport_eye"), app_cfg.get("viewport_target")
         follow_cfg = app_cfg.get("follow_cam") or {}

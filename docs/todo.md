@@ -7,6 +7,19 @@ Defects with causes: [bugs.md](bugs.md).
 ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio check` / `vio bench` PASS there
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
+## Done 2026-10-31 — scenes from outside the repo (Kinetix Q3)
+- [x] `SCENES_DIR` (config/bisg.conf sim block, default `~/kinetix-data/scenes`; workstation A `/opt/kinetix-data/scenes` in
+  `docker/.env`) is mounted read-only at `/scenes` in the sim; `to_ws` maps host paths in it, so `-c` / `SIM_SCENARIO` take a
+  scene's own locator (`scenario: /workspace/docker/sim/sim.yaml` + `world: scene.usd` + spawn/lighting). docs/configuration.md.
+  First user: Kinetix `office_buddha` (Isaac Office lobby + a scanned statue): boot 41 s, drone rests on the Office floor
+  (its own GroundPlane collider), ZED camera/depth (96 % valid)/odometry OK, a 13-view NBV flight landed. The Office's 119 lamps
+  are authored invisible, so a scene brings its own lights. Not run: `smoke` / `vio check` in the Office (default world unchanged).
+- [ ] **Second flight on one sim run: slow yaw oscillation.** Kinetix `office_buddha`, 2nd NBV flight after land + disarm on the
+  same sim (`kinetix/data/261031-013603_*`): position held to 3 cm, yaw swung -31..-60 deg around a -45 setpoint (~12 s period)
+  in EKF2 *and* truth for the whole flight; the 1st flight and the same flight on a restarted sim tracked yaw to 0.1 deg. The
+  bridge's health flapped `DEGRADED (low_motion_sensors_reliability)` 77x in that run. Suspects: EKF2/EV yaw state after re-arm, the
+  compass. Workaround: restart the sim per capture. Also seen once: the ZED wrapper's port-30000 flake after a quick down/up (B18).
+
 ## Now — Warehouse pillars kept, brackets removed (2026-10-30)
 - [x] **Decision: pillars in, wall brackets out** (world Q; `sim.yaml` `keep_only` without `SM_Bracket*`, `drop` of the trusses as before).
   Analysis behind it: **Were the pillars needed for VIO? Short flights no, long

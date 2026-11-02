@@ -81,6 +81,7 @@ the streamed ZED Mini twin, `docs/zed-sdk-sim.md`) and on the drone. The emulate
 | `/fleet/task` | `bisg_msgs/Task` | task id, type, area/waypoints, assigned drone ids |
 | `/fleet/status` | `bisg_msgs/FleetStatus` | aggregated `VehicleState` list |
 | `/clock` | `rosgraph_msgs/Clock` | sim only, published every physics step by the launcher; all nodes `use_sim_time:=true` in sim — PX4 SITL runs on sim time, so this includes every MAVROS plugin node (`docker/ros/mavros_sim_time.py`) |
+| `/sim/scenario` | `std_msgs/String` | sim only, published once at boot by the launcher, reliable + transient-local depth 1 (late joiners get it): JSON `{"config": <locator/scenario path in the sim container, e.g. /workspace/docker/sim/sim.yaml or /scenes/<name>/bisg.yaml>, "world": <Pegasus preset name, or null>, "usd": <world USD loaded>}`. Consumer: the MRGCS Kinetix bridge (flies the loaded scene) |
 
 ## QoS
 

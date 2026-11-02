@@ -75,6 +75,8 @@ esac
 conf_default ARCHIVE_DIR "$HOME/bisg-archive"
 conf_default BAG_DIR "${ARCHIVE_DIR}/bags"
 BAG_DIR="${BAG_DIR/#\~/$HOME}"; export BAG_DIR   # compose bind-mounts it into bisg-ros as /bags
+conf_default SCENES_DIR "$HOME/kinetix-data/scenes"
+SCENES_DIR="${SCENES_DIR/#\~/$HOME}"; export SCENES_DIR   # compose bind-mounts it into the sim read-only as /scenes
 conf_default PEGASUS_REPO https://github.com/akashshingha850/PegasusSimulator.git
 conf_default PEGASUS_UPSTREAM https://github.com/PegasusSimulator/PegasusSimulator.git
 conf_default ZED_WRAPPER_REPO https://github.com/akashshingha850/zed-ros2-wrapper.git
@@ -191,7 +193,7 @@ scenario_path(){
   to_ws "$s"
 }
 
-compose(){ mkdir -p "$BAG_DIR" 2>/dev/null || true; docker compose -f "$COMPOSE_FILE" "$@"; }   # BAG_DIR made by us, not by docker as root
+compose(){ mkdir -p "$BAG_DIR" "$SCENES_DIR" 2>/dev/null || true; docker compose -f "$COMPOSE_FILE" "$@"; }   # made by us, not by docker as root
 
 # Every GPU container fails at `docker start` when the loaded nvidia module and the installed
 # userspace disagree (apt upgraded the driver under a running kernel module). Catch it here: the
@@ -225,7 +227,11 @@ sim_failed(){ _sim_log_has "Traceback|\[launch\] .*(unknown|FATAL)|Failed to cre
 # Run a command in the ros container with ROS 2 (and the ros2_ws overlay) sourced.
 ros_exec(){ docker exec "$ROS_NAME" bash -c "source /opt/ros/jazzy/setup.bash; [ -f /workspace/docker/ros/ros2_ws/install/setup.bash ] && source /workspace/docker/ros/ros2_ws/install/setup.bash; $*"; }
 # host path (inside repo) -> /workspace path
-to_ws(){ local p="$1"; [[ "$p" = /workspace/* ]] && { echo "$p"; return; }; p="$(realpath -m "$p")"; echo "/workspace${p#"$ROOT"}"; }
+to_ws(){
+  local p="$1" s; [[ "$p" = /workspace/* || "$p" = /scenes/* ]] && { echo "$p"; return; }; p="$(realpath -m "$p")"
+  s="$(realpath -m "$SCENES_DIR")"; [[ "$p" = "$s"/* ]] && { echo "/scenes${p#"$s"}"; return; }   # SCENES_DIR is /scenes in the sim
+  echo "/workspace${p#"$ROOT"}"
+}
 
 # zed_stack (docker/zed/zed.yaml compiler/validator) is plain python + PyYAML: host python when it has yaml, else the ros image.
 zs(){

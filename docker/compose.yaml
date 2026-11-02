@@ -53,6 +53,7 @@ x-sim-base: &sim-base
     disable: true
   volumes:
     - ..:/workspace:rw                          # sim/, tests/, docker/cyclonedds.xml
+    - ${SCENES_DIR:-/tmp/bisg-scenes}:/scenes:ro   # scenes built outside the repo (config/bisg.conf SCENES_DIR, e.g. Kinetix's)
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
     # Isaac caches as named volumes (paths from the Isaac container docs)
     - isaac-cache-main:/isaac-sim/.cache:rw
