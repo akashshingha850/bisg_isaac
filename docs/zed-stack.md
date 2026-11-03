@@ -59,7 +59,8 @@ measured on the Orin NX before they are relied on.
 ### `sim:` — the only sim-vs-Jetson differences
 The `sim:` block at the bottom is merged over everything above **only** in the sim (`ZED_STACK_SIM=1`, set by the sim compose services and
 the emulated rig). Today: `imu_fusion: false` (the stream has no 400 Hz IMU; GEN_3 refuses a low-rate one), `sensors_image_sync: true`,
-and the bridge's `odometry` module off + `restamp` on. Anything else that differs between sim and hardware belongs in
+and the bridge's `odometry` module off + `restamp` on. Since 2026-11-03 it also holds the workstation quality settings (`depth_mode: NEURAL_PLUS`, mapping on,
+`pub_frame_rate: 30`), because the blocks above are the Orin NX drone's (`NEURAL_LIGHT`, mapping off, 15 Hz; docs/zed-benchmark.md). Anything else that differs between sim and hardware belongs in
 [zed-sdk-sim.md](zed-sdk-sim.md), not in a script.
 
 ## Services

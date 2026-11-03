@@ -54,6 +54,11 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
 - [ ] Bridge CPU: `health` and `obstacle_distance` each deserialise every 720p depth frame in Python (0.31 cores); share one
   depth subscription / decimate before the Orin NX bench
 - [ ] Repeat `./bisg zed bench` on the Orin NX: RAM is the constraint (mapping +4 GB, detection +4 GB, body tracking +7 GB)
+- [x] Orin NX sweet spot (2026-11-03, docs/zed-benchmark.md): drone = HD720, `NEURAL_LIGHT`, mapping off, publish 15 Hz; sim keeps `NEURAL_PLUS`/mapping on/30 Hz via `sim:`.
+- [ ] Check `NEURAL_LIGHT` depth against real obstacles at 5-8 m on the bench (`obstacle_distance` max_range 8 m is beyond its 0.3-5 m ideal range); fallback `./bisg zed set depth.depth_mode=NEURAL`
+- [ ] Spare compute on the Jetson: the desktop session (GNOME/Xorg/VS Code) takes 21-28 % GPU + CPU even with no ZED - run headless on the drone (skill `jetson-headless-mode`)
+- [ ] Python `zed-video` (0.85 core) + `zed-bridge` (0.4 core): `layout: single` drops the depth/confidence streams; the dead chase tile in `grid` has no source on the drone; share one depth subscription (already listed above)
+- [ ] Try Cyclone shared memory (`iox-roudi` + `<SharedMemory>` in `docker/cyclonedds.xml`; both are in `bisg/zed:jetson`) for the wrapper -> bridge/video frames; default iceoryx chunks top out at 4 MiB, a 720p depth frame is 3.7 MB. NITROS / Isaac ROS 4.6 (Jazzy, JetPack 7.2) only when a GPU consumer exists
 - [ ] Obstacle avoidance closed loop: `tests/collision_prevention.py` fails while QGC's virtual joystick holds PX4's manual-control
   source; run it with the joystick off, then confirm the QGC proximity radar
 - [ ] Area memory (`.area` of the lab) and `floor_alignment` for Kinetix T3 flights: decide at Phase 5 / Kinetix K6

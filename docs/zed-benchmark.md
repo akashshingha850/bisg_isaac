@@ -80,3 +80,66 @@ The module runs at <= 10 Hz, i.e. ~1 % of one core at HD720 on this host (the Or
 - Camera and depth publish at 21 Hz wall (30 Hz sim, sim RTF 0.70), cloud 10 Hz, wrapper about 1.2 cores. Because the bench runs inside the wrapper container, its GPU columns are the ZED GPU only (no sim noise).
 - **Everything on at once** (video variants, depth extras, ROI, tracking extras, plane detection, spatial mapping, object detection, body tracking): wrapper 1.65 cores, 4.8 GB RAM, 3.6 GB GPU 1 at 3 % utilisation. Images 21 Hz, depth 21 Hz, cloud 10 Hz, odom 21 Hz, fused cloud 1 Hz. Objects / skeletons / plane publish only when something is in view (nothing is, so no messages).
 - Not covered: `global_localization` (needs a GNSS fix) and `streaming` (conflicts with the sim stream, B19).
+
+## Orin NX 16 GB, real ZED Mini (2026-11-03)
+
+First numbers on the drone's own hardware (`bisg/zed:jetson`, SDK 5.4.1, L4T R39.2.1, power mode 40 W, nothing else on the GPU). One wrapper container,
+positional tracking + spatial mapping (5 cm) + plane detection on, 30 fps grab, `tegrastats` averaged over 30 s. "Consumers" = `ros2 topic hz` on left image,
+depth, confidence, cloud (10 Hz) and odom, run inside the container, so their own CPU is in the CPU column (an upper bound).
+
+| config | consumers | rate (depth / image / odom) | GPU avg (max) | CPU avg | board power |
+|---|---|---|---|---|---|
+| HD1080, `NEURAL_PLUS` | none | not measured | 35 % (52) | 42 % | 12.0 W |
+| HD1080, `NEURAL_PLUS` | 5 | 10 Hz | 85 % (99) | 56 % | 23.8 W |
+| HD720, `NEURAL_PLUS` | none | not measured | 37 % (55) | 42 % | 11.7 W |
+| HD720, `NEURAL_PLUS` | 5 | 12 Hz | 93 % (99) | 54 % | 25.2 W |
+| HD720, `NEURAL` | none | not measured | 33 % (43) | 44 % | 11.0 W |
+| HD720, `NEURAL` | 5 | 25 Hz | 68 % (98) | 52 % | 19.2 W |
+
+- **Depth consumers, not the grab, drive the GPU:** 35 % with nothing subscribed against 85-93 % once depth is requested. (The Jetson's own desktop session
+  - GNOME, Xorg, VS Code - sits at 21-28 % GPU and 19-28 % CPU with no ZED running, so most of that 35 % is the desktop.)
+- **`NEURAL_PLUS` cannot hold 30 fps on an Orin NX:** the odometry rate falls with it (12 Hz), because tracking and depth share one grab loop. Stereolabs lists it at ~8 fps on an Orin NX 8 GB.
+- **Resolution matters little** (10 -> 12 Hz from HD1080 to HD720): the depth network, not the pixel count, is the cost. `NEURAL` doubles the rate and saves ~6 W.
+- Measured next (below): `NEURAL_LIGHT`, mapping off, the bridge and video containers on top, publish rate, spare GPU. Not measured: `pub_resolution: CUSTOM`
+  (would change `camera_info` size, contract check 4), `grab_compute_capping_fps`, Cyclone shared memory.
+- The first start of a depth mode optimises its TensorRT model for ~6 min (cached in the `zed-resources` volume); a measurement taken during it is meaningless (one run was discarded for that).
+
+### Sweet spot for the Orin NX (2026-11-03, same day, later runs)
+
+Method: HD720, wrapper alone, the five consumers of the table above run in a *separate* container on the same DDS domain (the wrapper's CPU is read from its
+own cgroup, so the measuring tools are not in it), 30 s of `tegrastats`. Idle desktop for reference: 21 % GPU, 19 % CPU, 7.4 W.
+
+| depth mode | mapping | rate | GPU avg (max) | wrapper cores | board power | RAM |
+|---|---|---|---|---|---|---|
+| `NEURAL_LIGHT` | on | 26 Hz | 36 % (72) | 1.11 | 13.9 W | 9.1 GB |
+| `NEURAL_LIGHT` | off | 26 Hz | 34 % (71) | 1.09 | 13.8 W | 5.1 GB |
+| `NEURAL` | on | 25 Hz | 47 % (98) | 1.19 | 18.8 W | 9.3 GB |
+| `NEURAL` | off | 27.5 Hz | 60 % (98) | 1.11 | 19.1 W | 5.1 GB |
+| `NEURAL_PLUS` | on | 12 Hz | 93 % (99) | - | 25 W | - |
+
+- Depth mode moves the GPU, not the CPU (the wrapper is ~1.1 cores in every mode; publishing and tracking dominate). Mapping costs 4 GB of RAM - shared with the GPU - and no measurable CPU/GPU.
+- No mode reaches the 30 Hz grab (best 27.5 Hz) with five Python consumers attached.
+
+**Full stack** (wrapper + `zed-bridge` health + obstacle, bridge odometry off so nothing reaches EKF2, + `zed-video` grid + MAVROS), mapping off:
+
+| depth mode | publish | GPU avg (max) | wrapper | bridge | video | MAVROS | host CPU | power |
+|---|---|---|---|---|---|---|---|---|
+| `NEURAL_LIGHT` | 30 Hz | 30 % (72) | 0.96 | 0.59 | 0.96 | 0.27 | 53 % | 14.7 W |
+| `NEURAL` | 30 Hz | 58 % (98) | 1.05 | 0.57 | 0.98 | 0.28 | 53 % | 19.7 W |
+| `NEURAL_LIGHT` | **15 Hz** | 31 % (83) | 0.86 | 0.40 | 0.84 | 0.27 | 46 % | 13.2 W |
+| `NEURAL` | 15 Hz | 58 % (98) | 0.86 | 0.40 | 0.87 | 0.27 | 47 % | 18.8 W |
+
+Cores are of 8. Publishing images + depth at 15 Hz is what the consumers use (obstacle map 10 Hz, QGC grid 15 fps) and cuts the bridge by a third; odometry stays at the grab rate (24-29 Hz).
+The Python services (bridge + video) cost more than MAVROS (0.27) and about as much as the wrapper: the video's 0.85 core is image composition (the hardware `nvv4l2h264enc` is used), one tile of which, the chase view, never has a source on the drone.
+
+**Spare GPU** (full stack at 15 Hz + a saturating FP32 CUDA job beside it; the job alone gets 1333 GFLOP/s):
+
+| depth mode | CUDA job keeps | ZED odometry alone -> with job | ZED depth alone -> with job |
+|---|---|---|---|
+| `NEURAL_LIGHT` | 980 GFLOP/s (74 %) | 25.1 -> 24.6 Hz | 14.8 -> 14.7 Hz |
+| `NEURAL` | 759 GFLOP/s (57 %) | 26.4 -> **20.1 Hz** | 14.6 -> 14.5 Hz |
+
+`GR3D_FREQ` is relative to the current GPU clock, which is lower under `NEURAL_LIGHT`, so this table, not the percentages, is the headroom figure.
+**Chosen for the drone: HD720, `NEURAL_LIGHT`, mapping off, publish 15 Hz** (`docker/zed/zed.yaml`; the `sim:` block keeps `NEURAL_PLUS`, mapping on, 30 Hz).
+Caveats: `NEURAL_LIGHT`'s ideal range is 0.3-5 m (error < 8 % to 12 m, Stereolabs) while `obstacle_distance` reports to 8 m - not checked against real obstacles yet;
+the desktop session (21-28 % GPU) is still on, headless would give that back.

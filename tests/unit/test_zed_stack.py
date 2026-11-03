@@ -22,7 +22,7 @@ class CompileTests(unittest.TestCase):
     def test_default_file_is_valid_and_compiles(self):
         p = config.load().wrapper_params()
         self.assertEqual(p["pos_tracking"]["pos_tracking_enabled"], True)
-        self.assertEqual(p["depth"]["depth_mode"], "NEURAL_PLUS")
+        self.assertEqual(p["depth"]["depth_mode"], "NEURAL_LIGHT")   # the Orin NX drone (docs/zed-benchmark.md)
         self.assertEqual(p["object_detection"]["od_enabled"], False)
         self.assertEqual(p["object_detection"]["class"]["people"]["enabled"], True)
 
@@ -36,6 +36,13 @@ class CompileTests(unittest.TestCase):
         sim = config.load(sim=True)
         self.assertFalse(sim.wrapper_params()["pos_tracking"]["imu_fusion"])
         self.assertTrue(sim.wrapper_params()["sensors"]["sensors_image_sync"])
+        # the sim keeps the workstation quality settings the VIO / Kinetix work was tuned on; the drone's are sized for the Orin NX
+        sp, dp = sim.wrapper_params(), config.load().wrapper_params()
+        self.assertEqual(sp["depth"]["depth_mode"], "NEURAL_PLUS")
+        self.assertEqual(sp["general"]["pub_frame_rate"], 30.0)
+        self.assertTrue(sp["mapping"]["mapping_enabled"])
+        self.assertEqual(dp["general"]["pub_frame_rate"], 15.0)
+        self.assertFalse(dp["mapping"]["mapping_enabled"])
         # odometry runs in both (the sim default is GPS-denied since 2026-10-15); only the sim restamps (PX4 is on sim time)
         self.assertTrue(sim.bridge_modules()["odometry"]["restamp"])
         self.assertFalse(config.load().bridge_modules()["odometry"]["restamp"])
