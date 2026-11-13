@@ -16,6 +16,7 @@
 #   ./bisg tailscale up|login [--qr]|status|ip|logs|down|logout  reach this host from another network (Tailscale node, docs/remote-access.md)
 #   ./bisg bag [status]|enable|disable|start [PROFILE]|stop|list|info|play   rosbag2 (MCAP) recording for debugging (docker/ros/bag.yaml)
 #   ./bisg debug report|px4 <cmd>|mavlink|topics|hz T|echo T|perf|kitlog|ports|gpu|versions|dds|clean-cache
+#   ./bisg raptor sync [--force]   re-export the raptor CAD from Onshape (hidden parts skipped; no-op if unchanged) and rebuild its USDs (docker/sim/assets/README.md)
 #   ./bisg check                        host preflight only (scripts/check_env.sh)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,9 +28,11 @@ case "${1:-}" in
   drone) shift; exec "$HERE/scripts/drone.sh" "$@";;
   px4-bridge) shift; exec "$HERE/scripts/px4-bridge.sh" "$@";;
   tailscale) shift; exec "$HERE/scripts/tailscale.sh" "$@";;
+  raptor) shift; [ "${1:-}" = sync ] && shift || { echo "usage: ./bisg raptor sync [--force] [--download-only]" >&2; exit 2; }
+          exec python3 "$HERE/docker/sim/assets/vehicles/raptor/sync_onshape.py" "$@";;
   debug) shift; exec "$HERE/scripts/debug.sh" "$@";;
   bag) shift; exec "$HERE/scripts/bag.sh" "$@";;
   info) shift; exec "$HERE/scripts/info.sh" "$@";;
-  -h|--help|help|"") sed -n 2,18p "$0";;
+  -h|--help|help|"") sed -n 2,20p "$0";;
   *) exec "$HERE/scripts/launch.sh" "$@";;
 esac

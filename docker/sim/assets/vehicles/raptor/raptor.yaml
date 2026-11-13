@@ -4,7 +4,11 @@
 # centre of mass and prints the numbers the scenario needs (zed mount, tof mount, spawn height).
 
 cad:
-  raw_usd: raptor_visual.usd           # step_to_usd.py output (docker/sim/tools/step_to_usd.py), copied next to this file
+  onshape:                              # source of cad/raptor.step for `./bisg raptor sync` (vehicles/raptor/sync_onshape.py): the "Setup" assembly
+    document: 9e77e98a6b7fd04c5ad78aa2  # parts HIDDEN in that assembly are skipped automatically (cad/onshape_hidden.json, written by the sync)
+    workspace: 3d641d3fff8aa106886ad7a2
+    element: a958be12989e423b80b348ba
+  raw_usd: raptor_visual.usd          # step_to_usd.py output (docker/sim/tools/step_to_usd.py), copied next to this file
   rotate_z_deg: 90
   exclude: [ZEDMSTEP, CameraMainMount]  # CAD parts (name substring) left out of the visual: the ZED twin brings its own mesh; the whole SIYI A8 payload (CameraMainMount = ball camera + mount + SiYiA8 plates) hidden
 

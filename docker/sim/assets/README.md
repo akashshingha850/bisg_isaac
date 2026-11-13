@@ -5,6 +5,12 @@ It runs through the locator `docker/sim/sim.yaml` (the default `SIM_SCENARIO`): 
 settings), `vehicle: vehicles/raptor/raptor.yaml` (the vehicle entry: ZED/ToF mounts; also the build inputs below), `model:` the USD,
 plus world, spawn pose and `px4_params: [raptor]`.
 
+**Update from Onshape: `./bisg raptor sync`** (`vehicles/raptor/sync_onshape.py`) does all three steps below: it exports the assembly named in
+`raptor.yaml` `cad.onshape` as STEP, skips the parts that are *hidden* in that assembly (the STEP export includes them; their names go to
+`cad/onshape_hidden.json`, which `build_raptor.py` adds to `cad.exclude`), converts, builds and installs the USDs (~6 min, needs the sim
+image and a free GPU). Keys: `ONSHAPE_ACCESS_KEY` / `ONSHAPE_SECRET_KEY` in `docker/.env` (read-only API key, My account > Developer).
+It does nothing when the Onshape document has not changed since the last sync (`--force` redoes it, e.g. after editing `raptor.yaml`); `--download-only` stops after the STEP. Mass, CoM and mounts do not follow the CAD: they come from `raptor.yaml` (below).
+
 Pipeline (each step runs in the `bisg/sim:6.0.0` image, command in the script's docstring; the container user cannot write
 `docker/sim/assets`, so output goes to `docker/sim/cache/...` and is copied):
 1. `cad/raptor.step` (Onshape export, metres) → `docker/sim/tools/step_to_usd.py` (Isaac CAD Converter) → `raptor_visual.usd` (raw CAD, Z up).

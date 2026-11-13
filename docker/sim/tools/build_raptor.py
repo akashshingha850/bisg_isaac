@@ -24,6 +24,9 @@ ap.add_argument("--cfg", default=f"{ASSET}/raptor.yaml")
 ap.add_argument("--out", required=True, help="writable output directory")
 args = ap.parse_args()
 cfg = yaml.safe_load(open(args.cfg))
+_hidden = os.path.join(ASSET, "cad/onshape_hidden.json")  # parts hidden in Onshape, written by vehicles/raptor/sync_onshape.py
+if os.path.exists(_hidden):
+    cfg["cad"]["exclude"] = list(cfg["cad"]["exclude"]) + json.load(open(_hidden))["exclude"]
 
 # --- mass properties from the placeholder groups (boxes + parallel axis), CAD-FLU ----------------------------------------
 groups = cfg["mass_groups"]

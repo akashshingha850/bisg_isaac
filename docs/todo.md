@@ -7,6 +7,20 @@ Defects with causes: [bugs.md](bugs.md).
 ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio check` / `vio bench` PASS there
 ([vio-campaign.md](vio-campaign.md)); `restamp_latency_ms` 100 on Workstation A. Kinetix flies whole-room tours on it.
 
+## Open 2026-11-13 — raptor.usd fails `usdchecker`
+- [ ] `rotor0..3` author `diagonalInertia` without `principalAxes` (`build_raptor.py`), and the CAD meshes' `materialBind` subsets
+  are `unrestricted` (CAD converter). Isaac loads it anyway; fix the rotor one in `build_raptor.py`.
+
+## Done 2026-11-12 — raptor CAD refreshed from Onshape
+- [x] `cad/raptor.step` re-exported from the Onshape assembly "Setup" (new parts: `cam-left`, `cam-right`, `Mounting V3`, two
+  components) via the Onshape MCP (`~/tools/onshape-mcp`, keys in its `.env`) + REST download; `raptor_visual.usd` rebuilt with
+  `step_to_usd.py`. `build_raptor.py` output is unchanged (mass/CoM/mounts come from the placeholder `raptor.yaml`, not the CAD).
+- [x] **`./bisg raptor sync`** (`docker/sim/assets/vehicles/raptor/sync_onshape.py`): Onshape assembly -> STEP -> USDs in one command,
+  skips parts hidden in Onshape (`cad/onshape_hidden.json`, merged into `cad.exclude` by `build_raptor.py`) and does nothing when the
+  Onshape microversion is the one already built (`--force`). Verified end to end 2026-11-12 (~6 min); keys in `docker/.env`.
+- [ ] If the redesign moved the motors, ZED, LW20 or Jetson: re-measure them from the CAD and update `raptor.yaml`, then re-run
+  `build_raptor.py` and copy `raptor.usd` + `raptor_summary.json`; then `./bisg smoke`. Not run after the refresh.
+
 ## Done 2026-10-31 — scenes from outside the repo (Kinetix Q3)
 - [x] `SCENES_DIR` (config/bisg.conf sim block, default `~/kinetix-data/scenes`; workstation A `/opt/kinetix-data/scenes` in
   `docker/.env`) is mounted read-only at `/scenes` in the sim; `to_ws` maps host paths in it, so `-c` / `SIM_SCENARIO` take a
