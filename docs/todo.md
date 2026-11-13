@@ -18,7 +18,12 @@ ambient 2), GPS-denied by default (ZED VIO + LW20 + PMW3901 + baro). `./bisg vio
 - [x] **`./bisg raptor sync`** (`docker/sim/assets/vehicles/raptor/sync_onshape.py`): Onshape assembly -> STEP -> USDs in one command,
   skips parts hidden in Onshape (`cad/onshape_hidden.json`, merged into `cad.exclude` by `build_raptor.py`) and does nothing when the
   Onshape microversion is the one already built (`--force`). Verified end to end 2026-11-12 (~6 min); keys in `docker/.env`.
-- [ ] If the redesign moved the motors, ZED, LW20 or Jetson: re-measure them from the CAD and update `raptor.yaml`, then re-run
+- [x] **ZED twin mount re-measured from the new CAD (2026-11-13)**: the camera sits 7.6 cm lower, below the frame on Mounting V3
+  (CAD z -0.0909, was -0.015). Mount `[0.1205, 0, 0.0397]` -> `[0.1232, 0, -0.0362]` in `raptor.yaml`, `raptor.params` (EV_POS, FRD),
+  `zed.yaml` `initial_base_pose`, `tests/drift_flight.py`. Not flown: `./bisg smoke`, `vio_flight`, `zed check`, `vio check` to run;
+  `test_vio_eval` archive replay (`1-baseline`) now misses by 0.023 because the archived flights used the old lever arm.
+  Still stale in the CAD: LW20/PMW3901 (CAD fwd ~0.016, yaml 0.060), motors/Jetson unchecked; `mass_groups.zed_mini` centre (shifts the CoM).
+- [ ] If the redesign moved the motors, LW20 or Jetson: re-measure them from the CAD and update `raptor.yaml`, then re-run
   `build_raptor.py` and copy `raptor.usd` + `raptor_summary.json`; then `./bisg smoke`. Not run after the refresh.
 
 ## Done 2026-10-31 — scenes from outside the repo (Kinetix Q3)
