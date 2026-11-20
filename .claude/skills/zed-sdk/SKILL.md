@@ -17,7 +17,7 @@ Stereolabs'
 ## Run
 1. Once: `scripts/fetch_sources.sh`, `./bisg zed build`, `./bisg zed image`. The sim image needs the extension's runtime libs (`docker/sim/Dockerfile`).
 2. `./bisg up headless && ./bisg wait`
-3. `./bisg zed up` (after the sim, never before; it waits for frames and retries a missed first connect once; then it starts the bridge/video services). In a GPS-denied scenario with `sim.services.px4_bridge.odometry.enabled: true`, start it while `./bisg all` is still waiting for PX4 — PX4 is only ready once the SDK odometry reaches EKF2.
+3. `./bisg zed up` (after the sim, never before; it waits for frames and retries a missed first connect once; then it starts the bridge/video services). The default scenario is GPS-denied with the bridge's odometry on, so PX4 is only ready once the SDK odometry reaches EKF2: when starting by hand, run it while `./bisg all` is still waiting for PX4. **Never `zed up` twice against one sim run** (B18).
 4. `./bisg zed check` (`--seconds N`, flags in `tests/zed_sdk_check.py`). To check motion: fly `tests/vio_flight.py` in `bisg-ros` while it samples (`--seconds` longer than the flight).
 5. Restart rule: the SDK connects once per sim run (B18). Restart the sim whenever the wrapper restarts.
 
@@ -28,9 +28,11 @@ Stereolabs'
 - Wrapper `pos_tracking_mode` values: `AUTO | GEN_1 | GEN_3` (no GEN_2).
 - Namespace: use `docker/zed/zed_drone.launch.py` (gives `/drone_<n>/zed/zed_node/...`); `zed_camera.launch.py namespace:=drone_1` drops `zed_node`.
 - ZED image is Fast DDS only; `docker/zed/Dockerfile.overlay` adds Cyclone. Big topics need `net.core.rmem_max >= 10 MB` (`./bisg check` warns); no-sudo fallback `ZED_RMW=rmw_fastrtps_cpp`.
-- Rates: judge in **sim time** (sim rtf ~0.35 on 6.0); the check script divides by the `/clock` rtf.
+- Rates: judge in **sim time** (sim rtf ~0.5-0.6 on 6.0 with the twin); the check script divides by the `/clock` rtf.
+- Wrapper is pinned to upstream master `b19902d` (`ZED_WRAPPER_REF`, ADR-011) for the R9 fix (`can't compare times with different time sources`); no release has it yet. The `zed` service preloads `docker/zed/debug/terminate_bt.cpp`: `docker logs bisg-zed-1 | grep terminate_bt` shows the throw site of any other uncaught exception. Never `git submodule update --remote` the wrapper.
+- The SDK reads the streamed ZED Mini IMU rolled 90 deg: keep `set_gravity_as_origin: false` in the zed.yaml `sim:` block, or the spatial map comes out rolled.
 - Intrinsics come from the extension's lens (HD720 `fx` 529.8), not the real unit: consumers read `camera_info`.
-- One odometry source per run: the wrapper (`vio_mock` and `./bisg vehicle` were removed 2026-10-07). SDK odometry reaches PX4 through the bridge's `odometry` module (`restamp: true` in sim: PX4 runs on `/clock`, the wrapper on wall time — B17); it is off by default in the sim (`sim:` block).
+- One odometry source per run: the wrapper (`vio_mock` and `./bisg vehicle` were removed 2026-10-07). SDK odometry reaches PX4 through the bridge's `odometry` module (`restamp: true` in sim: PX4 runs on `/clock`, the wrapper on wall time — B17); on in the sim since 2026-10-15 (GPS-denied default). After any change to odometry/restamp: `./bisg zed test`, then `./bisg vio check`.
 - Disk: Docker's data-root is `/opt/docker-data` (1.3 TB free); packman needs ~12 GB (cache `~/.cache/packman` on `/`, override with `PACKMAN_CACHE`).
 
 ## Diagnose

@@ -8,8 +8,9 @@ description: Start, stop, restart and diagnose the Isaac Sim + Pegasus + PX4 SIT
 Real commands live in `docs/runbook-sim.md`; this is the checklist Claude follows.
 
 ## Procedure (prefer the CLI: `./bisg up|wait|status|logs|smoke|down`, `./bisg debug ...`)
-1. Preflight: `./bisg check` (driver ≥ 570, `nvidia` runtime in `docker info`, `xhost +local:` for GUI, ≥ 6 GB free VRAM, ≥ 50 GB disk).
+1. Preflight: `./bisg check` (driver on the 580 branch; any 59x hard-fails, `nvidia` runtime in `docker info`, `xhost +local:` for GUI, ≥ 6 GB free VRAM, ≥ 50 GB disk).
 2. Start:
+   - Full stack (the usual case): `./bisg all headless` = sim + PX4 bridge (MAVROS) + ros. Default world is the Warehouse, GPS-denied (`docker/sim/sim.yaml`), so PX4 is only ready once ZED odometry reaches EKF2.
    - GUI: `./bisg up gui`   headless: `./bisg up headless`   (both wait for PX4 ready; `--no-wait` to skip)
    - no argument: view and scenario come from `config/bisg.conf` (`SIM_VIEW`, `SIM_SCENARIO`); `./bisg config` shows the resolved values (docs/configuration.md)
    - scenario override: `./bisg up headless -c headless_fast` (name in `docker/sim/configs/` or a path)
@@ -17,14 +18,14 @@ Real commands live in `docs/runbook-sim.md`; this is the checklist Claude follow
    - shell: `./bisg shell` (running sim) / `./bisg shell ros`
    - real ZED SDK in the sim: `./bisg up headless`, then `./bisg zed up` / `./bisg zed check` (skill `zed-sdk`; needs `./bisg zed build` once). Restart the sim whenever the wrapper restarts.
 3. Wait: Isaac Sim 6.0 boots in ~30 s warm and ~190 s when the shader cache is empty (first boot, or after `./bisg debug clean-cache`); the launcher prints `[launch] INFO boot +Ns: <phase>` lines so you can see where the time goes. "Ready" = launcher prints `[launch] sim ready` and PX4 prints `INFO  [commander] Ready for takeoff!`. Use `timeout 600` when scripting.
-4. Stop: `docker compose ... down`. Confirm no stray `px4` process: `pgrep -a px4`.
+4. Stop: `./bisg down` (or `./bisg stop`; `./bisg restart` keeps Tailscale up, the other two disconnect it when `TAILSCALE_WITH_SIM=1`). Confirm no stray `px4` process: `pgrep -a px4`.
 5. Logs: `./bisg logs -f`; Isaac kit log: `./bisg debug kitlog`; evidence bundle: `./bisg debug report`.
 
 ## Diagnosis checklist
 - Window never appears → X11: `echo $DISPLAY`, `xhost`, `/tmp/.X11-unix` mounted.
 - Boots then exits → kit log for `Failed to create any GPU devices` (driver/runtime) or EULA env vars missing.
 - Boot always ~190 s → the 6.0 RTX shader cache is not persisted: `/isaac-sim/kit/cache` must be the named volume `isaac-cache-kit` (compose), otherwise every new container recompiles ~140 s of shaders (Kit log: `Waiting for compilation of ray tracing shaders`).
-- Very slow steady state (rtf 0.3-0.5) → expected on 6.0: Pegasus's per-step Python (`docs/migration-errors.md` M8). `app.profile_s: 45` in a scenario prints a cProfile of the loop.
+- Slow steady state (rtf ~0.5-0.6 with the ZED twin) → expected on 6.0: mostly the camera renders, with Pegasus's per-step Python second (`docs/performance.md`, `docs/migration-errors.md` M8). `app.profile_s: 45` in a scenario prints a cProfile of the loop; for Tracy / Kit-level profiling load skill `profile-isaac-sim` (written for Isaac 6.2: check its flags against 6.0).
 - `omni.services.livestream.nvcf` not found → that is the 5.1 WebRTC extension; 6.0 uses `omni.kit.livestream.app` (already in the launcher). The 6.0 base image's HEALTHCHECK is disabled in compose (it greps a Kit log path our launcher never writes).
 - Container is up but `[launch] sim ready` never comes → read `./bisg logs` for the first Python traceback; `OmniHub ... Hub failed to launch` warnings are noise. For real tuning use `./bisg debug perf` and `docs/performance.md` (NVIDIA Sim Performance Optimization Handbook; `perf:` knobs in the scenario YAML, and the `headless_fast` profile for tests).
 - GPU container will not start at all with an NVML "Driver/library version mismatch" → the host driver was upgraded without a reboot; `./bisg check` reports it.

@@ -16,6 +16,20 @@ from urllib.parse import unquote, urlsplit
 FIELDS = {'name', 'description', 'license', 'compatibility', 'metadata',
           'allowed-tools'}
 NAME = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*\Z')
+FRONTMATTER = re.compile(r'\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)', re.S)
+
+
+def split_frontmatter(text):
+    """Return (frontmatter object, body) for SKILL.md text."""
+    match = FRONTMATTER.match(text)
+    if not match:
+        raise ValueError('SKILL.md must start with YAML frontmatter')
+    return yaml_object(match.group(1)), text[match.end():]
+
+
+def skill_frontmatter(path):
+    """Parse the YAML frontmatter of a SKILL.md file with the validator's loader."""
+    return split_frontmatter(Path(path).read_text(encoding='utf-8'))[0]
 
 
 def yaml_object(text):
@@ -77,12 +91,24 @@ def bundled_file(root, relative):
     return candidate
 
 
+DUE_SOON_DAYS = 14
+
+
 def check_sources(root, today):
+    """Check the registry structure and return its review-date findings.
+
+    Structural defects raise ValueError and are errors in every mode: a bad or
+    future review date, a window that ends before it starts, a non-HTTPS URL,
+    a duplicate id, or a missing covered file. A review that is merely past its
+    date is returned rather than raised, so every overdue entry is reported and
+    the caller decides whether that fails the run.
+    """
     registry = json_object(bundled_file(root, 'docs/sources.json'))
     entries = registry.get('sources')
     if not isinstance(entries, list) or not entries:
         raise ValueError('Source registry is empty')
     seen = set()
+    overdue, due_soon = [], []
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError('Source entry must be an object')
@@ -95,28 +121,33 @@ def check_sources(root, today):
         url = urlsplit(entry['url'])
         if url.scheme != 'https' or not url.netloc:
             raise ValueError('Source must use an HTTPS URL: ' + key)
-        reviewed = date.fromisoformat(entry['reviewed_on'])
-        due = date.fromisoformat(entry['review_after'])
-        if not reviewed <= today <= due or due <= reviewed:
+        try:
+            reviewed = date.fromisoformat(entry['reviewed_on'])
+            due = date.fromisoformat(entry['review_after'])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError('Source review dates must be ISO dates: ' + key) from exc
+        if reviewed > today or due <= reviewed:
             raise ValueError('Source review is future-dated or overdue: ' + key)
         covers = entry.get('covers')
         if not isinstance(covers, list) or not covers:
             raise ValueError('Source must identify covered files: ' + key)
         for target in covers:
             bundled_file(root, target)
-    return len(entries)
+        if today > due:
+            overdue.append(key)
+        elif (due - today).days <= DUE_SOON_DAYS:
+            due_soon.append(key)
+    return {'reviewed': len(entries), 'overdue': overdue, 'due_soon': due_soon}
 
 
-def validate(root, installed=False, sources=False, today=None, portable=False):
+def validate(root, installed=False, sources=False, today=None, portable=False,
+             overdue='error'):
     root = Path(root).absolute()
     errors, warnings = [], []
     metrics = {}
     try:
         text = bundled_file(root, 'SKILL.md').read_text(encoding='utf-8')
-        match = re.match(r'\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)', text, re.S)
-        if not match:
-            raise ValueError('SKILL.md must start with YAML frontmatter')
-        meta = yaml_object(match.group(1))
+        meta, body = split_frontmatter(text)
         if set(meta) - FIELDS:
             raise ValueError('Nonportable frontmatter fields: '
                              + ', '.join(sorted(set(meta) - FIELDS)))
@@ -141,7 +172,6 @@ def validate(root, installed=False, sources=False, today=None, portable=False):
             isinstance(k, str) and isinstance(v, str) for k, v in custom.items()
         ):
             raise ValueError('metadata must map strings to strings')
-        body = text[match.end():]
         if not body.strip():
             raise ValueError('Skill instructions are empty')
         metrics.update(lines=len(text.splitlines()), body_bytes=len(body.encode('utf-8')))
@@ -187,9 +217,14 @@ def validate(root, installed=False, sources=False, today=None, portable=False):
                     if not group['hooks']:
                         raise ValueError('Empty hook group: ' + event)
                     for hook in group['hooks']:
-                        expected = 'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/claude_hook.py" ' + event
+                        # -B keeps __pycache__ out of a provenance-tracked
+                        # installation; the pre-1.7.1 form is still accepted.
+                        expected = {
+                            'python3 -B "${CLAUDE_PLUGIN_ROOT}/scripts/claude_hook.py" ' + event,
+                            'python3 "${CLAUDE_PLUGIN_ROOT}/scripts/claude_hook.py" ' + event,
+                        }
                         if (not isinstance(hook, dict) or hook.get('type') != 'command'
-                                or hook.get('command') != expected):
+                                or hook.get('command') not in expected):
                             raise ValueError('Unexpected hook command: ' + event)
                         timeout = hook.get('timeout')
                         if type(timeout) not in (int, float) or not 0 < timeout <= 600:
@@ -209,7 +244,20 @@ def validate(root, installed=False, sources=False, today=None, portable=False):
         if not isinstance(policy, dict) or type(policy.get('allow_implicit_invocation')) is not bool:
             errors.append('Codex invocation policy must use a Boolean')
         if sources:
-            metrics['sources_reviewed'] = check_sources(root, today or date.today())
+            if overdue not in ('error', 'warn'):
+                raise ValueError('overdue must be "error" or "warn"')
+            dates = check_sources(root, today or date.today())
+            metrics.update(sources_reviewed=dates['reviewed'],
+                           sources_overdue=len(dates['overdue']),
+                           sources_due_soon=len(dates['due_soon']))
+            # Only the maintainer can clear an overdue review by rereading the
+            # source, so a pull request may report it without failing on it.
+            # The weekly review and the release gate keep the default.
+            (errors if overdue == 'error' else warnings).extend(
+                'Source review is future-dated or overdue: ' + key
+                for key in dates['overdue'])
+            warnings.extend('Source review is due within %d days: %s' % (DUE_SOON_DAYS, key)
+                            for key in dates['due_soon'])
     except (OSError, ValueError, TypeError, KeyError) as exc:
         errors.append(str(exc))
     return {'status': 'fail' if errors else 'pass', 'scope': 'static packaging only',
@@ -223,8 +271,12 @@ def main(argv=None):
     parser.add_argument('--check-sources', action='store_true', help='check source review dates, not remote contents')
     parser.add_argument('--portable', action='store_true',
                         help='validate knowledge-only installation without Claude plugin files')
+    parser.add_argument('--overdue', choices=('error', 'warn'), default='error',
+                        help='with --check-sources: how a review past its date is reported; '
+                             'structural registry defects are errors in both modes')
     args = parser.parse_args(argv)
-    report = validate(args.root, args.installed, args.check_sources, portable=args.portable)
+    report = validate(args.root, args.installed, args.check_sources, portable=args.portable,
+                      overdue=args.overdue)
     print(json.dumps(report, indent=2))
     return int(report['status'] == 'fail')
 

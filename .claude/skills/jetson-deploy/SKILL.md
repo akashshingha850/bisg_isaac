@@ -9,12 +9,12 @@ Safety first: any step with props ON requires the RC kill switch verified that d
 
 ## Images
 - Preferred: build **natively on the Jetson**: `./bisg drone build` (bisg/ros:jazzy + bisg/zed:jetson; the arch picks the ZED tag, `ZED_VARIANT`). Cross-build from the workstation (qemu): `./bisg setup --arm64`.
-- Target: Jetson Orin NX, JetPack 7.2 (L4T r38, Ubuntu 24.04, CUDA 13). ZED image: base `stereolabs/zed:<sdk>-devel-l4t-<board L4T>`; `docker/zed/build.sh jetson` reads it from `/etc/nv_tegra_release` (our Orin NX: R39.2.1 -> `l4t-r39.2`; `ZED_L4T=r39.2` overrides). Mismatch = SDK refuses to start.
+- Target: Jetson Orin NX, JetPack 7.x: L4T **R39.2.1** on our board (`/etc/nv_tegra_release`, 2026-10-20), Ubuntu 24.04, CUDA 13. ZED image: base `stereolabs/zed:<sdk>-devel-l4t-<board L4T>`; `docker/zed/build.sh jetson` reads it from `/etc/nv_tegra_release` (our Orin NX: R39.2.1 -> `l4t-r39.2`; `ZED_L4T=r39.2` overrides). Mismatch = SDK refuses to start.
 - On the Jetson: `./bisg drone up` / `down` / `status` / `logs [mavros|zed|bridge|video]` (compose profile `drone` of `docker/compose.yaml`, the same file as the sim).
 
 ## Pixracer
 1. Build/flash `px4_fmu-v4_default` at the pinned tag (ADR-003) via QGC custom firmware or `make px4_fmu-v4_default upload`.
-2. Load `docker/sim/px4/drone_<n>.params` (QGC → Parameters → Tools → Load). Reboot. Confirm `MAV_SYS_ID`.
+2. Load the same files the sim flies, in order: `docker/sim/px4/raptor.params`, then `ekf2_vio_flow_range.params` (QGC → Parameters → Tools → Load). Per-drone files do not exist yet. Set `MAV_SYS_ID` = n, reboot, confirm. Hardware-only values (`EKF2_BARO_NOISE`, real ZED `K`) are open todos.
 3. Serial: TELEM2 ↔ Jetson UART, 921600; udev rule → `/dev/px4`.
 
 ## Bench checklist
@@ -30,7 +30,8 @@ Follow `docs/hardware.md` → "Bench checklist" in order; do not skip step 7 (fa
 - Positional tracking needs texture: warehouse-like scenes are fine, blank walls are not.
 
 ## Preflight (props on)
-- Battery, props, kill switch, geofence loaded, `vehicle/state.vio_ok`, EKF2 local position valid, GCS link.
+- Battery, props, kill switch, geofence loaded, `./bisg drone check`, `./bisg zed status` (tracking OK), EKF2 local position valid (`ekf2 status`), GCS link. (`vehicle/state.vio_ok` is in the contract, but `bisg_vehicle/health` is not built yet.)
+- PX4 arms in OFFBOARD even with the ZED down (todo: "Arming without VIO"): confirm VIO by hand before every arm.
 - First flight of a new build: manual hover on RC before any OFFBOARD.
 
 ## After flight

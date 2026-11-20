@@ -13,12 +13,15 @@ These apply to every ROS 2 artifact you produce, regardless of domain.
 ### 1. Distro awareness
 
 <!-- LAST_UPDATED: 2026-07-15 — Review this table every 6 months or when a new distro is released. -->
-<!-- NEXT_REVIEW: 2027-01-15 -->
+<!-- NEXT_REVIEW: 2026-11-20 -->
+<!-- EOL_ROW_CHECKED: 2026-11-10 — only the EOL row; the rest of the table keeps LAST_UPDATED. -->
 > **Staleness warning:** The table below was last verified on **2026-07-15**.
 > If the current date is more than 6 months past that, re-verify EOL dates and
 > feature support against https://docs.ros.org/en/rolling/Releases.html before
 > relying on this table. When you update it, change both `LAST_UPDATED` and
-> `NEXT_REVIEW` comments above.
+> `NEXT_REVIEW` comments above. The EOL row alone was re-checked on
+> **2026-11-10**; the next review is due **2026-11-20** because the published
+> Kilted end-of-life dates disagree (see the note under the table).
 
 Detect the distro before generating code — do not ask first, and do not
 assume the newest release. Compare the applicable evidence below before selecting
@@ -44,7 +47,7 @@ does not have. Key differences:
 
 | Feature                   | Humble (LTS)       | Jazzy (LTS)        | Kilted (non-LTS)   | Lyrical (LTS)      | Rolling            |
 |---------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
-| EOL                       | May 2027           | May 2029           | Dec 2026           | May 2031           | Rolling            |
+| EOL                       | May 2027           | May 2029           | Nov–Dec 2026 (sources differ) | May 2031 | Rolling            |
 | Ubuntu                    | 22.04              | 24.04              | 24.04              | 26.04              | Latest             |
 | Default DDS               | Fast DDS           | Fast DDS           | Fast DDS           | Fast DDS           | Fast DDS           |
 | Zenoh support             | —                  | —                  | Tier 1             | Tier 1             | Tier 1             |
@@ -54,6 +57,12 @@ does not have. Key differences:
 | Default bag format        | sqlite3            | MCAP               | MCAP               | MCAP               | MCAP               |
 | ros2_control interface    | 2.x                | 4.x                | 5.x                | 6.x (verify installed) | Latest         |
 | CMake recommendation      | ament_target_deps  | either             | target_link_libs   | target_link_libs   | target_link_libs   |
+
+**Kilted end of life:** the ROS 2 release list gives December 2026, while
+REP 2000 gives "May 2025 - November 2026". Treat Kilted as leaving support in
+that window: do not start new work on it, and confirm the date against both
+sources before relying on a month. After that point Kilted is a legacy target,
+like Foxy, not a supported one.
 
 Foxy (EOL June 2023, Ubuntu 20.04, ros2_control not bundled) is a migration
 reference only — see the migration notes below. The pre-Lyrical
@@ -339,7 +348,7 @@ reproduction and source evidence; do not silently modify an installed skill.
 
 ## Distro-specific migration notes
 
-<!-- LAST_UPDATED: 2026-03-30 — Keep in sync with the distro table in Principle 1. -->
+<!-- LAST_UPDATED: 2026-10-18 — Keep in sync with the distro table in Principle 1. -->
 When upgrading between distributions, check these breaking changes first:
 
 - **Foxy → Humble:** expect a broad migration across client libraries,
@@ -363,6 +372,12 @@ When upgrading between distributions, check these breaking changes first:
   stays `rmw_fastrtps_cpp`; new non-experimental `rclcpp::executors::EventsCBGExecutor`
   (distinct from the experimental EventsExecutor); ros2_control moves to the 6.x
   series — verify per-package changes against the installed versions (Principle 11).
+  C++ `uint8[]` fields become `rosidl::Buffer<uint8_t>`; implicit conversion keeps
+  most vector code working, and GPU-backed delivery needs subscriber opt-in
+  (`references/communication.md` §6). Jetson: Isaac ROS 5.0 ships Lyrical for
+  Ubuntu 24.04 from NVIDIA's own apt build farm (a vendor exception; the Lyrical
+  platform is 26.04) and has removed the NITROS packages — check the JetPack
+  pairing in the Isaac ROS release notes.
 - **ROS 1 → ROS 2:** see `references/migration-ros1.md` for a step-by-step strategy.
 
 ## Quick reference — ros2 CLI

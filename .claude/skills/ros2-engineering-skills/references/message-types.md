@@ -66,9 +66,25 @@ msg.header.frame_id = 'camera_optical_frame'
 
 | Clock type | Source | When to use |
 |---|---|---|
-| `ROS_TIME` | `/clock` topic (when `use_sim_time: true`) or system clock | Default — works in sim and real |
-| `SYSTEM_TIME` | OS wall clock (may jump due to NTP) | Never for message stamps |
-| `STEADY_TIME` | Monotonic, never adjusted | Internal timing (loop measurement), not for messages |
+| `ROS_TIME` | `/clock` topic when `use_sim_time: true`; otherwise **the system wall clock** — on a real robot ROS_TIME is not a separate clock | Default for message stamps and for anything compared against a stamp |
+| `SYSTEM_TIME` | OS wall clock; jumps when NTP/timesyncd steps it (a Jetson without an RTC battery boots in 1970 and jumps forward once synchronized) | Never for message stamps |
+| `STEADY_TIME` | Monotonic, never adjusted | Timeouts, time since receipt, loop and executor-delay measurement |
+
+Never subtract across clocks. Pick the clock by what the two times describe:
+
+- **Age of the data** (`now - msg.header.stamp`). The stamp is ROS_TIME, so
+  compute on the node's own ROS clock (`self.get_clock().now()`). On a real
+  robot that is the wall clock: it inherits every NTP/timesyncd step and, across
+  hosts, the offset between their clocks. Treat a negative or implausibly large
+  age as a clock fault, not as data.
+- **Time since receipt, timeouts, executor delay.** Record `time.monotonic()`
+  (or read a `STEADY_TIME` clock) when the callback receives the message, and
+  compare it later with the same clock. A clock step cannot move it.
+
+`time.monotonic()` against a stamp is meaningless in both directions, since the
+two have different origins. Note the clock a stamp came from before computing
+with it (one review found latency computed across the two clocks after a
+timesyncd step).
 
 ### Common time mistakes
 

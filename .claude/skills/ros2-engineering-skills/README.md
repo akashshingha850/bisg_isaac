@@ -1,6 +1,8 @@
 # ros2-engineering-skills
 
-Source version: **1.6.2**. See [release notes](CHANGELOG.md#162---2026-09-30) and
+![ros2-engineering-skills cover](docs/assets/cover.svg)
+
+Source version: **1.8.1**. See [release notes](CHANGELOG.md#181---2026-11-12) and
 [release procedure](docs/RELEASING.md).
 
 [![Test](https://github.com/dbwls99706/ros2-engineering-skills/actions/workflows/test.yml/badge.svg)](https://github.com/dbwls99706/ros2-engineering-skills/actions/workflows/test.yml)
@@ -135,6 +137,14 @@ The plugin uses `.claude-plugin/plugin.json`, root `SKILL.md`, and
 `hooks/hooks.json`. It provides PreToolUse checks and advisory Stop reports.
 The hook command requires `python3`; it does not grant tool permissions.
 
+The PreToolUse hook also reports `ros2` commands that can move hardware, such as
+`ros2 topic pub /cmd_vel ...`, a navigation goal, a controller switch, or an
+e-stop reset. By default this is a note to the model and nothing is blocked. Set
+`ROS2_SKILL_ACTUATION=ask` to have Claude Code ask you before such a command
+runs (experimental; see [client compatibility](docs/CLIENT_COMPATIBILITY.md#actuation-commands)),
+or `off` to disable it. It matches names in POSIX shell commands and is not a
+safety function: keep an operator and an independent stop path.
+
 ### Knowledge-only skill: Codex, Claude Code, Cursor, Gemini CLI
 
 ```bash
@@ -154,6 +164,17 @@ it stages the replacement before touching the old installation. It excludes
 Claude plugin manifests and hook registration intentionally. The portable files
 and manual validators do not require the Claude plugin.
 
+Every installation records `INSTALL_PROVENANCE.json`: the source version and
+Git commit, the installer version, and a SHA-256 digest of each installed file.
+`python3 scripts/install_skill.py --verify --client codex` reports whether the
+installation still matches that manifest (exit 0 only when clean). `--force`
+refuses to replace an installation that differs from its manifest or has none;
+add `--force --discard-local-changes` to replace it anyway. The manifest is an
+installation snapshot for detecting accidental or local drift, not a signed
+attestation: it cannot prove the absence of deliberate tampering, because the
+manifest and the files can be edited together. The installer never searches for
+custom installation locations; name them with `--target`.
+
 Codex's optional display and invocation policy live in `agents/openai.yaml`.
 Supported discovery paths, explicit invocation, remote-environment caveats, and
 what has actually been tested are documented in
@@ -161,17 +182,22 @@ what has actually been tested are documented in
 is not proof of a successful authenticated model run on every client version.
 
 The original `./install.sh` and `.\install.ps1` still support full-checkout
-copy/link installation, force replacement, and dry-run. A full checkout includes
-the Claude plugin manifest; it is not necessarily a knowledge-only installation
-when placed in Claude's skill directories. Prefer the new installer for that use.
+copy/link installation, force replacement, and dry-run. They write no provenance
+manifest, and they refuse to replace a target that is a symbolic link or reparse
+point, so a link shared by several clients is never split into a separate copy;
+pass the resolved path instead. A full checkout includes the Claude plugin
+manifest; it is not necessarily a knowledge-only installation when placed in
+Claude's skill directories. Prefer the new installer for that use.
 
 ### Verify installation and run tools
 
 ```bash
 python3 scripts/validate_skill.py --check-sources
 python3 scripts/validate_skill.py --root /path/to/ros2-engineering-skills --installed --portable
+python3 scripts/install_skill.py --verify --client codex
 python3 scripts/skill_validate_hook.py --file src/my_node.py
 python3 scripts/skill_validate_hook.py --command 'ros2 topic list'
+python3 scripts/skill_validate_hook.py --command 'ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{}"'
 SKILL_WORKSPACE=/path/to/ros2_ws python3 scripts/skill_stop_hook.py
 ```
 
@@ -207,17 +233,18 @@ permission boundaries, protocol behavior, and context-budget limitations.
 |---|---|---|
 | `create_package.py` | Generate package scaffolds | Build in the target distribution |
 | `qos_checker.py` | Compare offered/requested QoS | Compatibility is not delivery quality |
-| `qos_audit.py` | Pair QoS declarations across a package by topic and type | Static; unresolved values are never guessed |
+| `qos_audit.py` | Pair QoS declarations across a package by topic and type | Static; unresolved values are never guessed, and a Python profile modified after construction is not judged from its constructor |
 | `rosbag2_qos_checker.py` | Inspect bag metadata QoS | Static metadata analysis |
 | `launch_validator.py` | Detect selected Python launch defects | Does not start a graph |
 | `launch_supervisor.py` | Run an authorized launch with owned SIGINT handling | POSIX; starts processes, not a hardware stop |
-| `skill_validate_hook.py` | Inspect source and command strings | Best-effort guard, not a security boundary |
-| `skill_stop_hook.py` | Check changed launch/package/Nav2 files | Advisory, not a complete build |
-| `claude_hook.py` | Adapt reports to Claude hook transport | Never grants permissions or blocks Stop |
+| `skill_validate_hook.py` | Inspect source and command strings, including `ros2` commands that can move hardware | Best-effort guard, not a security or safety boundary; automatic source advice only with confirmed ROS context |
+| `skill_stop_hook.py` | Check changed launch/package/Nav2 files | Advisory, not a complete build; automatic runs skip launch-named files without ROS context |
+| `claude_hook.py` | Adapt reports to Claude hook transport | Never grants permissions or blocks Stop; may ask for confirmation when `ROS2_SKILL_ACTUATION=ask` |
 | `validate_skill.py` | Validate metadata, local paths, packaging, source dates | Static checks, not client activation |
 | `install_skill.py` | Stage and validate knowledge-only installations | No settings changes or hook registration |
 | `eval_runner.py` | Check fixtures or lexically score supplied text | Does not invoke a model or prove semantics |
 | `verify_eval_capture.py` | Require complete paired captures with hashes | Integrity, not authenticity or quality |
+| `benchmark_capture.py` | Fill the paired manifest, fix run order, build blinded grading sheets, score pairs | Orchestration only; runs no model and grades nothing |
 | `measure_context.py` | Count the selected body with named tokenizers | Excludes client wrappers and on-demand references |
 
 The JSON `version` emitted by the two validation hooks is the hook-report contract
@@ -239,7 +266,9 @@ jobs for Humble, Jazzy, Kilted, Lyrical, and Rolling. It adds individual validat
 coverage floors, portable Windows installation, protocol integration, source-date
 checks, preregistered-suite checks, and a controlled QoS mismatch/repair experiment.
 Dependency vulnerability auditing is blocking, not advisory. The `Required test
-gates` summary rejects any required job that did not succeed.
+gates` summary rejects any required job that did not succeed. A separate `Release
+gate` workflow runs on every push to `main`: it fails on an overdue source review,
+which the pull-request job only reports.
 
 ROS image construction and test execution are separate. Every run executes the
 suite in a fresh, network-isolated container; a cached image is not a test pass.
@@ -275,10 +304,10 @@ The default `eval_runner.py` checks whether expected-answer fixtures cover their
 declared criteria. It is not a model benchmark. Lexical coverage is not semantic
 correctness, and a fixture cannot substitute for an unmodified model capture.
 
-`evals/trigger_cases.json` defines 33 activation cases: 17 implicit positives,
+`evals/trigger_cases.json` defines 34 activation cases: 18 implicit positives,
 12 implicit negatives, and explicit invocation for four clients.
 `evals/benchmark_suite.json` defines seven quality cases with three trials and
-paired skill-on/off runs: 21 pairs, 42 fresh sessions per experiment.
+paired plugin-on/off runs: 21 pairs, 42 fresh sessions per experiment.
 No fabricated captures or improvement percentages are included.
 
 ```bash
@@ -288,7 +317,10 @@ python3 scripts/verify_eval_capture.py /path/to/capture.json --suite evals/bench
 Missing data, incomplete pairs, reused sessions/artifacts, and hash mismatches
 fail this check. A valid capture still needs trace-authenticity review and semantic
 grading. See [capture workflow](docs/EVIDENCE_CAPTURE.md) and the existing
-[eval workflow](docs/EVAL_WORKFLOW.md).
+[eval workflow](docs/EVAL_WORKFLOW.md). `scripts/benchmark_capture.py` fills the
+manifest, freezes and enforces the run order, and builds blinded grading sheets; the
+procedure for an actual plugin ON/OFF run with Claude Code is in
+[the benchmark runbook](docs/BENCHMARK_RUNBOOK.md).
 
 The separate [diagnostic review suite](evals/diagnostics/README.md) preregisters
 four synthetic offline-analysis cases with three paired trials each. Its controls,

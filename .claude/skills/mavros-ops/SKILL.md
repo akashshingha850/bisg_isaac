@@ -5,13 +5,16 @@ description: Launch and operate MAVROS for drone N (namespace, fcu_url, tgt_syst
 
 # mavros-ops
 
-## Launch (Phase 2 wrapper: `bisg_bringup/launch/mavros.launch.py`)
+## Launch (ADR-001: one compose service `px4-bridge`, `docs/px4-bridge.md`)
 ```
-ros2 launch bisg_bringup mavros.launch.py drone_id:=1 fcu_url:=udp://:14540@127.0.0.1:14580   # sim
-ros2 launch bisg_bringup mavros.launch.py drone_id:=1 fcu_url:=serial:///dev/px4:921600       # jetson
+./bisg px4-bridge plan | up | status | logs | params     # PX4_BRIDGE in config/bisg.conf picks mavros|mavsdk|xrce|none (MAVROS = default)
+./bisg mavros up|down|state|logs [--drone N]             # MAVROS shortcut; ./bisg all starts it with the sim
+./bisg drone up                                          # real drone: same service on serial /dev/px4
 ```
-Wrapper sets `namespace:=/drone_<id>`, `tgt_system:=<id>`, `tgt_component:=1`, `use_sim_time` from env, plugin allow-list
-(sys_status, command, setpoint_position, setpoint_raw, local_position, imu, odometry, global_position, param, sys_time).
+`docker/px4-bridge/entrypoint.sh` runs `ros2 run mavros mavros_node` directly (not `px4.launch`, which cannot set
+`use_sim_time`): `__ns:=/drone_<id>`, `tgt_system:=<id>`, `tgt_component:=1`, `fcu_url` from the instance math, one
+container per drone and bridge (`bisg-<bridge>-N`). The plugin list is `docker/ros/mavros_lean.yaml`; `MAVROS_PLUGINS=full`
+gives the stock list.
 Packages: `ros-jazzy-mavros`, `ros-jazzy-mavros-extras` (ADR-005).
 
 ## OFFBOARD state machine (what `offboard_controller` does)
@@ -19,7 +22,7 @@ Packages: `ros-jazzy-mavros`, `ros-jazzy-mavros-extras` (ADR-005).
 2. Publish setpoint at 20 Hz (current pose or hover) for ≥ 1 s.
 3. `set_mode OFFBOARD` → check `state.mode == "OFFBOARD"` (PX4 ≥ 1.14 reports `OFFBOARD`; verify string at the pin).
 4. `cmd/arming true` → check `state.armed`.
-5. Takeoff = ramp setpoint z; goto = setpoint in `map` ENU; land = `set_mode AUTO.LAND`, wait disarm.
+5. Takeoff = ramp setpoint z; goto = setpoint in `map` ENU; land = descent velocity in OFFBOARD (`land("offboard")`, the GPS-denied default), or `set_mode AUTO.LAND` only in GPS scenarios (`mission_square --land auto`); wait for disarm.
 Each step returns a result object with the ACK/`success` so missions read top to bottom.
 
 ## Frames

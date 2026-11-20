@@ -44,3 +44,20 @@ The project must run unchanged on both; anything machine-specific goes in `docke
 
 ## Skills
 Finished experiments and superseded docs live in `archive/` (PX4-link study, 5.1→6.0 migration report/plan); raw run logs are in `~/bisg-archive/` (outside the repo). Project skills in `.claude/skills/` (sim-launch, px4-sitl, mavros-ops, zed-contract, zed-sdk, swarm-spawn, jetson-deploy, sim-regression, plus the third-party `ros2-engineering-skills`, `karpathy-guidelines`, and from claude-skills `docker-development`, `statistical-analyst`, `senior-computer-vision`, `skill-security-auditor`, and NVIDIA's `isaac-sim-migration`, `profile-isaac-sim`, `isaac-camera`, `usd-pipeline`, `usd-composition-architecture`, `omniverse-usd-performance-tuning` — written for Isaac 6.2, our 6.0 rules win). See `docs/skills.md`.
+
+**Load the skill before acting** (the skill holds the checklist; this file only holds the rules):
+| Task | Skill |
+|---|---|
+| start/stop/diagnose the sim, boot slow, black window | `sim-launch` (+ `profile-isaac-sim` for Tracy/Kit profiling) |
+| PX4 won't connect, params, arming/mode refused, EKF2 | `px4-sitl` |
+| anything over MAVROS: OFFBOARD, setpoints, odometry, timesync | `mavros-ops` |
+| ZED SDK / wrapper / bridge / zed.yaml, sim↔Jetson ZED parity | `zed-sdk` |
+| add/rename a topic or frame, contract check | `zed-contract` (+ `isaac-camera` for Isaac camera prims) |
+| run or add tests, gates after a change, flaky test | `sim-regression` (+ `statistical-analyst` for "is this difference real") |
+| Jetson, Pixracer, bench, flight logs | `jetson-deploy` |
+| more drones / swarm (Phase 6 only) | `swarm-spawn` |
+| Dockerfile / compose edits | `docker-development` (ADR-002 wins over its generic hardening advice) |
+| rclpy/rclcpp, launch, QoS, tf2 code or review | `ros2-engineering-skills` |
+| 5.1-era API, deprecated `isaacsim.*` calls (M12) | `isaac-sim-migration` |
+| USD structure / assets / slow stage | `usd-composition-architecture`, `usd-pipeline`, `omniverse-usd-performance-tuning` |
+| installing any new skill | `skill-security-auditor` first |

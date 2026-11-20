@@ -14,7 +14,7 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
    (chase cam, ground truth) changes in its `docker/sim/launcher/` module and the scenario YAML.
 3. Real: confirm the zed-ros2-wrapper name/param that produces it (wrapper `common.yaml` / `zed*.yaml`); add a relay only if names cannot be made equal by remap.
 4. Update the ZED model table in `docs/hardware.md` if intrinsics/rates change.
-5. Run `python3 tests/check_contract.py --ns /drone_1` against sim (and real when available).
+5. Run `python3 tests/check_contract.py --drone 1` against sim, and `--real` on the drone.
 
 ## Matching the ZED wrapper
 - Topic root `zed/zed_node/…` under `/drone_<n>/`; images are `left|right/color/rect/image` + `…/camera_info` (wrapper 5.4.1; the old `image_rect_color` names are gone, B14 fixed 2026-10-03); depth `32FC1` metres.
@@ -24,13 +24,13 @@ description: Add, rename or verify a sensor topic/frame in the vehicle interface
 - TF (R3, 2026-10-10): the wrapper's base frame is hard-wired to `zed_camera_link` and it publishes `odom → zed_camera_link`;
   `zed_drone.launch.py` adds static `zed_camera_link → base_link` (inverse of `positional_tracking.initial_base_pose` = the mount)
   and `map → odom`. Optical frames are `zed_left_camera_frame_optical` (wrapper 5.4 names), REP-103 optical (z forward).
-- `camera_info` K from the ZED model table; Isaac camera focal/aperture set so that K matches at the chosen resolution.
 - Stereo baseline = 0.063 m (ZED Mini); both cameras rigid on `zed_camera_link`; wrapper `camera_model: zedm`.
 - IMU on `zed_imu_link` at 200 Hz.
 
 
 ## VIO source
 - The wrapper's positional tracking (sim: visual-only, `imu_fusion: false`; real: IMU-fused) publishes `zed/zed_node/odom`;
-  the `zed-bridge` odometry module relays it to `mavros/odometry/out` (`services.px4_bridge.odometry` in zed.yaml; off in the
-  sim by default, closed loop accuracy B17).
+  the `zed-bridge` odometry module relays it to `mavros/odometry/out` (`services.px4_bridge.odometry` in zed.yaml). On in the sim
+  too since 2026-10-15 (GPS-denied default, like the drone), with `restamp: true` in the sim (B17).
+- For camera prims, render products and intrinsics on the Isaac side, load skill `isaac-camera` (written for Isaac 6.2).
 - Any node other than tests that subscribes to Pegasus ground truth violates parity rule 2 (plan.md §8).

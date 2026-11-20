@@ -23,16 +23,17 @@ Pegasus `px4_mavlink_backend.py` (connection port = base 4560 + vehicle_id, `-i`
 ## Startup
 - Pegasus autolaunches `build/px4_sitl_default/bin/px4 -i <i> -d <rootfs> -s etc/init.d-posix/rcS` with `PX4_SIM_MODEL`.
 - Order matters: PX4 waits for the simulator TCP connection; Pegasus connects once the vehicle prim is spawned. Both sides must agree on `4560+i`.
-- Lockstep: off by default in our config (render FPS is not stable and Isaac 6.0 runs at ~0.3-0.5x real time). If PX4 seems frozen, check `PX4_SIM_SPEED_FACTOR` / lockstep setting.
+- Lockstep: off by default in our config (render FPS is not stable and Isaac 6.0 runs at ~0.5-0.6x real time with the ZED twin). If PX4 seems frozen, check `PX4_SIM_SPEED_FACTOR` / lockstep setting.
 
 ## Params
-- Files in `docker/sim/px4/*.params` are loaded in SITL via `param load` in the startup script (Phase 3).
+- The scenario's `px4_params:` list picks files from `docker/sim/px4/`: the vehicle file first (`iris` | `raptor`), then overlays (`ekf2_vision`, `ekf2_flow_range`, `ekf2_vio_flow_range`); a later file wins. Default (`docker/sim/sim.yaml`): `[raptor, ekf2_vio_flow_range]` = GPS-denied on baro height + LW20 + ZED VIO + PMW3901 flow, no GPS/mag (`docs/range-flow.md`). After changing an EKF2 overlay, run `./bisg vio check`.
 - Inspect live without QGC: `./bisg debug px4 commander status`, `./bisg debug px4 ekf2 status`, `./bisg debug px4 param show EKF2_EV*` (runs the `px4-<module>` client inside the sim container).
 
 ## Common rejections
 - "Offboard rejected": setpoint stream < 2 Hz for > 0.5 s before the mode switch; stream ≥ 10 Hz first.
 - "Arming denied: no local position" → EKF2 has no valid pose (GPS off and no EV). Check `ekf2 status` and `EKF2_EV_CTRL`.
 - "Preflight fail: mag" indoors → `EKF2_MAG_TYPE` none when yaw comes from EV.
+- GPS-denied (the default): AUTO.TAKEOFF / LOITER / RTL refuse and AUTO.LAND flies toward lat/lon 0,0 (no global position). Take off and land in OFFBOARD: `tests/mav_offboard.py` (raw MAVLink) or `tests/vio_flight.py` (MAVROS).
 - Heartbeat but no telemetry in MAVROS → `MAV_1_MODE` / stream rates, or wrong `tgt_system`.
 
 ## Logs
